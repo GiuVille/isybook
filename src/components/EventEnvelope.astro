@@ -1,0 +1,355 @@
+---
+// Evento come busta chiusa: retro della busta a tema per tipo, sigillo di ceralacca, francobollo,
+// timbro postale e un'etichetta con titolo, data e luogo. L'apertura la gestisce EnvelopeViewer.
+// Senza JavaScript la busta è un link alla pagina dell'evento.
+import { slugify } from '../admin/resources';
+import { ENVELOPE_THEMES, envelopeTilt } from '../lib/event-themes';
+import { EVENT_KIND_LABELS, formatDateRange, normalize } from '../lib/format';
+import type { BookEvent, Tag } from '../lib/types';
+
+interface Props {
+  event: BookEvent;
+  /** Generi dei libri collegati, per i filtri della pagina Eventi. */
+  genres?: Tag[];
+  /** Posizione nella pagina, per sfalsare l'animazione d'ingresso. */
+  index?: number;
+}
+
+const { event, genres = [], index = 0 } = Astro.props;
+const t = ENVELOPE_THEMES[event.kind];
+const kind = EVENT_KIND_LABELS[event.kind];
+const when = formatDateRange(event.starts_on, event.ends_on);
+const place = [event.venue, event.city].filter(Boolean).join(' · ');
+const id = event.slug;
+const searchText = normalize(
+  [event.title, event.venue, event.city, kind, ...event.authors.map((a) => a.name), ...event.works.map((w) => w.title)]
+    .filter(Boolean)
+    .join(' '),
+);
+
+// timbro postale: "MILANO · 21 NOV 2026"
+const [y, m, d] = event.starts_on.split('-').map(Number);
+const MONTHS = ['GEN', 'FEB', 'MAR', 'APR', 'MAG', 'GIU', 'LUG', 'AGO', 'SET', 'OTT', 'NOV', 'DIC'];
+const postmark = `${(event.city ?? 'ISYBOOK').toUpperCase()} · ${d} ${MONTHS[m - 1]} ${y} · `;
+
+// bordo irregolare della ceralacca, stabile per evento
+let h = 7;
+for (const ch of id) h = (h * 33 + ch.charCodeAt(0)) >>> 0;
+const rand = () => ((h = (h * 1103515245 + 12345) >>> 0) / 4294967296);
+const blob = Array.from({ length: 18 }, (_, i) => {
+  const a = (i / 18) * Math.PI * 2;
+  const r = 26 + (rand() - 0.5) * 3.2;
+  return `${(30 + Math.cos(a) * r).toFixed(1)},${(30 + Math.sin(a) * r).toFixed(1)}`;
+});
+const sealPath = `M${blob.join(' L')} Z`;
+
+// perforazione del francobollo: cerchietti del colore della busta lungo i bordi
+const holes: Array<[number, number]> = [];
+for (let x = 2; x <= 40; x += 4.75) holes.push([x, 0], [x, 50]);
+for (let y = 2; y <= 48; y += 4.8) holes.push([0, y], [42, y]);
+
+const style = [
+  `--paper:${t.paper}`,
+  `--fold:${t.fold}`,
+  `--fold-dark:${t.foldDark}`,
+  `--flap:${t.flap}`,
+  `--seal:${t.seal}`,
+  `--seal-light:${t.sealLight}`,
+  `--env-ink:${t.ink}`,
+  `--tilt:${envelopeTilt(id)}deg`,
+  `--n:${index % 4}`,
+].join(';');
+---
+
+<article
+  class="event envelope-card"
+  data-reveal
+  data-slug={event.slug}
+  data-city={event.city ? slugify(event.city) : ''}
+  data-kind={event.kind}
+  data-month={event.starts_on.slice(0, 7)}
+  data-authors={event.authors.map((a) => a.slug).join(' ')}
+  data-works={event.works.map((w) => w.slug).join(' ')}
+  data-genres={genres.map((g) => g.slug).join(' ')}
+  data-search={searchText}
+  style={style}
+>
+  <a class="env-link" href={`/eventi/${event.slug}`} data-envelope aria-label={`Apri la busta: ${event.title}, ${when}${event.city ? `, ${event.city}` : ''}`}>
+    <span class="envelope">
+      <!-- fronte: quello che si vede nella pagina -->
+      <span class="face front">
+        <svg class="stamp" viewBox="0 0 42 50" aria-hidden="true">
+          <rect width="42" height="50" fill="#fffdf8" />
+          {holes.map(([cx, cy]) => <circle cx={cx} cy={cy} r="1.7" fill="var(--paper)" />)}
+          <rect x="5" y="5" width="32" height="40" fill="var(--seal-light)" />
+          <path d={t.emblem} transform="translate(9 13) scale(1)" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg class="postmark" viewBox="0 0 80 80" aria-hidden="true">
+          <defs><path id={`pm-${id}`} d="M40,40 m-29,0 a29,29 0 1,1 58,0 a29,29 0 1,1 -58,0" /></defs>
+          <circle cx="40" cy="40" r="36" />
+          <circle cx="40" cy="40" r="21" />
+          <text><textPath href={`#pm-${id}`}>{postmark}</textPath></text>
+          <text x="40" y="44" text-anchor="middle" class="pm-day">{d}·{m}</text>
+        </svg>
+        <span class="handwriting">
+          <span class="hw-kind">{kind}</span>
+          <span class="hw-title">{event.title}</span>
+          <span class="hw-line">{when}</span>
+          {place && <span class="hw-line">{place}</span>}
+        </span>
+      </span>
+
+      <!-- retro: compare quando la busta si gira nel dialogo -->
+      <span class="face back">
+        <span class="env-back"></span>
+  
+        <!-- biglietto dentro la busta: decorativo, il contenuto completo è nel template qui sotto -->
+        <span class="letter" aria-hidden="true">
+          <span class="letter-title">{event.title}</span>
+          <span class="letter-line">{when}</span>
+          <span class="letter-line">{place}</span>
+        </span>
+  
+        <span class="env-fold left"></span>
+        <span class="env-fold right"></span>
+        <span class="env-fold bottom"></span>
+        <span class="env-flap"></span>
+  
+        <svg class="seal" viewBox="0 0 60 60" aria-hidden="true">
+          <defs>
+            <clipPath id={`seal-l-${id}`}><polygon points="0,0 31,0 27,13 33,25 26,37 32,49 28,60 0,60" /></clipPath>
+            <clipPath id={`seal-r-${id}`}><polygon points="31,0 60,0 60,60 28,60 32,49 26,37 33,25 27,13" /></clipPath>
+            <radialGradient id={`wax-${id}`} cx="38%" cy="32%" r="70%">
+              <stop offset="0" stop-color="var(--seal-light)" />
+              <stop offset="1" stop-color="var(--seal)" />
+            </radialGradient>
+          </defs>
+          {['l', 'r'].map((side) => (
+            <g class={`half ${side}`} clip-path={`url(#seal-${side}-${id})`}>
+              <path d={sealPath} fill={`url(#wax-${id})`} />
+              <circle cx="30" cy="30" r="18" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.6" />
+              <circle cx="30" cy="30" r="18" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".8" transform="translate(-.6 -.6)" />
+              <path d={t.emblem} transform="translate(19.2 19.2) scale(.9)" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              <path d={t.emblem} transform="translate(18.7 18.7) scale(.9)" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+            </g>
+          ))}
+        </svg>
+  
+        </span>
+    </span>
+  </a>
+
+  <!-- contenuto completo del biglietto, mostrato da EnvelopeViewer quando la busta si apre -->
+  <template class="letter-tpl">
+    <p class="lt-kind">{kind}</p>
+    <h2 class="lt-title">{event.title}</h2>
+    <dl class="lt-facts">
+      <dt>Quando</dt>
+      <dd>{when}</dd>
+      {(event.venue || event.city) && (
+        <>
+          <dt>Dove</dt>
+          <dd>
+            {[event.venue, event.city].filter(Boolean).join(', ')}
+            <a href={`https://www.openstreetmap.org/search?query=${encodeURIComponent([event.venue, event.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener" class="map-link">Apri in mappa</a>
+          </dd>
+        </>
+      )}
+      {event.authors.length > 0 && (
+        <>
+          <dt>Con</dt>
+          <dd>{event.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/autori/${a.slug}`}>{a.name}</a></>)}</dd>
+        </>
+      )}
+      {event.works.length > 0 && (
+        <>
+          <dt>Libri</dt>
+          <dd>{event.works.map((w, i) => <>{i > 0 && ', '}<a href={`/libri/${w.slug}`}>{w.title}</a></>)}</dd>
+        </>
+      )}
+    </dl>
+    {event.description && <p class="lt-description">{event.description}</p>}
+    <p class="lt-actions">
+      <a class="button-strong" href={`/eventi/${event.slug}.ics`} download>Aggiungi al calendario</a>
+      <a class="button-soft" href={`/eventi/${event.slug}`}>Tutti i dettagli</a>
+    </p>
+  </template>
+</article>
+
+<style>
+  .envelope-card { padding: 10px 6px; }
+  .env-link { display: block; color: var(--env-ink); text-decoration: none; border-radius: 6px; }
+  .env-link:focus-visible { outline: 3px solid var(--accent); outline-offset: 6px; }
+
+  /* ---- la busta, vista dal retro ---- */
+  .envelope {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    perspective: 900px;
+    transform: rotate(var(--tilt));
+    transition: transform 0.45s var(--ease-spring);
+    filter: drop-shadow(0 8px 14px rgba(40, 25, 20, 0.22));
+  }
+  .env-link:hover .envelope,
+  .env-link:focus-visible .envelope { transform: rotate(0) translateY(-6px); }
+
+  .env-back,
+  .env-fold,
+  .env-flap { position: absolute; inset: 0; border-radius: 6px; background-image: var(--grain); }
+  .env-back { background-color: var(--fold-dark); }
+  .env-fold.left { background-color: var(--fold); clip-path: polygon(0 0, 53% 46%, 0 100%); z-index: 2; }
+  .env-fold.right { background-color: var(--fold); clip-path: polygon(100% 0, 47% 46%, 100% 100%); z-index: 2; }
+  .env-fold.bottom { background-color: var(--paper); clip-path: polygon(0 100%, 50% 40%, 100% 100%); z-index: 2; }
+  .env-flap {
+    background-color: var(--flap);
+    clip-path: polygon(0 0, 100% 0, 50% 44%);
+    transform-origin: 50% 0;
+    z-index: 3;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  /* biglietto nascosto dentro la busta */
+  .letter {
+    position: absolute;
+    top: 7%;
+    left: 7%;
+    right: 7%;
+    height: 84%;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12% 9% 0;
+    background: var(--label-paper) var(--grain);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    color: var(--env-ink);
+    text-align: center;
+  }
+  .letter-title { font-family: var(--font-hand); font-size: 1.5rem; line-height: 1.1; }
+  .letter-line { font-size: 0.8rem; opacity: 0.8; }
+
+  .seal {
+    position: absolute;
+    left: calc(50% - 30px);
+    top: calc(44% - 34px);
+    width: 60px;
+    height: 60px;
+    z-index: 5;
+    overflow: visible;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+  }
+  .seal .half { transform-box: fill-box; transform-origin: center; }
+
+  .stamp {
+    position: absolute;
+    top: 6%;
+    right: 6%;
+    z-index: 4;
+    width: 42px;
+    height: 50px;
+    transform: rotate(4deg);
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+  }
+  .postmark {
+    position: absolute;
+    top: 3%;
+    right: 13%;
+    z-index: 4;
+    width: 74px;
+    height: 74px;
+    opacity: 0.55;
+    transform: rotate(-14deg);
+    pointer-events: none;
+  }
+  .postmark circle { fill: none; stroke: var(--env-ink); stroke-width: 1.4; }
+  .postmark text { fill: var(--env-ink); font-family: var(--font-text); font-size: 7.4px; letter-spacing: 1.2px; }
+  .postmark .pm-day { font-size: 11px; letter-spacing: 0; }
+
+  /* le due facce: nella pagina si vede il fronte, il retro solo dopo il giro (.show-back) */
+  .face { position: absolute; inset: 0; display: block; }
+  .face.back { visibility: hidden; }
+  .envelope:global(.show-back) .face.front { visibility: hidden; }
+  .envelope:global(.show-back) .face.back { visibility: visible; }
+
+  /* fronte: carta liscia con l'indirizzo scritto a penna */
+  .face.front {
+    border-radius: 6px;
+    background: var(--paper) var(--grain);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), inset 0 -18px 30px -24px rgba(0, 0, 0, 0.25);
+  }
+  .handwriting {
+    position: absolute;
+    left: 9%;
+    right: 9%;
+    top: 36%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--env-ink);
+    font-family: var(--font-hand);
+    transform: rotate(-1.5deg);
+  }
+  .hw-kind { font-size: 1.05rem; color: var(--seal); }
+  .hw-title {
+    font-size: 1.55rem;
+    line-height: 1.08;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .hw-line {
+    font-size: 1.05rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* righe d'indirizzo sottolineate a matita */
+    background: linear-gradient(transparent calc(100% - 1px), rgba(0, 0, 0, 0.18) 0);
+  }
+
+  /* ingresso: l'animazione sta sulla card, così inclinazione e hover della busta restano intatti */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .envelope-card:not(:global(.is-in)) { opacity: 0; }
+    .envelope-card:global(.is-in) { animation: env-drop 0.8s var(--ease-spring) backwards; animation-delay: calc(var(--n) * 110ms); }
+  }
+  @keyframes env-drop {
+    0% { opacity: 0; transform: translateY(-46px) rotate(-7deg) scale(0.94); }
+    60% { opacity: 1; }
+    100% { opacity: 1; transform: none; }
+  }
+
+  /* riflesso che passa sulla ceralacca */
+  @media (prefers-reduced-motion: no-preference) {
+    .env-link:hover .seal { animation: wax-shine 0.9s ease-out; }
+  }
+  @keyframes wax-shine {
+    0% { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)) brightness(1); }
+    40% { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)) brightness(1.35); }
+    100% { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35)) brightness(1); }
+  }
+
+  /* ---- apertura (classe .is-open aggiunta da EnvelopeViewer sulla copia nel dialogo) ---- */
+  .envelope:global(.is-open) .seal .half.l { animation: seal-l 0.55s var(--ease-in-out) forwards; }
+  .envelope:global(.is-open) .seal .half.r { animation: seal-r 0.55s var(--ease-in-out) forwards; }
+  .envelope:global(.is-open) .env-flap { animation: flap-open 0.6s var(--ease-in-out) 0.3s forwards; }
+  .envelope:global(.is-open) .letter { animation: letter-rise 0.6s var(--ease-out) 0.8s forwards; }
+  @keyframes seal-l {
+    30% { transform: translate(-4px, 0) rotate(-8deg); opacity: 1; }
+    100% { transform: translate(-40px, 90px) rotate(-70deg); opacity: 0; }
+  }
+  @keyframes seal-r {
+    30% { transform: translate(4px, 0) rotate(8deg); opacity: 1; }
+    100% { transform: translate(40px, 90px) rotate(70deg); opacity: 0; }
+  }
+  /* a metà rotazione il lembo passa dietro al biglietto */
+  @keyframes flap-open {
+    0% { transform: rotateX(0); z-index: 3; }
+    49% { z-index: 3; }
+    50% { z-index: 0; }
+    100% { transform: rotateX(180deg); z-index: 0; }
+  }
+  @keyframes letter-rise { to { transform: translateY(-58%); } }
+</style>

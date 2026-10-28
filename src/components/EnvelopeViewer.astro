@@ -1,0 +1,213 @@
+---
+// Dialogo in cui si aprono le buste degli eventi (EventEnvelope). La busta toccata vola al centro,
+// il sigillo si spacca, il lembo si apre, il biglietto esce e viene in primo piano con tutte le informazioni.
+// Link diretto: /eventi#busta-<slug>. Con il movimento ridotto il biglietto compare subito.
+---
+
+<dialog class="env-viewer" aria-label="Biglietto dell'evento">
+  <button type="button" class="env-close" aria-label="Chiudi il biglietto">×</button>
+  <div class="env-stage"></div>
+  <div class="env-letter" tabindex="-1" hidden></div>
+</dialog>
+
+<script>
+  import { reducedMotion } from '../scripts/reveal';
+
+  const dialog = document.querySelector<HTMLDialogElement>('dialog.env-viewer')!;
+  const stage = dialog.querySelector<HTMLElement>('.env-stage')!;
+  const letter = dialog.querySelector<HTMLElement>('.env-letter')!;
+  let timers: number[] = [];
+  let opener: HTMLElement | null = null;
+
+  const later = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms));
+
+  /** Anima un elemento dalla posizione/dimensione `from` alla sua posizione attuale. */
+  function flipFrom(el: HTMLElement, from: DOMRect, duration: number, extra: Keyframe = {}) {
+    const to = el.getBoundingClientRect();
+    const dx = from.left - to.left;
+    const dy = from.top - to.top;
+    const s = from.width / to.width;
+    return el.animate(
+      [{ transform: `translate(${dx}px, ${dy}px) scale(${s})`, transformOrigin: 'top left', ...extra }, { transform: 'none', transformOrigin: 'top left', opacity: 1 }],
+      { duration, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+  }
+
+  function open(card: HTMLElement) {
+    const source = card.querySelector<HTMLElement>('.envelope')!;
+    const from = source.getBoundingClientRect();
+    timers.forEach(clearTimeout);
+    timers = [];
+    opener = card.querySelector<HTMLElement>('[data-envelope]');
+
+    // colori della busta e contenuto del biglietto
+    dialog.setAttribute('style', card.getAttribute('style') ?? '');
+    const clone = source.cloneNode(true) as HTMLElement;
+    stage.replaceChildren(clone);
+    stage.hidden = false;
+    letter.innerHTML = card.querySelector<HTMLTemplateElement>('template.letter-tpl')!.innerHTML;
+    letter.hidden = true;
+    history.replaceState(null, '', `#busta-${card.dataset.slug}`);
+    dialog.showModal();
+
+    if (reducedMotion()) {
+      stage.hidden = true;
+      letter.hidden = false;
+      letter.focus();
+      return;
+    }
+
+    // 1. la busta vola dal punto in cui era fino al centro
+    flipFrom(clone, from, 450);
+    // 2. si gira: prima metà fino a 90°, cambio di faccia, seconda metà dal lato opposto
+    later(450, () =>
+      clone.animate([{ transform: 'perspective(1400px) rotateY(0)' }, { transform: 'perspective(1400px) rotateY(90deg)' }], {
+        duration: 280,
+        easing: 'cubic-bezier(0.55, 0, 1, 0.45)',
+        fill: 'forwards',
+      }),
+    );
+    later(450 + 280, () => {
+      clone.getAnimations().forEach((a) => a.cancel());
+      clone.classList.add('show-back');
+      clone.animate([{ transform: 'perspective(1400px) rotateY(-90deg)' }, { transform: 'none' }], {
+        duration: 360,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      });
+    });
+    // 3. sigillo, lembo, biglietto che sale (animazioni CSS di EventEnvelope)
+    later(450 + 700, () => clone.classList.add('is-open'));
+    // 4. il biglietto esce del tutto e viene in primo piano, la busta scivola via
+    later(450 + 700 + 1450, () => {
+      letter.hidden = false;
+      letter.animate(
+        [
+          { opacity: 0, transform: 'translateY(-40px) scale(0.86)' },
+          { opacity: 1, transform: 'none' },
+        ],
+        { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      );
+      clone.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(60px) scale(0.92)' }], {
+        duration: 420,
+        easing: 'ease-in',
+        fill: 'forwards',
+      });
+      later(430, () => (stage.hidden = true));
+      letter.focus({ preventScroll: true });
+    });
+  }
+
+  function close() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    const done = () => {
+      dialog.close();
+      stage.replaceChildren();
+      history.replaceState(null, '', location.pathname + location.search);
+      opener?.focus();
+    };
+    if (reducedMotion()) return done();
+    dialog.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease-in' }).finished.then(done);
+  }
+
+  document.querySelectorAll<HTMLAnchorElement>('[data-envelope]').forEach((link) =>
+    link.addEventListener('click', (e) => {
+      // Ctrl/Cmd+clic apre comunque la pagina dell'evento in una nuova scheda
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      open(link.closest<HTMLElement>('.envelope-card')!);
+    }),
+  );
+  dialog.querySelector('.env-close')!.addEventListener('click', close);
+  dialog.addEventListener('cancel', (e) => {
+    e.preventDefault();
+    close();
+  });
+  // tocco sullo sfondo (fuori da busta e biglietto)
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) close();
+  });
+
+  // link diretto a una busta
+  const fromHash = location.hash.match(/^#busta-(.+)$/);
+  if (fromHash) {
+    const card = document.querySelector<HTMLElement>(`.envelope-card[data-slug="${CSS.escape(decodeURIComponent(fromHash[1]))}"]`);
+    if (card) {
+      card.scrollIntoView({ block: 'center' });
+      requestAnimationFrame(() => open(card));
+    }
+  }
+</script>
+
+<style>
+  .env-viewer {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 24px 16px;
+    border: 0;
+    background: transparent;
+    overflow-y: auto;
+  }
+  .env-viewer[open] { display: grid; place-items: center; }
+  .env-viewer::backdrop { background: rgba(28, 20, 30, 0.62); backdrop-filter: blur(3px); }
+  @media (prefers-reduced-motion: no-preference) {
+    .env-viewer[open]::backdrop { animation: fade-in 0.35s ease-out; }
+  }
+
+  .env-close {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+    width: 42px;
+    height: 42px;
+    font: 400 1.6rem/1 var(--font-text);
+    color: var(--folder-ink);
+    background: var(--label-paper) var(--grain);
+    border: 0;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+  }
+
+  /* busta ingrandita, con spazio sopra per il biglietto che sale */
+  .env-stage { grid-area: 1 / 1; width: min(520px, 92vw); padding-top: 34vh; }
+  .env-stage :global(.envelope) { transform: none; }
+
+  /* biglietto aperto, leggibile */
+  .env-letter {
+    grid-area: 1 / 1;
+    width: min(540px, 94vw);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    padding: 34px 32px 28px;
+    color: var(--env-ink);
+    background: #fffdf8 var(--grain);
+    border-radius: 4px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    outline: none;
+  }
+  .env-letter :global(.lt-kind) { margin: 0; font-family: var(--font-hand); font-size: 1.3rem; color: var(--seal); }
+  .env-letter :global(.lt-title) { margin: 2px 0 18px; font-family: var(--font-hand); font-weight: 400; font-size: var(--step-3); line-height: 1.05; color: var(--env-ink); }
+  .env-letter :global(.lt-facts) { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0 0 16px; }
+  .env-letter :global(.lt-facts dt) { font-size: 0.85rem; opacity: 0.7; }
+  .env-letter :global(.lt-facts dd) { margin: 0; }
+  .env-letter :global(.lt-facts dd a) { color: var(--seal); }
+  .env-letter :global(.lt-facts .map-link) { margin-left: 6px; }
+  .env-letter :global(.lt-description) { margin: 0 0 20px; line-height: 1.6; }
+  .env-letter :global(.lt-actions) { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
+  .env-letter :global(.lt-actions a) { text-decoration: none; }
+  .env-letter :global(.button-strong) { background: var(--seal); color: #fff; }
+  .env-letter :global(.button-soft) { background: rgba(0, 0, 0, 0.06); color: var(--env-ink); }
+
+  @media (max-width: 700px) {
+    .env-letter { padding: 28px 22px 22px; }
+    .env-letter :global(.lt-facts) { grid-template-columns: 1fr; gap: 2px; }
+    .env-letter :global(.lt-facts dd) { margin-bottom: 8px; }
+  }
+</style>
