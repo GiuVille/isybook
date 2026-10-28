@@ -1,57 +1,80 @@
 ---
 import Base from '../../layouts/Base.astro';
+import CatalogFilters, { type FilterGroup, type FilterOption } from '../../components/CatalogFilters.astro';
 import EventCard from '../../components/EventCard.astro';
 import { slugify } from '../../admin/resources';
-import { getEvents } from '../../lib/data';
+import { getEvents, getWorks } from '../../lib/data';
 import { EVENT_KIND_LABELS } from '../../lib/format';
+import type { BookEvent, Tag } from '../../lib/types';
 
 const today = new Date().toISOString().slice(0, 10);
-const events = await getEvents();
+const [events, works] = await Promise.all([getEvents(), getWorks()]);
 // un evento di più giorni resta tra i prossimi finché non è finito
 const upcoming = events.filter((e) => (e.ends_on ?? e.starts_on) >= today);
 const past = events.filter((e) => (e.ends_on ?? e.starts_on) < today).reverse();
 
-const byMonth = Map.groupBy(upcoming, (e) =>
-  new Date(e.starts_on).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }),
-);
-const cities = [...new Map(upcoming.filter((e) => e.city).map((e) => [slugify(e.city!), e.city!])).entries()].sort((a, b) =>
-  a[1].localeCompare(b[1], 'it'),
-);
-const kinds = [...new Set(upcoming.map((e) => e.kind))];
+const monthLabel = (iso: string) => {
+  const label = new Date(`${iso.slice(0, 7)}-01`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+const byMonth = Map.groupBy(upcoming, (e) => monthLabel(e.starts_on));
+
+// generi dei libri collegati a ciascun evento
+const genresOf = (e: BookEvent): Tag[] =>
+  [...new Map(works.filter((w) => e.works.some((x) => x.slug === w.slug)).flatMap((w) => w.genres).map((g) => [g.slug, g])).values()];
+
+function unique(items: FilterOption[]): FilterOption[] {
+  return [...new Map(items.map((i) => [i.slug, i])).values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+const groups: FilterGroup[] = [
+  { key: 'autori', attr: 'authors', label: 'Autori', mode: 'any', options: unique(upcoming.flatMap((e) => e.authors)) },
+  {
+    key: 'citta', attr: 'city', label: 'Città', mode: 'any',
+    options: unique(upcoming.filter((e) => e.city).map((e) => ({ slug: slugify(e.city!), name: e.city! }))),
+  },
+  {
+    key: 'tipo', attr: 'kind', label: 'Tipo', mode: 'any',
+    options: unique(upcoming.map((e) => ({ slug: e.kind, name: EVENT_KIND_LABELS[e.kind] }))),
+  },
+  {
+    // il mese resta in ordine di calendario, non alfabetico
+    key: 'mese', attr: 'month', label: 'Mese', mode: 'any',
+    options: [...new Map(upcoming.map((e) => [e.starts_on.slice(0, 7), { slug: e.starts_on.slice(0, 7), name: monthLabel(e.starts_on) }])).values()],
+  },
+  { key: 'libri', attr: 'works', label: 'Libri', mode: 'any', options: unique(upcoming.flatMap((e) => e.works.map((w) => ({ slug: w.slug, name: w.title })))) },
+  { key: 'generi', attr: 'genres', label: 'Generi', mode: 'any', options: unique(upcoming.flatMap(genresOf)) },
+];
 ---
 
-<Base title="Eventi e fiere" description="Firmacopie, presentazioni e fiere del libro: il calendario per chi ama romantasy, romance e fantasy YA.">
+<Base
+  title="Eventi e fiere"
+  hideSearch
+  description="Firmacopie, presentazioni e fiere del libro: il calendario per chi ama romantasy, romance e fantasy YA."
+>
   <h1>Eventi e fiere</h1>
   <p class="muted intro">Firmacopie, presentazioni e fiere del libro in Italia. Aggiungi al tuo calendario quelli che non vuoi perdere.</p>
 
-  {upcoming.length > 0 && (
-    <div class="filters" aria-label="Filtri">
-      {cities.length > 1 && (
-        <div class="chip-row" data-filter="citta">
-          <span class="label">Città</span>
-          {cities.map(([slug, name]) => <button type="button" class="chip" data-value={slug} aria-pressed="false">{name}</button>)}
-        </div>
-      )}
-      {kinds.length > 1 && (
-        <div class="chip-row" data-filter="tipo">
-          <span class="label">Tipo</span>
-          {kinds.map((k) => <button type="button" class="chip" data-value={k} aria-pressed="false">{EVENT_KIND_LABELS[k]}</button>)}
-        </div>
-      )}
-    </div>
+  {upcoming.length > 0 ? (
+    <CatalogFilters
+      groups={groups}
+      placeholder="Cerca evento, autore, libro, città…"
+      noun={{ one: 'evento', many: 'eventi' }}
+      itemSelector=".months article.event"
+      sectionSelector=".months .month"
+    />
+  ) : (
+    <p class="empty-all">Per ora non ci sono eventi in calendario. Torna presto!</p>
   )}
 
   <div class="months">
     {[...byMonth].map(([month, list]) => (
       <section class="month">
         <h2>{month}</h2>
-        <div class="list">{list.map((e) => <EventCard event={e} />)}</div>
+        <div class="list">{list.map((e) => <EventCard event={e} genres={genresOf(e)} />)}</div>
       </section>
     ))}
   </div>
-
-  <p class="empty" hidden>Nessun evento con questi filtri. <button type="button" class="reset">Mostra tutti</button></p>
-  {upcoming.length === 0 && <p class="empty-all">Per ora non ci sono eventi in calendario. Torna presto!</p>}
 
   {past.length > 0 && (
     <details class="past">
@@ -61,81 +84,15 @@ const kinds = [...new Set(upcoming.map((e) => e.kind))];
   )}
 </Base>
 
-<script>
-  // Filtri per città e tipo: più valori nello stesso gruppo = basta uno, gruppi diversi = tutti.
-  const rows = [...document.querySelectorAll<HTMLElement>('.chip-row')];
-  const cards = [...document.querySelectorAll<HTMLElement>('.months .event')];
-  const months = [...document.querySelectorAll<HTMLElement>('.months .month')];
-  const empty = document.querySelector<HTMLElement>('.empty');
-  const attr = { citta: 'city', tipo: 'kind' } as const;
-
-  const selected = (row: HTMLElement) =>
-    [...row.querySelectorAll<HTMLButtonElement>('.chip[aria-pressed="true"]')].map((b) => b.dataset.value!);
-
-  function apply() {
-    for (const card of cards) {
-      card.hidden = !rows.every((row) => {
-        const values = selected(row);
-        return values.length === 0 || values.includes(card.dataset[attr[row.dataset.filter as keyof typeof attr]] ?? '');
-      });
-    }
-    for (const month of months) month.hidden = !month.querySelector('.event:not([hidden])');
-    if (empty) empty.hidden = cards.length === 0 || cards.some((c) => !c.hidden);
-
-    const params = new URLSearchParams(location.search);
-    for (const row of rows) {
-      const values = selected(row);
-      if (values.length) params.set(row.dataset.filter!, values.join(','));
-      else params.delete(row.dataset.filter!);
-    }
-    const query = params.toString().replaceAll('%2C', ',');
-    history.replaceState(null, '', query ? `${location.pathname}?${query}` : location.pathname);
-  }
-
-  const params = new URLSearchParams(location.search);
-  for (const row of rows) {
-    const wanted = (params.get(row.dataset.filter!) ?? '').split(',');
-    row.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
-      chip.setAttribute('aria-pressed', String(wanted.includes(chip.dataset.value!)));
-      chip.addEventListener('click', () => {
-        chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
-        apply();
-      });
-    });
-  }
-  document.querySelector('.reset')?.addEventListener('click', () => {
-    document.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
-    apply();
-  });
-  apply();
-</script>
-
 <style>
   .intro { margin-top: -8px; }
-  .filters { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 8px; }
-  .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .label { width: 56px; font-size: 0.85rem; color: var(--muted); }
-  .chip {
-    padding: 5px 14px;
-    font: inherit;
-    font-size: 0.9rem;
-    color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    cursor: pointer;
-  }
-  .chip:hover { border-color: var(--accent); }
-  .chip[aria-pressed='true'] { color: var(--surface); background: var(--accent); border-color: var(--accent); }
-  .month h2 { margin: 32px 0 12px; text-transform: capitalize; font-size: 1.3rem; }
+  .month h2 { margin: 28px 0 12px; font-size: 1.3rem; }
   .list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
-  .empty, .empty-all { margin-top: 24px; padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
-  .reset { font: inherit; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+  .empty-all { margin-top: 24px; padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
   .past { margin-top: 40px; }
   .past summary { cursor: pointer; font-weight: 600; margin-bottom: 12px; }
   .past .list { opacity: 0.75; }
   @media (max-width: 700px) {
     .list { grid-template-columns: minmax(0, 1fr); }
-    .label { width: 100%; }
   }
 </style>

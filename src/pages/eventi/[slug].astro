@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { slugify } from '../../admin/resources';
 import { getEvents } from '../../lib/data';
 import { EVENT_KIND_LABELS, formatDateRange } from '../../lib/format';
 import type { BookEvent } from '../../lib/types';
@@ -30,7 +31,8 @@ const description = `${EVENT_KIND_LABELS[event.kind]} · ${formatDateRange(event
         <>
           <dt>Dove</dt>
           <dd>
-            {place}
+            {event.venue}{event.venue && event.city && ', '}
+            {event.city && <a href={`/eventi?citta=${slugify(event.city)}`} title={`Altri eventi a ${event.city}`}>{event.city}</a>}
             {mapUrl && <> · <a href={mapUrl} target="_blank" rel="noopener">Apri in mappa</a></>}
           </dd>
         </>

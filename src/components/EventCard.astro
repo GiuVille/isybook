@@ -1,23 +1,35 @@
 ---
 // Card evento con la data in evidenza, come un foglietto di calendario.
 import { slugify } from '../admin/resources';
-import { EVENT_KIND_LABELS, formatDateRange } from '../lib/format';
-import type { BookEvent } from '../lib/types';
+import { EVENT_KIND_LABELS, formatDateRange, normalize } from '../lib/format';
+import type { BookEvent, Tag } from '../lib/types';
 
 interface Props {
   event: BookEvent;
+  /** Generi dei libri collegati, per il filtro della pagina Eventi. */
+  genres?: Tag[];
 }
 
-const { event } = Astro.props;
+const { event, genres = [] } = Astro.props;
 const [, month, day] = event.starts_on.split('-').map(Number);
 const MONTHS_SHORT = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const multiDay = Boolean(event.ends_on && event.ends_on !== event.starts_on);
+const searchText = normalize(
+  [event.title, event.venue, event.city, EVENT_KIND_LABELS[event.kind], ...event.authors.map((a) => a.name), ...event.works.map((w) => w.title)]
+    .filter(Boolean)
+    .join(' '),
+);
 ---
 
 <article
   class="event"
   data-city={event.city ? slugify(event.city) : ''}
   data-kind={event.kind}
+  data-month={event.starts_on.slice(0, 7)}
+  data-authors={event.authors.map((a) => a.slug).join(' ')}
+  data-works={event.works.map((w) => w.slug).join(' ')}
+  data-genres={genres.map((g) => g.slug).join(' ')}
+  data-search={searchText}
 >
   <div class="cal" aria-hidden="true">
     <span class="cal-month">{MONTHS_SHORT[month - 1]}</span>

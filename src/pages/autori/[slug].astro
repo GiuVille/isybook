@@ -160,6 +160,7 @@ const color = works[0] ? themeForWork(works[0]).cover : 'var(--accent)';
       <section>
         <h2>Dove incontrarla o incontrarlo</h2>
         <div class="events">{events.map((e) => <EventCard event={e} />)}</div>
+        <p class="catalog-link"><a href={`/eventi?autori=${author.slug}`}>Tutti i suoi eventi nel calendario →</a></p>
       </section>
     )}
   </article>

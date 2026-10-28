@@ -1,6 +1,6 @@
 ---
-// Filtri di un catalogo (libri, serie e film). Le opzioni arrivano già calcolate dalla pagina;
-// il filtro gira nel browser sulle card `article.preview` leggendo i loro data-*. Stato sincronizzato con l'URL.
+// Filtri di un catalogo (libri, serie e film, eventi). Le opzioni arrivano già calcolate dalla pagina;
+// il filtro gira nel browser sulle card (`itemSelector`) leggendo i loro data-*. Stato sincronizzato con l'URL.
 
 export interface FilterOption {
   slug: string;
@@ -38,9 +38,21 @@ interface Props {
   noun: { one: string; many: string };
   maxFilters?: MaxFilter[];
   sorts?: SortOption[];
+  /** Le card da filtrare (predefinito: le anteprime di libri e serie). */
+  itemSelector?: string;
+  /** Blocchi da nascondere quando tutte le card che contengono sono nascoste (es. i mesi degli eventi). */
+  sectionSelector?: string;
 }
 
-const { groups, placeholder, noun, maxFilters = [], sorts = [] } = Astro.props;
+const {
+  groups,
+  placeholder,
+  noun,
+  maxFilters = [],
+  sorts = [],
+  itemSelector = 'article.preview',
+  sectionSelector = '',
+} = Astro.props;
 const visibleGroups = groups.filter((g) => g.options.length > 0);
 ---
 
@@ -51,6 +63,8 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
   data-noun-many={noun.many}
   data-max={JSON.stringify(maxFilters)}
   data-sorts={JSON.stringify(sorts)}
+  data-items={itemSelector}
+  data-sections={sectionSelector}
 >
   <div class="bar">
     <input type="search" class="query" placeholder={placeholder} aria-label={`Cerca tra i ${noun.many}`} autocomplete="off" />
@@ -134,13 +148,14 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
       el,
       inputs: [...el.querySelectorAll<HTMLInputElement>('input[type=checkbox]')],
     }));
-    const cards: Card[] = [...document.querySelectorAll<HTMLElement>('article.preview')].map((el, index) => ({
+    const cards: Card[] = [...document.querySelectorAll<HTMLElement>(root.dataset.items!)].map((el, index) => ({
       el,
       index,
       text: el.dataset.search ?? '',
       values: Object.fromEntries(groups.map((g) => [g.key, new Set((el.dataset[g.attr] ?? '').split(' ').filter(Boolean))])),
     }));
     const list = cards[0]?.el.parentElement ?? null;
+    const sections = root.dataset.sections ? [...document.querySelectorAll<HTMLElement>(root.dataset.sections)] : [];
 
     const total = root.querySelector<HTMLElement>('.total')!;
     const chips = root.querySelector<HTMLUListElement>('.chips')!;
@@ -183,7 +198,7 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
 
     /** Riordina le card; quelle senza il dato vanno in fondo, a parità resta l'ordine originale. */
     function sort() {
-      if (!list) return;
+      if (!list || sortDefs.length === 0) return;
       const def = sortDefs.find((s) => s.value === sortSelect?.value) ?? sortDefs[0];
       const ordered = [...cards].sort((a, b) => {
         if (!def) return a.index - b.index;
@@ -241,6 +256,9 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
         if (!card.el.hidden) visible++;
       }
       sort();
+      for (const section of sections) {
+        section.hidden = !cards.some((c) => !c.el.hidden && section.contains(c.el));
+      }
 
       for (const g of groups) {
         const current = selected(g);
