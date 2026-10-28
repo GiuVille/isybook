@@ -3,7 +3,7 @@
 // Restituisce solo contenuti con status = 'published' (lato DB lo garantisce anche la RLS).
 import sample from '../data/sample.json';
 import { getSupabase, supabaseConfigured } from './supabase';
-import type { Adaptation, Article, Author, BookEvent, Edition, Merch, Publisher, Section, Tag, Work } from './types';
+import type { Adaptation, Author, BookEvent, Edition, Merch, Publisher, Tag, Work } from './types';
 
 const MERCH_FIELDS = 'id, name, kind, shop, price, url, affiliate, edition_id, status';
 
@@ -201,26 +201,4 @@ export async function getEvents(): Promise<BookEvent[]> {
       .filter((w: Row | null) => w?.status === 'published')
       .map((w: Row) => ({ slug: w.slug, title: w.title })),
   })) as BookEvent[];
-}
-
-export async function getSections(): Promise<Section[]> {
-  if (!supabaseConfigured) return sample.sections;
-  const { data, error } = await getSupabase().from('sections').select('id, slug, name, description').order('name');
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function getArticles(): Promise<Article[]> {
-  if (!supabaseConfigured) {
-    return sample.articles
-      .map((a) => ({ ...a, section: sample.sections.find((s) => s.id === a.section_id) ?? null }))
-      .sort((a, b) => (b.published_at ?? '').localeCompare(a.published_at ?? ''));
-  }
-  const { data, error } = await getSupabase()
-    .from('articles')
-    .select('id, slug, title, excerpt, body, published_at, sections ( id, slug, name, description )')
-    .eq('status', 'published')
-    .order('published_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((a: Row) => ({ ...a, section: a.sections ?? null }) as Article);
 }

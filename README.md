@@ -79,14 +79,17 @@ Una nota pratica: senza `GOOGLE_BOOKS_API_KEY` Google Books risponde spesso con 
 
 ## Cosa manca
 
-- [x] pagine del sito: schede libro, uscite, edizioni speciali, articoli, rubriche
+- [x] pagine del sito: home, schede libro, calendario uscite
 - [x] schema del database con i permessi
 - [x] import per ISBN
 - [x] gestione dei contenuti con coda di approvazione
-- [x] ricerca e filtri per tropes, generi, ambientazione, autore ed editore
+- [x] ricerca e filtri per tropes, generi, ambientazione, autore, editore e tipo di edizione (speciale, limitata, prima edizione)
+- [x] filtri per prezzo massimo e pagine massime, ordinamento per prezzo, uscita e pagine
 - [x] scheda libro completa: saga, gadget, serie TV e film, libri simili, ebook e audiolibro, pagine, spicy
 - [x] preferiti, cartelle personali e interessi salvati nel browser, con il feed "Per te"
-- [x] calendario eventi e fiere, con il file da aggiungere al calendario
+- [x] calendario eventi e fiere, con ricerca, filtri e il file da aggiungere al calendario
+- [x] serie TV e film tratti dai libri: stagioni o durata, dove vederli, titoli simili
+- [x] pagine autore con saghe, tropes ricorrenti, adattamenti ed eventi
 - [ ] rebuild automatico del sito dopo le modifiche ai contenuti
 - [ ] job notturno che legge le pagine "prossime uscite" degli editori
 - [ ] generatore di bozze per i post social

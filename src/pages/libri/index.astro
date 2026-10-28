@@ -24,6 +24,16 @@ const groups: FilterGroup[] = [
     options: unique(works.flatMap((w) => w.editions.map((e) => e.publisher))),
   },
   {
+    key: 'edizioni', attr: 'editionTypes', label: 'Edizioni', mode: 'any',
+    options: [
+      { slug: 'special', name: 'Edizione speciale' },
+      { slug: 'limited', name: 'Edizione limitata' },
+      { slug: 'first-print', name: 'Prima edizione' },
+    ].filter((o) =>
+      works.some((w) => w.editions.some((e) => (o.slug === 'first-print' ? e.first_print : e.edition_type === o.slug))),
+    ),
+  },
+  {
     key: 'origine', attr: 'origin', label: 'Origine', mode: 'any',
     options: unique(works.map((w) => ({ slug: w.origin, name: ORIGIN_LABELS[w.origin] }))),
   },
@@ -37,7 +47,7 @@ const groups: FilterGroup[] = [
   </div>
   <CatalogFilters
     groups={groups}
-    placeholder="Cerca titolo, autore, trope, ISBN…"
+    placeholder="Cerca titolo, autore, ISBN…"
     noun={{ one: 'libro', many: 'libri' }}
     maxFilters={[
       { key: 'prezzo_max', attr: 'priceMin', label: 'Prezzo massimo', unit: '€', step: 0.5 },

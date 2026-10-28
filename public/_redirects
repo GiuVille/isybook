@@ -1,0 +1,4 @@
+/edizioni-speciali /libri?edizioni=special,limited 301
+/articoli / 301
+/articoli/* / 301
+/rubriche/* / 301

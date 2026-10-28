@@ -62,6 +62,11 @@ const a11y = [
   data-authors={slugs(work.authors)}
   data-publishers={slugs(work.editions.map((e) => e.publisher))}
   data-origin={work.origin}
+  data-edition-types={[
+    ...new Set(work.editions.flatMap((e) => [e.edition_type !== 'standard' ? e.edition_type : null, e.first_print ? 'first-print' : null])),
+  ]
+    .filter(Boolean)
+    .join(' ')}
   data-search={searchText}
   data-price-min={cheapest?.price ?? ''}
   data-pages={pages ?? ''}

@@ -129,20 +129,3 @@ export interface BookEvent {
   authors: Author[];
   works: Array<{ slug: string; title: string }>;
 }
-
-export interface Section {
-  id: string;
-  slug: string;
-  name: string;
-  description?: string | null;
-}
-
-export interface Article {
-  id: string;
-  slug: string;
-  title: string;
-  excerpt?: string | null;
-  body: string;
-  section?: Section | null;
-  published_at?: string | null;
-}
