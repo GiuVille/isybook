@@ -38,8 +38,33 @@
   color-scheme: light;
 }
 
+/* tema scuro: scelto con il pulsante nell'header (data-theme="dark"),
+   oppure dal sistema finché non si sceglie diversamente */
+:root[data-theme='dark'] {
+  --bg: #17131a;
+  --surface: #211b25;
+  --text: #efe8f2;
+  --muted: #a99fb0;
+  --border: #3a3140;
+  --accent: #d991c9;
+  --accent-soft: #3a2436;
+  --limited: #f0996f;
+  --limited-soft: #3e2419;
+  --drawer-bg: #1d1820;
+  --folder-1: #9c8159;
+  --folder-2: #a86d89;
+  --folder-3: #6f8d69;
+  --folder-4: #6a88a3;
+  --folder-5: #a8913f;
+  --folder-6: #8a77a6;
+  --folder-ink: #1a151d;
+  --label-paper: #efe9df;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .2 0 0 0 .10 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #17131a;
     --surface: #211b25;
     --text: #efe8f2;

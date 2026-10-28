@@ -39,8 +39,14 @@ const path = Astro.url.pathname;
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <link rel="canonical" href={new URL(path, Astro.site)} />
-    <!-- prima del primo disegno: gli stati iniziali delle animazioni valgono solo con JavaScript attivo -->
-    <script is:inline>document.documentElement.classList.add('js');</script>
+    <!-- prima del primo disegno: classe js per le animazioni e tema scelto dal pulsante, se c'è -->
+    <script is:inline>
+      document.documentElement.classList.add('js');
+      try {
+        var theme = localStorage.getItem('isybook:theme');
+        if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <header class="site-header">
@@ -51,6 +57,13 @@ const path = Astro.url.pathname;
             <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
           </form>
         )}
+        <button type="button" class="theme-toggle" aria-label="Passa al tema scuro" title="Tema chiaro o scuro">
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></svg>
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2" />
+            <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+          </svg>
+        </button>
         <button type="button" class="burger" aria-expanded="false" aria-controls="nav-drawer" aria-label="Apri il menu">
           <span class="burger-label">
             <span class="lines" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -101,7 +114,7 @@ const path = Astro.url.pathname;
 
     <script>
       import { getLibrary, onLibraryChange, savedCount } from '../lib/library';
-      import { initReveal } from '../scripts/reveal';
+      import { initReveal, reducedMotion } from '../scripts/reveal';
 
       // animazioni d'ingresso (frecce delle anteprime, peperoncini…)
       initReveal();
@@ -121,6 +134,32 @@ const path = Astro.url.pathname;
       const header = document.querySelector<HTMLElement>('.site-header')!;
       const burger = header.querySelector<HTMLButtonElement>('.burger')!;
 
+
+      // tema chiaro/scuro: la scelta resta salvata; il nuovo tema si allarga come un cerchio dal pulsante
+      const html = document.documentElement;
+      const themeToggle = document.querySelector<HTMLButtonElement>('.theme-toggle')!;
+      const isDark = () =>
+        html.dataset.theme ? html.dataset.theme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const labelTheme = () => themeToggle.setAttribute('aria-label', isDark() ? 'Passa al tema chiaro' : 'Passa al tema scuro');
+      labelTheme();
+      themeToggle.addEventListener('click', () => {
+        const next = isDark() ? 'light' : 'dark';
+        const apply = () => {
+          html.dataset.theme = next;
+          try {
+            localStorage.setItem('isybook:theme', next);
+          } catch {
+            // senza storage il tema vale solo per questa pagina
+          }
+          labelTheme();
+        };
+        if (!('startViewTransition' in document) || reducedMotion()) return apply();
+        const r = themeToggle.getBoundingClientRect();
+        html.style.setProperty('--tx', `${r.left + r.width / 2}px`);
+        html.style.setProperty('--ty', `${r.top + r.height / 2}px`);
+        html.classList.add('theme-switching');
+        document.startViewTransition(apply).finished.finally(() => html.classList.remove('theme-switching'));
+      });
 
       const setOpen = (open: boolean) => {
         header.classList.toggle('menu-open', open);
@@ -174,6 +213,36 @@ const path = Astro.url.pathname;
   }
   .search input:focus { outline: none; border-color: var(--accent); }
   .mobile-only, .burger { display: none; }
+
+  .theme-toggle {
+    flex-shrink: 0;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: var(--folder-ink);
+    background: var(--label-paper) var(--grain);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.3s var(--ease-spring), border-color 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); transform: rotate(-12deg); }
+  .theme-toggle:active { transform: scale(0.92); }
+  .theme-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .theme-toggle .moon { fill: currentColor; }
+  .theme-toggle .sun { display: none; }
+  /* con il tema scuro (scelto o di sistema) il pulsante mostra il sole */
+  :global(:root[data-theme='dark']) .theme-toggle .moon { display: none; }
+  :global(:root[data-theme='dark']) .theme-toggle .sun { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .theme-toggle .moon { display: none; }
+    :global(:root:not([data-theme='light'])) .theme-toggle .sun { display: block; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .theme-toggle svg { animation: pop 0.45s var(--ease-spring); }
+  }
 
   /* cassetto: interno scuro-caldo, cartelline in fila */
   /* cassetto aperto: le cartelline scendono fino al bordo e spariscono dentro, un'ombra le separa dalla pagina */

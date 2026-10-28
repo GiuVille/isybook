@@ -62,6 +62,15 @@
   }
 }
 
+/* cambio tema chiaro/scuro (il pulsante lo usa solo se il movimento non è ridotto) */
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--tx, 50%) var(--ty, 0)); }
+  to { clip-path: circle(150vmax at var(--tx, 50%) var(--ty, 0)); }
+}
+.theme-switching .site-header { view-transition-name: none; }
+.theme-switching::view-transition-old(root) { animation: none; }
+.theme-switching::view-transition-new(root) { animation: theme-reveal 0.6s var(--ease-in-out); }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
