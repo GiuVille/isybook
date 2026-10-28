@@ -1,0 +1,106 @@
+---
+// Anteprima di una serie o di un film: stessa grafica dei libri (scacchiera, locandina, frecce per i tropes),
+// con le piattaforme dove vederlo al posto delle spunte ebook/audiolibro.
+import '../styles/preview.css';
+import CoverArt from './CoverArt.astro';
+import { slugify } from '../admin/resources';
+import { themeForWork } from '../lib/book-themes';
+import { ADAPTATION_KIND_LABELS, adaptationFacts, adaptationWhen, normalize } from '../lib/format';
+import { COVER, VIEW, layoutTropeArrows } from '../lib/trope-arrows';
+import type { Adaptation } from '../lib/types';
+
+interface Props {
+  adaptation: Adaptation;
+}
+
+const { adaptation: a } = Astro.props;
+const theme = themeForWork(a);
+const arrows = layoutTropeArrows(a.tropes.map((t) => t.name), a.slug);
+const platforms = [...new Set(a.watch_providers.map((p) => p.platform))];
+// al massimo 3 spunte, poi "+N"
+const checks = platforms.length > 3 ? [...platforms.slice(0, 2), `+${platforms.length - 2} piattaforme`] : platforms;
+const CHECK_X = 300;
+const checkY = (i: number) => VIEW.height - 34 - (checks.length - 1 - i) * 34;
+const href = `/serie-e-film/${a.slug}`;
+const slugs = (items: Array<{ slug: string }>) => items.map((i) => i.slug).join(' ');
+const searchText = normalize(
+  [a.title, a.source.title, ...a.source.authors.map((x) => x.name), ...a.tropes.map((t) => t.name), ...a.genres.map((g) => g.name), ...platforms].join(' '),
+);
+const a11y = [
+  `Locandina di ${a.title}, ${ADAPTATION_KIND_LABELS[a.kind].toLowerCase()}`,
+  a.tropes.length && `Tropes: ${a.tropes.map((t) => t.name).join(', ')}`,
+  platforms.length && `Su: ${platforms.join(', ')}`,
+]
+  .filter(Boolean)
+  .join('. ');
+---
+
+<article
+  class="preview"
+  data-kind={a.kind}
+  data-platforms={platforms.map(slugify).join(' ')}
+  data-genres={slugs(a.genres)}
+  data-tropes={slugs(a.tropes)}
+  data-search={searchText}
+  data-released={a.release_date ?? ''}
+  data-title={a.title}
+  style={`--light:${theme.light};--dark:${theme.dark};--panel:${theme.panel};--ink:${theme.ink};--text:${theme.text}`}
+>
+  <a href={href} class="visual" aria-label={a.title}>
+    <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y}>
+      <g class="cover">
+        <CoverArt
+          art={{ id: a.id, title: a.title, caption: ADAPTATION_KIND_LABELS[a.kind], image: a.poster_url, color: theme.cover, variant: 'poster' }}
+          x={COVER.x}
+          y={COVER.y}
+          width={COVER.width}
+          height={COVER.height}
+        />
+      </g>
+
+      <g class="arrows" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        {arrows.map((arrow) => (
+          <g>
+            <path d={arrow.path} />
+            <path d={arrow.head} />
+          </g>
+        ))}
+      </g>
+
+      <g class="checks">
+        {checks.map((label, i) => (
+          <g transform={`translate(${CHECK_X} ${checkY(i)})`}>
+            <path class="box" d="M1.5 3.2 L19.6 1.8 L20.4 19.5 L2.6 20.6 Z" />
+            <path class="tick" d="M5 11.5 L9.5 16 L19 1" />
+            {/* televisore: dove vederlo */}
+            <g transform="translate(30 -2)" class="icon">
+              <rect x="2" y="4" width="20" height="14" rx="2" fill="none" />
+              <path d="M8 22h8M12 18v4M9 1l3 3 3-3" fill="none" />
+            </g>
+            <text x="62" y="17" font-size="20">{label}</text>
+          </g>
+        ))}
+      </g>
+
+      <g class="labels">
+        {arrows.map((arrow) => (
+          <text x={arrow.x} y={arrow.y} font-size={arrow.fontSize}>
+            {arrow.label.map((line, i) => <tspan x={arrow.x} dy={i === 0 ? 0 : arrow.fontSize * 1.05}>{line}</tspan>)}
+          </text>
+        ))}
+      </g>
+    </svg>
+  </a>
+
+  <div class="plot">
+    <h3>Trama</h3>
+    <div class="box">
+      <p class="meta">
+        <a href={href}>{a.title}</a> · {adaptationFacts(a)}
+        <span class="date">{a.release_date ? 'Uscita: ' : ''}{adaptationWhen(a)}</span>
+        <span class="date">Tratto da <a href={`/libri/${a.source.slug}`}>{a.source.title}</a></span>
+      </p>
+      {a.plot ? <p class="text">{a.plot}</p> : <p class="text empty">Trama in arrivo.</p>}
+    </div>
+  </div>
+</article>

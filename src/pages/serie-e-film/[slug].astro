@@ -1,0 +1,184 @@
+---
+import Base from '../../layouts/Base.astro';
+import CoverArt from '../../components/CoverArt.astro';
+import { themeForWork } from '../../lib/book-themes';
+import { getAdaptations, getWorks } from '../../lib/data';
+import {
+  ADAPTATION_KIND_LABELS,
+  WATCH_KIND_LABELS,
+  adaptationFacts,
+  adaptationWhen,
+  formatRuntime,
+} from '../../lib/format';
+import { similarToAdaptation, type SimilarItem } from '../../lib/similar';
+import type { Adaptation, Work } from '../../lib/types';
+
+export async function getStaticPaths() {
+  const [adaptations, works] = await Promise.all([getAdaptations(), getWorks()]);
+  return adaptations.map((adaptation) => ({
+    params: { slug: adaptation.slug },
+    props: {
+      adaptation,
+      source: works.find((w) => w.slug === adaptation.source.slug)!,
+      similar: similarToAdaptation(adaptation, adaptations, works),
+    },
+  }));
+}
+
+const { adaptation: a, source, similar } = Astro.props as { adaptation: Adaptation; source: Work; similar: SimilarItem[] };
+const theme = themeForWork(a);
+const kindLabel = ADAPTATION_KIND_LABELS[a.kind];
+const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movie' : 'tv'}/${a.tmdb_id}` : null;
+---
+
+<Base title={`${a.title} (${kindLabel.toLowerCase()})`} description={a.plot?.slice(0, 155) ?? `${kindLabel} tratto da ${a.source.title}.`}>
+  <article>
+    <div class="head">
+      <CoverArt
+        art={{ id: a.id, title: a.title, caption: kindLabel, image: a.poster_url, color: theme.cover, variant: 'poster' }}
+        class="poster"
+      />
+      <div class="info">
+        <p class="kicker">{kindLabel}{a.platform && ` · ${a.platform}`}</p>
+        <h1>{a.title}</h1>
+        <p class="byline">Tratto da <a href={`/libri/${a.source.slug}`}>{a.source.title}</a> di {a.source.authors.map((x) => x.name).join(', ')}</p>
+
+        <dl class="facts">
+          <dt>{a.release_date ? 'Uscita' : 'Stato'}</dt>
+          <dd>{adaptationWhen(a)}</dd>
+          {a.kind === 'series' && (a.seasons || a.episodes) && (
+            <>
+              <dt>Stagioni</dt>
+              <dd>{adaptationFacts(a).replace('Serie TV · ', '')}</dd>
+            </>
+          )}
+          {a.kind === 'film' && a.runtime_minutes && (
+            <>
+              <dt>Durata</dt>
+              <dd>{formatRuntime(a.runtime_minutes)}</dd>
+            </>
+          )}
+          {a.genres.length > 0 && (
+            <>
+              <dt>Generi</dt>
+              <dd>
+                {a.genres.map((g) => <a class="tag" href={`/serie-e-film?generi=${g.slug}`}>{g.name}</a>)}
+                {a.inherited.genres && <span class="from-book">dal libro</span>}
+              </dd>
+            </>
+          )}
+          {a.tropes.length > 0 && (
+            <>
+              <dt>Tropes</dt>
+              <dd>
+                {a.tropes.map((t) => <a class="tag trope" href={`/serie-e-film?tropes=${t.slug}`}>{t.name}</a>)}
+                {a.inherited.tropes && <span class="from-book">dal libro</span>}
+              </dd>
+            </>
+          )}
+        </dl>
+      </div>
+    </div>
+
+    {a.plot && (
+      <section>
+        <h2>Trama</h2>
+        <p class="plot">{a.plot}</p>
+      </section>
+    )}
+
+    <section>
+      <h2>Dove vederlo</h2>
+      {a.watch_providers.length > 0 ? (
+        <>
+          <ul class="providers">
+            {a.watch_providers.map((p) => (
+              <li class="card provider">
+                <strong>{p.platform}</strong>
+                <span class={`kind ${p.kind}`}>{WATCH_KIND_LABELS[p.kind]}</span>
+                {p.url && <a href={p.url} target="_blank" rel="noopener">Vai alla piattaforma</a>}
+              </li>
+            ))}
+          </ul>
+          <p class="muted small">Disponibilità in Italia: può cambiare, controlla sempre sulla piattaforma.</p>
+        </>
+      ) : (
+        <p class="muted">{a.release_date ? 'Al momento non risulta disponibile in streaming in Italia.' : 'Non è ancora uscito: lo aggiungeremo appena sarà disponibile.'}</p>
+      )}
+      {tmdb && <p class="small"><a href={tmdb} target="_blank" rel="noopener">Scheda su TMDB</a></p>}
+    </section>
+
+    <section>
+      <h2>Il libro</h2>
+      <a class="card book" href={`/libri/${source.slug}`}>
+        <CoverArt work={source} class="mini-cover" />
+        <span>
+          <strong>{source.title}</strong>
+          <span class="muted small block">{source.authors.map((x) => x.name).join(', ')}</span>
+          <span class="small block accent">Leggi il libro da cui è nato →</span>
+        </span>
+      </a>
+    </section>
+
+    {similar.length > 0 && (
+      <section>
+        <h2>Ti potrebbero piacere</h2>
+        <div class="similar">
+          {similar.map((s) => (
+            <a class="card similar-item" href={s.kind === 'adaptation' ? `/serie-e-film/${s.slug}` : `/libri/${s.slug}`}>
+              {s.kind === 'adaptation' ? (
+                <CoverArt
+                  art={{ id: s.adaptation!.id, title: s.title, caption: s.caption, image: s.adaptation!.poster_url, color: themeForWork(s.adaptation!).cover, variant: 'poster' }}
+                  class="mini-cover"
+                />
+              ) : (
+                <CoverArt work={s.work!} class="mini-cover" />
+              )}
+              <span>
+                <span class="muted small block">{s.kind === 'adaptation' ? s.caption : 'Libro'}</span>
+                <strong>{s.title}</strong>
+                <span class="small block accent">{s.reason}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+  </article>
+</Base>
+
+<style>
+  .head { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+  .head :global(.poster) { width: 220px; height: auto; flex-shrink: 0; filter: drop-shadow(4px 8px 10px rgba(0, 0, 0, 0.25)); }
+  .info { flex: 1 1 320px; min-width: 0; }
+  .kicker { margin: 0 0 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
+  h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+  .byline { font-size: 1.05rem; margin: 6px 0 0; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 18px 0 0; align-items: baseline; }
+  .facts dt { color: var(--muted); font-size: 0.85rem; }
+  .facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tag.trope { background: transparent; border: 1px solid var(--accent); }
+  .from-book { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+
+  section { margin-top: 40px; }
+  .plot { max-width: 70ch; }
+  .small { font-size: 0.85rem; }
+  .block { display: block; }
+  .accent { color: var(--accent); margin-top: 4px; }
+
+  .providers { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .provider { display: flex; flex-direction: column; gap: 4px; }
+  .kind { align-self: flex-start; padding: 1px 10px; font-size: 0.78rem; font-weight: 600; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .kind.free { background: #e3f3e6; color: #2e7d4f; }
+  .kind.rent, .kind.buy { background: var(--limited-soft); color: var(--limited); }
+
+  .book, .similar-item { display: flex; gap: 14px; align-items: flex-start; text-decoration: none; color: var(--text); }
+  .book { max-width: 420px; }
+  .book:hover, .similar-item:hover { border-color: var(--accent); }
+  .book :global(.mini-cover), .similar-item :global(.mini-cover) { width: 64px; height: auto; flex-shrink: 0; filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.2)); }
+  .similar { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+
+  @media (max-width: 700px) {
+    .head :global(.poster) { width: 160px; }
+  }
+</style>

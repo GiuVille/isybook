@@ -9,6 +9,8 @@ import { getEvents, getWorks } from '../../lib/data';
 import {
   EDITION_TYPE_LABELS,
   FORMAT_LABELS,
+  adaptationFacts,
+  adaptationWhen,
   availability,
   formatDate,
   formatPrice,
@@ -50,8 +52,6 @@ const digital = [formats.ebook && 'ebook', formats.audiobook && 'audiolibro'].fi
 const spice = isRomance(work) && work.spice_level != null ? work.spice_level : null;
 const ORIGIN_LABELS = { publisher: null, self: 'Self-publishing', wattpad: 'Nato su Wattpad' } as const;
 const MERCH_LABELS: Record<MerchKind, string> = { gadget: 'Gadget', jewelry: 'Gioiello', box: 'Box', other: 'Altro' };
-const ADAPTATION_LABELS = { series: 'Serie TV', film: 'Film' } as const;
-
 const editionsById = new Map(work.editions.map((e) => [e.id, e]));
 const included = work.merch.filter((m) => m.edition_id && editionsById.has(m.edition_id));
 const forSale = work.merch.filter((m) => !m.edition_id);
@@ -244,19 +244,15 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
         <h2>Serie TV e film</h2>
         <div class="grid">
           {work.adaptations.map((a) => (
-            <div class="card adaptation">
-              <span class="badge special">{ADAPTATION_LABELS[a.kind]}</span>
+            <a class="card adaptation" href={`/serie-e-film/${a.slug}`}>
+              <span class="badge special">{adaptationFacts(a)}</span>
               <strong>{a.title}</strong>
               <span class="small">
                 {a.platform && <>{a.platform} · </>}
-                {a.release_date ? formatDate(a.release_date) : (a.production_status ?? 'Annunciato')}
+                {adaptationWhen(a)}
               </span>
-              {a.tmdb_id && (
-                <a class="small" href={`https://www.themoviedb.org/${a.kind === 'film' ? 'movie' : 'tv'}/${a.tmdb_id}`} target="_blank" rel="noopener">
-                  Scheda su TMDB
-                </a>
-              )}
-            </div>
+              <span class="small more">Dove vederlo e titoli simili →</span>
+            </a>
           ))}
         </div>
       </section>
@@ -336,6 +332,9 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
   .reading-order li.current .num { background: var(--accent); color: var(--surface); }
 
   .gadget, .adaptation { display: flex; flex-direction: column; gap: 4px; }
+  a.adaptation { color: var(--text); text-decoration: none; }
+  a.adaptation:hover { border-color: var(--accent); }
+  .adaptation .more { color: var(--accent); }
   .events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 
   .similar { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }

@@ -1,61 +1,67 @@
 ---
-// Filtri della pagina Libri. Le opzioni si calcolano in build, il filtro gira nel browser
-// sulle card `article.preview` (vedi i data-* in BookPreview.astro). Stato sincronizzato con l'URL.
-import type { Work } from '../lib/types';
+// Filtri di un catalogo (libri, serie e film). Le opzioni arrivano già calcolate dalla pagina;
+// il filtro gira nel browser sulle card `article.preview` leggendo i loro data-*. Stato sincronizzato con l'URL.
+
+export interface FilterOption {
+  slug: string;
+  name: string;
+}
+
+export interface FilterGroup {
+  key: string; // parametro nell'URL
+  attr: string; // data-* della card (camelCase: 'platforms' → data-platforms)
+  label: string;
+  mode: 'all' | 'any'; // all = la card deve avere tutti i valori scelti, any = almeno uno
+  options: FilterOption[];
+}
+
+/** Filtro numerico "al massimo": la card resta se il suo valore è ≤ di quello scritto. */
+export interface MaxFilter {
+  key: string;
+  attr: string;
+  label: string;
+  unit: string;
+  step: number;
+}
+
+export interface SortOption {
+  value: string;
+  label: string;
+  attr: string;
+  type: 'number' | 'text';
+  dir: 'asc' | 'desc';
+}
 
 interface Props {
-  works: Work[];
+  groups: FilterGroup[];
+  placeholder: string;
+  noun: { one: string; many: string };
+  maxFilters?: MaxFilter[];
+  sorts?: SortOption[];
 }
 
-type Option = { slug: string; name: string };
-
-const { works } = Astro.props;
-
-function unique(items: Array<Option | null | undefined>): Option[] {
-  const map = new Map<string, Option>();
-  for (const item of items) if (item) map.set(item.slug, { slug: item.slug, name: item.name });
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
-}
-
-const ORIGIN_LABELS = { publisher: 'Editore', self: 'Self-publishing', wattpad: 'Wattpad' } as const;
-
-// mode: 'all' = il libro deve avere tutti i valori scelti, 'any' = almeno uno
-const groups = [
-  { key: 'tropes', attr: 'tropes', label: 'Tropes', mode: 'all', options: unique(works.flatMap((w) => w.tropes)) },
-  { key: 'generi', attr: 'genres', label: 'Generi', mode: 'any', options: unique(works.flatMap((w) => w.genres)) },
-  {
-    key: 'ambientazione', attr: 'settings', label: 'Ambientazione', mode: 'any',
-    options: unique(works.flatMap((w) => w.settings)),
-  },
-  { key: 'autori', attr: 'authors', label: 'Autori', mode: 'any', options: unique(works.flatMap((w) => w.authors)) },
-  {
-    key: 'editori', attr: 'publishers', label: 'Editori', mode: 'any',
-    options: unique(works.flatMap((w) => w.editions.map((e) => e.publisher))),
-  },
-  {
-    key: 'origine', attr: 'origin', label: 'Origine', mode: 'any',
-    options: unique(works.map((w) => ({ slug: w.origin, name: ORIGIN_LABELS[w.origin] }))),
-  },
-].filter((g) => g.options.length > 0);
+const { groups, placeholder, noun, maxFilters = [], sorts = [] } = Astro.props;
+const visibleGroups = groups.filter((g) => g.options.length > 0);
 ---
 
-<section class="filters" aria-label="Filtri">
+<section
+  class="filters"
+  aria-label="Filtri"
+  data-noun-one={noun.one}
+  data-noun-many={noun.many}
+  data-max={JSON.stringify(maxFilters)}
+  data-sorts={JSON.stringify(sorts)}
+>
   <div class="bar">
-    <input
-      type="search"
-      class="query"
-      placeholder="Cerca titolo, autore, trope, ISBN…"
-      aria-label="Cerca tra i libri"
-      autocomplete="off"
-    />
-    {groups.map((g) => (
+    <input type="search" class="query" placeholder={placeholder} aria-label={`Cerca tra i ${noun.many}`} autocomplete="off" />
+    {visibleGroups.map((g) => (
       <details class="group" data-group={g.key} data-attr={g.attr} data-mode={g.mode}>
         <summary>
           {g.label} <span class="badge" hidden></span>
         </summary>
         <div class="menu">
           {g.options.length > 8 && <input type="search" class="search" placeholder={`Cerca ${g.label.toLowerCase()}…`} />}
-          {g.mode === 'all' && <p class="hint">Mostra i libri che li hanno tutti</p>}
+          {g.mode === 'all' && <p class="hint">Mostra i {noun.many} che li hanno tutti</p>}
           <ul>
             {g.options.map((o) => (
               <li>
@@ -72,6 +78,26 @@ const groups = [
     ))}
   </div>
 
+  {(maxFilters.length > 0 || sorts.length > 0) && (
+    <div class="extra">
+      {maxFilters.map((f) => (
+        <label class="max">
+          <span>{f.label}</span>
+          <input type="number" min="0" step={f.step} inputmode="decimal" data-max={f.key} placeholder="—" />
+          <span class="unit">{f.unit}</span>
+        </label>
+      ))}
+      {sorts.length > 0 && (
+        <label class="sort">
+          <span>Ordina per</span>
+          <select>
+            {sorts.map((s) => <option value={s.value}>{s.label}</option>)}
+          </select>
+        </label>
+      )}
+    </div>
+  )}
+
   <div class="status">
     <span class="total" aria-live="polite"></span>
     <ul class="chips"></ul>
@@ -79,21 +105,28 @@ const groups = [
   </div>
 
   <div class="empty" hidden>
-    <p>Nessun libro corrisponde a questi filtri.</p>
+    <p>Nessun risultato con questi filtri.</p>
     <button type="button" class="reset">Azzera filtri</button>
   </div>
 </section>
 
 <script>
-  type Group = { key: string; attr: string; mode: 'all' | 'any'; el: HTMLDetailsElement; inputs: HTMLInputElement[] };
-  type Card = { el: HTMLElement; text: string; values: Record<string, Set<string>> };
-
   import { normalize } from '../lib/format';
+
+  type MaxFilter = { key: string; attr: string; label: string; unit: string };
+  type SortOption = { value: string; attr: string; type: 'number' | 'text'; dir: 'asc' | 'desc' };
+  type Group = { key: string; attr: string; mode: 'all' | 'any'; el: HTMLDetailsElement; inputs: HTMLInputElement[] };
+  type Card = { el: HTMLElement; text: string; values: Record<string, Set<string>>; index: number };
 
   const root = document.querySelector<HTMLElement>('.filters');
   if (root) init(root);
 
   function init(root: HTMLElement) {
+    const nounOne = root.dataset.nounOne!;
+    const nounMany = root.dataset.nounMany!;
+    const maxDefs: MaxFilter[] = JSON.parse(root.dataset.max ?? '[]');
+    const sortDefs: SortOption[] = JSON.parse(root.dataset.sorts ?? '[]');
+
     const groups: Group[] = [...root.querySelectorAll<HTMLDetailsElement>('details.group')].map((el) => ({
       key: el.dataset.group!,
       attr: el.dataset.attr!,
@@ -101,20 +134,32 @@ const groups = [
       el,
       inputs: [...el.querySelectorAll<HTMLInputElement>('input[type=checkbox]')],
     }));
-    const cards: Card[] = [...document.querySelectorAll<HTMLElement>('article.preview')].map((el) => ({
+    const cards: Card[] = [...document.querySelectorAll<HTMLElement>('article.preview')].map((el, index) => ({
       el,
+      index,
       text: el.dataset.search ?? '',
       values: Object.fromEntries(groups.map((g) => [g.key, new Set((el.dataset[g.attr] ?? '').split(' ').filter(Boolean))])),
     }));
+    const list = cards[0]?.el.parentElement ?? null;
+
     const total = root.querySelector<HTMLElement>('.total')!;
     const chips = root.querySelector<HTMLUListElement>('.chips')!;
     const resetButtons = root.querySelectorAll<HTMLButtonElement>('.reset');
     const empty = root.querySelector<HTMLElement>('.empty')!;
-
     const query = root.querySelector<HTMLInputElement>('input.query')!;
+    const maxInputs = new Map(
+      maxDefs.map((d) => [d, root.querySelector<HTMLInputElement>(`input[data-max="${d.key}"]`)!] as const),
+    );
+    const sortSelect = root.querySelector<HTMLSelectElement>('.sort select');
+
     const selected = (g: Group) => g.inputs.filter((i) => i.checked).map((i) => i.value);
     // tutte le parole cercate devono comparire
     const terms = () => normalize(query.value).split(/\s+/).filter(Boolean);
+    const maxValue = (input: HTMLInputElement) => (input.value === '' ? null : Number(input.value));
+    const cardNumber = (card: Card, attr: string) => {
+      const raw = card.el.dataset[attr];
+      return raw === undefined || raw === '' ? null : Number(raw);
+    };
 
     function passes(card: Card, g: Group, values: string[]): boolean {
       if (values.length === 0) return true;
@@ -122,12 +167,35 @@ const groups = [
       return g.mode === 'all' ? values.every((v) => own.has(v)) : values.some((v) => own.has(v));
     }
 
-    /** Il libro supera tutti i gruppi, eventualmente con una selezione alternativa per `override`. */
+    /** La card supera ricerca, gruppi e limiti numerici; `override` prova una selezione alternativa per un gruppo. */
     function matches(card: Card, override?: { group: Group; values: string[] }): boolean {
       return (
         terms().every((t) => card.text.includes(t)) &&
-        groups.every((g) => passes(card, g, override?.group === g ? override.values : selected(g)))
+        groups.every((g) => passes(card, g, override?.group === g ? override.values : selected(g))) &&
+        [...maxInputs].every(([def, input]) => {
+          const limit = maxValue(input);
+          if (limit === null) return true;
+          const value = cardNumber(card, def.attr);
+          return value !== null && value <= limit; // senza il dato non si può dire che rientri
+        })
       );
+    }
+
+    /** Riordina le card; quelle senza il dato vanno in fondo, a parità resta l'ordine originale. */
+    function sort() {
+      if (!list) return;
+      const def = sortDefs.find((s) => s.value === sortSelect?.value) ?? sortDefs[0];
+      const ordered = [...cards].sort((a, b) => {
+        if (!def) return a.index - b.index;
+        const va = def.type === 'number' ? cardNumber(a, def.attr) : a.el.dataset[def.attr] || null;
+        const vb = def.type === 'number' ? cardNumber(b, def.attr) : b.el.dataset[def.attr] || null;
+        if (va === null && vb === null) return a.index - b.index;
+        if (va === null) return 1;
+        if (vb === null) return -1;
+        const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'it');
+        return (def.dir === 'asc' ? cmp : -cmp) || a.index - b.index;
+      });
+      list.append(...ordered.map((c) => c.el));
     }
 
     function readUrl() {
@@ -137,20 +205,34 @@ const groups = [
         const wanted = new Set((params.get(g.key) ?? '').split(',').filter(Boolean));
         for (const input of g.inputs) input.checked = wanted.has(input.value);
       }
+      for (const [def, input] of maxInputs) input.value = params.get(def.key) ?? '';
+      if (sortSelect) {
+        const wanted = params.get('ordina');
+        sortSelect.value = sortDefs.some((s) => s.value === wanted) ? wanted! : sortDefs[0].value;
+      }
     }
 
     function writeUrl() {
       const params = new URLSearchParams(location.search);
-      if (query.value.trim()) params.set('q', query.value.trim());
-      else params.delete('q');
-      for (const g of groups) {
-        const values = selected(g);
-        if (values.length) params.set(g.key, values.join(','));
-        else params.delete(g.key);
-      }
+      const set = (key: string, value: string) => (value ? params.set(key, value) : params.delete(key));
+      set('q', query.value.trim());
+      for (const g of groups) set(g.key, selected(g).join(','));
+      for (const [def, input] of maxInputs) set(def.key, input.value);
+      if (sortSelect) set('ordina', sortSelect.value === sortDefs[0].value ? '' : sortSelect.value);
       const search = params.toString().replaceAll('%2C', ',');
       history.replaceState(null, '', search ? `${location.pathname}?${search}` : location.pathname);
     }
+
+    const chip = (text: string, onRemove: () => void) => {
+      const li = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `${text} ×`;
+      button.setAttribute('aria-label', `Rimuovi filtro ${text}`);
+      button.addEventListener('click', onRemove);
+      li.append(button);
+      return li;
+    };
 
     function update() {
       let visible = 0;
@@ -158,11 +240,12 @@ const groups = [
         card.el.hidden = !matches(card);
         if (!card.el.hidden) visible++;
       }
+      sort();
 
       for (const g of groups) {
         const current = selected(g);
         for (const input of g.inputs) {
-          // quanti libri resterebbero aggiungendo questa opzione alla selezione del gruppo
+          // quante card resterebbero aggiungendo questa opzione alla selezione del gruppo
           const values = g.mode === 'all' ? [...new Set([...current, input.value])] : [input.value];
           const n = cards.filter((c) => matches(c, { group: g, values })).length;
           const label = input.closest('label')!;
@@ -175,47 +258,21 @@ const groups = [
         badge.textContent = String(current.length);
       }
 
-      const chip = (text: string, onRemove: () => void) => {
-        const li = document.createElement('li');
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = `${text} ×`;
-        button.setAttribute('aria-label', `Rimuovi filtro ${text}`);
-        button.addEventListener('click', onRemove);
-        li.append(button);
-        return li;
-      };
-
       chips.replaceChildren(
         ...(query.value.trim()
-          ? [
-              chip(`“${query.value.trim()}”`, () => {
-                query.value = '';
-                changed();
-              }),
-            ]
+          ? [chip(`“${query.value.trim()}”`, () => ((query.value = ''), changed()))]
           : []),
         ...groups.flatMap((g) =>
-          g.inputs
-            .filter((i) => i.checked)
-            .map((input) => {
-              const li = document.createElement('li');
-              const button = document.createElement('button');
-              button.type = 'button';
-              button.textContent = `${input.dataset.label} ×`;
-              button.setAttribute('aria-label', `Rimuovi filtro ${input.dataset.label}`);
-              button.addEventListener('click', () => {
-                input.checked = false;
-                changed();
-              });
-              li.append(button);
-              return li;
-            }),
+          g.inputs.filter((i) => i.checked).map((input) => chip(input.dataset.label!, () => ((input.checked = false), changed()))),
         ),
+        ...[...maxInputs]
+          .filter(([, input]) => input.value !== '')
+          .map(([def, input]) => chip(`${def.label} ${input.value} ${def.unit}`, () => ((input.value = ''), changed()))),
       );
 
-      const active = terms().length > 0 || groups.some((g) => selected(g).length > 0);
-      total.textContent = visible === 1 ? '1 libro' : `${visible} libri`;
+      const active =
+        terms().length > 0 || groups.some((g) => selected(g).length > 0) || [...maxInputs.values()].some((i) => i.value !== '');
+      total.textContent = `${visible} ${visible === 1 ? nounOne : nounMany}`;
       resetButtons[0].hidden = !active;
       empty.hidden = visible > 0;
     }
@@ -226,15 +283,16 @@ const groups = [
     }
 
     root.addEventListener('change', (e) => {
-      if ((e.target as HTMLElement).matches('input[type=checkbox]')) changed();
+      if ((e.target as HTMLElement).matches('input[type=checkbox], select')) changed();
     });
-
     query.addEventListener('input', changed);
+    for (const input of maxInputs.values()) input.addEventListener('input', changed);
 
     resetButtons.forEach((b) =>
       b.addEventListener('click', () => {
         query.value = '';
         for (const g of groups) for (const i of g.inputs) i.checked = false;
+        for (const input of maxInputs.values()) input.value = '';
         changed();
       }),
     );
@@ -337,12 +395,25 @@ const groups = [
   .hint { margin: 0 0 6px; font-size: 0.8rem; color: var(--muted); }
   ul { list-style: none; margin: 0; padding: 0; }
   li[hidden] { display: none; }
-  label { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 6px; cursor: pointer; }
-  label:hover { background: var(--accent-soft); }
-  label.disabled { opacity: 0.45; cursor: default; }
-  label.disabled:hover { background: none; }
+  .menu label { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 6px; cursor: pointer; }
+  .menu label:hover { background: var(--accent-soft); }
+  .menu label.disabled { opacity: 0.45; cursor: default; }
+  .menu label.disabled:hover { background: none; }
   .name { flex: 1; }
   .count { font-size: 0.8rem; color: var(--muted); }
+
+  .extra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: 12px; font-size: 0.9rem; }
+  .max, .sort { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+  .max input, .sort select {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+  }
+  .max input { width: 92px; }
+  .unit { font-size: 0.85rem; }
 
   .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; min-height: 32px; }
   .total { color: var(--muted); font-size: 0.9rem; margin-right: 4px; }

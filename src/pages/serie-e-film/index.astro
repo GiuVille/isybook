@@ -1,0 +1,49 @@
+---
+import Base from '../../layouts/Base.astro';
+import AdaptationPreview from '../../components/AdaptationPreview.astro';
+import CatalogFilters, { type FilterGroup, type FilterOption } from '../../components/CatalogFilters.astro';
+import { slugify } from '../../admin/resources';
+import { getAdaptations } from '../../lib/data';
+
+const adaptations = await getAdaptations();
+
+function unique(items: FilterOption[]): FilterOption[] {
+  return [...new Map(items.map((i) => [i.slug, i])).values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+const groups: FilterGroup[] = [
+  {
+    key: 'tipo', attr: 'kind', label: 'Tipo', mode: 'any',
+    options: unique(adaptations.map((a) => (a.kind === 'film' ? { slug: 'film', name: 'Film' } : { slug: 'series', name: 'Serie TV' }))),
+  },
+  {
+    key: 'piattaforma', attr: 'platforms', label: 'Piattaforma', mode: 'any',
+    options: unique(adaptations.flatMap((a) => a.watch_providers.map((p) => ({ slug: slugify(p.platform), name: p.platform })))),
+  },
+  { key: 'generi', attr: 'genres', label: 'Generi', mode: 'any', options: unique(adaptations.flatMap((a) => a.genres)) },
+  { key: 'tropes', attr: 'tropes', label: 'Tropes', mode: 'all', options: unique(adaptations.flatMap((a) => a.tropes)) },
+];
+---
+
+<Base title="Serie TV e film" description="Serie TV e film tratti da libri: dove vederli, quante stagioni hanno, tropes e libri da cui sono nati.">
+  <h1>Serie TV e film</h1>
+  <p class="muted intro">Le storie che sono passate dalla pagina allo schermo: dove vederle, quanto durano e il libro da cui nascono.</p>
+  <CatalogFilters
+    groups={groups}
+    placeholder="Cerca titolo, libro, autore, piattaforma…"
+    noun={{ one: 'titolo', many: 'titoli' }}
+    sorts={[
+      { value: 'titolo', label: 'Titolo', attr: 'title', type: 'text', dir: 'asc' },
+      { value: 'uscita', label: 'Uscita più recente', attr: 'released', type: 'text', dir: 'desc' },
+    ]}
+  />
+  {adaptations.length === 0 && <p class="muted">Per ora non ci sono serie o film in archivio.</p>}
+  <div class="list">
+    {adaptations.map((a) => <AdaptationPreview adaptation={a} />)}
+  </div>
+</Base>
+
+<style>
+  .intro { margin-top: -8px; }
+  .list { display: grid; gap: 24px; }
+</style>

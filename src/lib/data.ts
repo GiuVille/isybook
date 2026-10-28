@@ -19,13 +19,45 @@ const WORK_SELECT = `
     merch ( ${MERCH_FIELDS} )
   ),
   merch_works ( merch ( ${MERCH_FIELDS} ) ),
-  adaptations ( id, title, kind, platform, release_date, production_status, tmdb_id, status )
+  adaptations (
+    id, slug, title, kind, platform, release_date, production_status, tmdb_id, status,
+    plot, poster_url, seasons, episodes, runtime_minutes, watch_providers,
+    adaptation_genres ( genres ( id, slug, name, theme ) ),
+    adaptation_tropes ( tropes ( id, slug, name ) )
+  )
 `;
 
 type Row = Record<string, any>;
 
-function mapWork(row: Row): Work {
+/** Adattamento completo: se non ha generi o tropes propri li eredita dal libro. */
+function buildAdaptation(
+  raw: Row & { genres: Tag[]; tropes: Tag[] },
+  work: Pick<Work, 'slug' | 'title' | 'authors' | 'genres' | 'tropes'>,
+): Adaptation {
   return {
+    id: raw.id,
+    slug: raw.slug ?? `${work.slug}-${raw.kind === 'film' ? 'film' : 'serie'}`,
+    title: raw.title,
+    kind: raw.kind,
+    platform: raw.platform,
+    release_date: raw.release_date,
+    production_status: raw.production_status,
+    tmdb_id: raw.tmdb_id,
+    plot: raw.plot,
+    poster_url: raw.poster_url,
+    seasons: raw.seasons,
+    episodes: raw.episodes,
+    runtime_minutes: raw.runtime_minutes,
+    watch_providers: raw.watch_providers ?? [],
+    genres: raw.genres.length ? raw.genres : work.genres,
+    tropes: raw.tropes.length ? raw.tropes : work.tropes,
+    inherited: { genres: raw.genres.length === 0, tropes: raw.tropes.length === 0 },
+    source: { slug: work.slug, title: work.title, authors: work.authors },
+  };
+}
+
+function mapWork(row: Row): Work {
+  const work = {
     id: row.id,
     slug: row.slug,
     title: row.title,
@@ -41,12 +73,25 @@ function mapWork(row: Row): Work {
     editions: (row.editions ?? [])
       .map((e: Row): Edition => ({ ...e, publisher: e.publishers ?? null, purchase_links: e.purchase_links ?? [] } as Edition))
       .sort(byReleaseDate),
-    adaptations: (row.adaptations ?? []).filter((a: Row) => a.status === 'published'),
+    adaptations: [] as Adaptation[],
     merch: uniqueById([
       ...(row.merch_works ?? []).map((r: Row) => r.merch),
       ...(row.editions ?? []).flatMap((e: Row) => e.merch ?? []),
     ]).filter((m: Row) => m.status === 'published'),
   };
+  work.adaptations = (row.adaptations ?? [])
+    .filter((a: Row) => a.status === 'published')
+    .map((a: Row) =>
+      buildAdaptation(
+        {
+          ...a,
+          genres: (a.adaptation_genres ?? []).map((r: Row) => r.genres).filter(Boolean),
+          tropes: (a.adaptation_tropes ?? []).map((r: Row) => r.tropes).filter(Boolean),
+        },
+        work,
+      ),
+    );
+  return work;
 }
 
 function uniqueById<T extends { id: string }>(items: Array<T | null | undefined>): T[] {
@@ -59,25 +104,35 @@ function byReleaseDate(a: Edition, b: Edition) {
 
 function sampleWorks(): Work[] {
   const find = <T extends { id: string }>(list: T[], ids: string[]) => list.filter((x) => ids.includes(x.id));
-  return sample.works.map((w) => ({
-    ...w,
-    origin: w.origin as Work['origin'],
-    authors: find(sample.authors as Author[], w.author_ids),
-    genres: find(sample.genres as Tag[], w.genre_ids),
-    tropes: find(sample.tropes as Tag[], w.trope_ids),
-    settings: find(sample.settings as Tag[], (w as { setting_ids?: string[] }).setting_ids ?? []),
-    editions: w.editions
-      .map((e) => ({
-        ...e,
-        format: e.format as Edition['format'],
-        edition_type: e.edition_type as Edition['edition_type'],
-        first_print: Boolean((e as { first_print?: boolean }).first_print),
-        publisher: (sample.publishers as Publisher[]).find((p) => p.id === e.publisher_id) ?? null,
-      }))
-      .sort(byReleaseDate),
-    adaptations: (w as { adaptations?: Adaptation[] }).adaptations ?? [],
-    merch: (w as { merch?: Merch[] }).merch ?? [],
-  }));
+  return sample.works.map((w) => {
+    const work: Work = {
+      ...w,
+      origin: w.origin as Work['origin'],
+      authors: find(sample.authors as Author[], w.author_ids),
+      genres: find(sample.genres as Tag[], w.genre_ids),
+      tropes: find(sample.tropes as Tag[], w.trope_ids),
+      settings: find(sample.settings as Tag[], (w as { setting_ids?: string[] }).setting_ids ?? []),
+      editions: w.editions
+        .map((e) => ({
+          ...e,
+          format: e.format as Edition['format'],
+          edition_type: e.edition_type as Edition['edition_type'],
+          first_print: Boolean((e as { first_print?: boolean }).first_print),
+          publisher: (sample.publishers as Publisher[]).find((p) => p.id === e.publisher_id) ?? null,
+        }))
+        .sort(byReleaseDate),
+      adaptations: [],
+      merch: (w as { merch?: Merch[] }).merch ?? [],
+    };
+    type RawAdaptation = Row & { genre_ids?: string[]; trope_ids?: string[] };
+    work.adaptations = ((w as { adaptations?: RawAdaptation[] }).adaptations ?? []).map((a) =>
+      buildAdaptation(
+        { ...a, genres: find(sample.genres as Tag[], a.genre_ids ?? []), tropes: find(sample.tropes as Tag[], a.trope_ids ?? []) },
+        work,
+      ),
+    );
+    return work;
+  });
 }
 
 export async function getWorks(): Promise<Work[]> {
@@ -89,6 +144,13 @@ export async function getWorks(): Promise<Work[]> {
     .order('title');
   if (error) throw error;
   return (data ?? []).map(mapWork);
+}
+
+/** Tutte le serie e i film pubblicati, tratti da libri pubblicati. */
+export async function getAdaptations(): Promise<Adaptation[]> {
+  return (await getWorks())
+    .flatMap((w) => w.adaptations)
+    .sort((a, b) => a.title.localeCompare(b.title, 'it'));
 }
 
 export async function getWorkBySlug(slug: string): Promise<Work | undefined> {

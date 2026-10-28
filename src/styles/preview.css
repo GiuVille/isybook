@@ -1,0 +1,53 @@
+/* Anteprima a scacchiera condivisa da libri (BookPreview) e serie/film (AdaptationPreview).
+   Colori dal tema del genere: --light, --dark, --panel, --ink, --text impostati sull'article. */
+.preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-radius: var(--radius);
+  overflow: hidden;
+  /* scacchiera 2×2: chiaro in alto a sinistra e in basso a destra */
+  background: conic-gradient(at 50% 50%, var(--dark) 0 25%, var(--light) 0 50%, var(--dark) 0 75%, var(--light) 0);
+  font-family: 'Gochi Hand', cursive;
+  color: var(--ink);
+}
+.preview[hidden] { display: none; }
+
+.preview .visual { display: block; padding: 8px; min-width: 0; }
+.preview svg { display: block; width: 100%; height: auto; }
+
+.preview .cover { filter: drop-shadow(4px 6px 6px rgba(0, 0, 0, 0.28)); }
+
+.preview .arrows { stroke: var(--ink); stroke-width: 3; }
+.preview .labels text { fill: var(--ink); font-family: 'Gochi Hand', cursive; }
+.preview .checks .box,
+.preview .checks .tick { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
+.preview .checks .box { stroke-width: 2; }
+.preview .checks .tick { stroke-width: 3; }
+.preview .checks .icon { fill: var(--ink); stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
+.preview .checks text { fill: var(--ink); stroke: none; font-family: 'Gochi Hand', cursive; }
+
+.preview .save-slot { position: absolute; top: 12px; right: 14px; z-index: 2; }
+.preview .plot { position: relative; display: flex; flex-direction: column; padding: 16px 28px 28px; min-width: 0; }
+.preview .plot h3 { margin: 0 0 12px; text-align: center; font-family: inherit; font-size: 1.9rem; font-weight: 400; }
+.preview .box { flex: 1; background: var(--panel); padding: 18px 20px; color: var(--text); font-family: system-ui, sans-serif; }
+.preview .meta { margin: 0 0 8px; font-size: 0.85rem; opacity: 0.8; }
+.preview .meta a { color: inherit; font-weight: 600; }
+.preview .date { display: block; margin-top: 2px; }
+.preview .facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 2px; }
+.preview .text {
+  margin: 0;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 10;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.preview .empty { opacity: 0.7; font-style: italic; }
+
+@media (max-width: 700px) {
+  .preview {
+    grid-template-columns: minmax(0, 1fr);
+    background: linear-gradient(var(--light) 0 50%, var(--dark) 0);
+  }
+  .preview .plot { padding: 8px 16px 20px; }
+}

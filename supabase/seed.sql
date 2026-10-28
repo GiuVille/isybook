@@ -184,3 +184,23 @@ insert into event_works (event_id, work_id) values
   ('00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-0000000000f1'),
   ('00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-0000000000f2'),
   ('00000000-0000-0000-0000-000000000203', '00000000-0000-0000-0000-0000000000f5');
+
+-- Serie TV e film di esempio
+insert into adaptations (id, work_id, slug, title, kind, platform, release_date, production_status, plot, seasons, episodes, runtime_minutes, watch_providers, status) values
+  ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-0000000000f2', 'il-patto-delle-stelle-serie', 'Il patto delle stelle', 'series',
+   'Disney+', '2026-03-06', null,
+   'Cinque ragazzi, una nave volante e una profezia: l’adattamento in otto episodi resta fedele al libro e aggiunge il punto di vista del capitano. (Serie di esempio.)',
+   1, 8, null, '[{"platform": "Disney+", "url": "https://www.disneyplus.com/it-it", "kind": "subscription"}]', 'published'),
+  ('00000000-0000-0000-0000-000000000302', '00000000-0000-0000-0000-0000000000f3', 'lultimo-ospite-film', 'L’ultimo ospite', 'film',
+   'Prime Video', '2025-11-14', null,
+   'Una notte di tempesta, una villa sul lago e sei sospettati: il film stringe il romanzo in un giallo serrato a porte chiuse. (Film di esempio.)',
+   null, null, 112, '[{"platform": "Prime Video", "url": "https://www.primevideo.com", "kind": "subscription"}, {"platform": "Apple TV", "url": "https://tv.apple.com/it", "kind": "rent"}]', 'published');
+
+update adaptations set slug = 'la-corona-di-cenere-serie',
+  plot = 'La serie segue la ladra e il principe dal primo incontro a corte, con una prima stagione che copre l’intero primo libro. (Serie di esempio.)'
+  where work_id = '00000000-0000-0000-0000-0000000000f1';
+
+insert into adaptation_genres (adaptation_id, genre_id) values
+  ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-0000000000d2');
+insert into adaptation_tropes (adaptation_id, trope_id) values
+  ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-0000000000e3');

@@ -1,4 +1,4 @@
-import type { EditionFormat, EditionType, Work } from './types';
+import type { Adaptation, Edition, EditionFormat, EditionType, WatchKind, Work } from './types';
 
 export const FORMAT_LABELS: Record<EditionFormat, string> = {
   paperback: 'Brossura',
@@ -61,6 +61,12 @@ export function availability(work: Pick<Work, 'editions'>): { ebook: boolean; au
   };
 }
 
+/** Edizione con il prezzo più basso tra quelle che hanno un prezzo. */
+export function cheapestEdition(work: Pick<Work, 'editions'>): (Edition & { price: number }) | null {
+  const priced = work.editions.filter((e): e is Edition & { price: number } => typeof e.price === 'number');
+  return priced.length ? priced.reduce((a, b) => (b.price < a.price ? b : a)) : null;
+}
+
 /** Pagine della prima edizione cartacea; altrimenti della prima edizione che le indica. */
 export function pageCount(work: Pick<Work, 'editions'>): number | null {
   const withPages = work.editions.filter((e) => e.pages);
@@ -77,4 +83,38 @@ export function releaseDate(work: Pick<Work, 'editions'>): string | null {
 export function releaseYear(work: Pick<Work, 'editions'>): number | null {
   const date = releaseDate(work);
   return date ? Number(date.slice(0, 4)) : null;
+}
+
+export const ADAPTATION_KIND_LABELS = { series: 'Serie TV', film: 'Film' } as const;
+
+export const WATCH_KIND_LABELS: Record<WatchKind, string> = {
+  subscription: 'Abbonamento',
+  rent: 'Noleggio',
+  buy: 'Acquisto',
+  free: 'Gratis',
+};
+
+/** "1 h 52 min", "48 min". */
+export function formatRuntime(minutes?: number | null): string {
+  if (!minutes) return '';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`;
+}
+
+/** "Serie TV · 1 stagione · 8 episodi", "Film · 1 h 52 min". */
+export function adaptationFacts(a: Pick<Adaptation, 'kind' | 'seasons' | 'episodes' | 'runtime_minutes'>): string {
+  const parts: string[] = [ADAPTATION_KIND_LABELS[a.kind]];
+  if (a.kind === 'series') {
+    if (a.seasons) parts.push(`${a.seasons} ${a.seasons === 1 ? 'stagione' : 'stagioni'}`);
+    if (a.episodes) parts.push(`${a.episodes} ${a.episodes === 1 ? 'episodio' : 'episodi'}`);
+  } else if (a.runtime_minutes) {
+    parts.push(formatRuntime(a.runtime_minutes));
+  }
+  return parts.join(' · ');
+}
+
+/** Data d'uscita se c'è, altrimenti lo stato della produzione. */
+export function adaptationWhen(a: Pick<Adaptation, 'release_date' | 'production_status'>): string {
+  return a.release_date ? formatDate(a.release_date) : (a.production_status ?? 'Annunciato');
 }

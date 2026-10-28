@@ -1,5 +1,5 @@
 // Libri correlati e ordine di lettura delle saghe, calcolati in build.
-import type { Work } from './types';
+import type { Adaptation, Work } from './types';
 
 export interface SimilarWork {
   work: Work;
@@ -55,4 +55,61 @@ export function seriesInfo(work: Work, all: Work[]): SeriesInfo | null {
     .sort((a, b) => (a.series_number ?? Infinity) - (b.series_number ?? Infinity) || a.title.localeCompare(b.title, 'it'));
   const index = volumes.findIndex((w) => w.id === work.id);
   return { name: work.series, volumes, previous: volumes[index - 1], next: volumes[index + 1] };
+}
+
+export interface SimilarItem {
+  kind: 'adaptation' | 'work';
+  slug: string;
+  title: string;
+  caption: string;
+  reason: string;
+  adaptation?: Adaptation;
+  work?: Work;
+}
+
+/**
+ * Consigli per una serie o un film: altri adattamenti con tropes/generi in comune
+ * (+2 ciascuno, +1 se dello stesso tipo, +2 se tratti dallo stesso autore), poi qualche
+ * libro con tropes in comune che non ha ancora un adattamento.
+ */
+export function similarToAdaptation(item: Adaptation, adaptations: Adaptation[], works: Work[], limit = 4): SimilarItem[] {
+  const sharedNames = <T extends { slug: string; name: string }>(a: T[], b: T[]) => shared(a, b).map((t) => t.name.toLowerCase());
+
+  const screen = adaptations
+    .filter((a) => a.id !== item.id)
+    .map((a) => {
+      const tropes = sharedNames(item.tropes, a.tropes);
+      const genres = sharedNames(item.genres, a.genres);
+      const sameAuthor = a.source.authors.some((x) => item.source.authors.some((y) => y.slug === x.slug));
+      const score = tropes.length * 2 + genres.length * 2 + (a.kind === item.kind ? 1 : 0) + (sameAuthor ? 2 : 0);
+      const reason = tropes.length ? `In comune: ${tropes.slice(0, 2).join(', ')}` : genres.length ? genres.join(', ') : sameAuthor ? 'Dalla stessa autrice o autore' : '';
+      return { a, score, reason };
+    })
+    .filter((x) => x.score > 1)
+    .sort((x, y) => y.score - x.score)
+    .map(({ a, reason }): SimilarItem => ({
+      kind: 'adaptation',
+      slug: a.slug,
+      title: a.title,
+      caption: a.kind === 'film' ? 'Film' : 'Serie TV',
+      reason: reason || 'Stesso tipo di storia',
+      adaptation: a,
+    }));
+
+  const books = works
+    .filter((w) => w.slug !== item.source.slug && w.adaptations.length === 0)
+    .map((w) => ({ w, tropes: sharedNames(item.tropes, w.tropes) }))
+    .filter((x) => x.tropes.length > 0)
+    .sort((x, y) => y.tropes.length - x.tropes.length)
+    .map(({ w, tropes }): SimilarItem => ({
+      kind: 'work',
+      slug: w.slug,
+      title: w.title,
+      caption: w.authors.map((a) => a.name).join(', '),
+      reason: `Da leggere: ${tropes.slice(0, 2).join(', ')}`,
+      work: w,
+    }));
+
+  // almeno un libro se c'è, il resto adattamenti
+  return [...screen.slice(0, books.length ? limit - 1 : limit), ...books].slice(0, limit);
 }

@@ -218,12 +218,19 @@
       "adaptations": [
         {
           "id": "ad1",
+          "slug": "la-corona-di-cenere-serie",
           "title": "La corona di cenere",
           "kind": "series",
           "platform": "Netflix",
           "release_date": null,
           "production_status": "In lavorazione",
-          "tmdb_id": null
+          "tmdb_id": null,
+          "plot": "La serie segue la ladra e il principe dal primo incontro a corte, con una prima stagione che copre l’intero primo libro. (Serie di esempio.)",
+          "poster_url": null,
+          "seasons": null,
+          "episodes": null,
+          "runtime_minutes": null,
+          "watch_providers": []
         }
       ],
       "setting_ids": [
@@ -340,6 +347,36 @@
       ],
       "setting_ids": [
         "s-academy"
+      ],
+      "adaptations": [
+        {
+          "id": "ad2",
+          "slug": "il-patto-delle-stelle-serie",
+          "title": "Il patto delle stelle",
+          "kind": "series",
+          "platform": "Disney+",
+          "release_date": "2026-03-06",
+          "production_status": null,
+          "tmdb_id": null,
+          "plot": "Cinque ragazzi, una nave volante e una profezia: l’adattamento in otto episodi resta fedele al libro e aggiunge il punto di vista del capitano. (Serie di esempio.)",
+          "poster_url": null,
+          "seasons": 1,
+          "episodes": 8,
+          "runtime_minutes": null,
+          "watch_providers": [
+            {
+              "platform": "Disney+",
+              "url": "https://www.disneyplus.com/it-it",
+              "kind": "subscription"
+            }
+          ],
+          "genre_ids": [
+            "g2"
+          ],
+          "trope_ids": [
+            "t3"
+          ]
+        }
       ]
     },
     {
@@ -378,6 +415,35 @@
       ],
       "setting_ids": [
         "s-villa"
+      ],
+      "adaptations": [
+        {
+          "id": "ad3",
+          "slug": "lultimo-ospite-film",
+          "title": "L’ultimo ospite",
+          "kind": "film",
+          "platform": "Prime Video",
+          "release_date": "2025-11-14",
+          "production_status": null,
+          "tmdb_id": null,
+          "plot": "Una notte di tempesta, una villa sul lago e sei sospettati: il film stringe il romanzo in un giallo serrato a porte chiuse. (Film di esempio.)",
+          "poster_url": null,
+          "seasons": null,
+          "episodes": null,
+          "runtime_minutes": 112,
+          "watch_providers": [
+            {
+              "platform": "Prime Video",
+              "url": "https://www.primevideo.com",
+              "kind": "subscription"
+            },
+            {
+              "platform": "Apple TV",
+              "url": "https://tv.apple.com/it",
+              "kind": "rent"
+            }
+          ]
+        }
       ]
     },
     {

@@ -1,15 +1,52 @@
 ---
 import Base from '../../layouts/Base.astro';
-import BookFilters from '../../components/BookFilters.astro';
 import BookPreview from '../../components/BookPreview.astro';
+import CatalogFilters, { type FilterGroup, type FilterOption } from '../../components/CatalogFilters.astro';
 import { getWorks } from '../../lib/data';
 
 const works = await getWorks();
+
+function unique(items: Array<FilterOption | null | undefined>): FilterOption[] {
+  const map = new Map<string, FilterOption>();
+  for (const item of items) if (item) map.set(item.slug, { slug: item.slug, name: item.name });
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+const ORIGIN_LABELS = { publisher: 'Editore', self: 'Self-publishing', wattpad: 'Wattpad' } as const;
+
+const groups: FilterGroup[] = [
+  { key: 'tropes', attr: 'tropes', label: 'Tropes', mode: 'all', options: unique(works.flatMap((w) => w.tropes)) },
+  { key: 'generi', attr: 'genres', label: 'Generi', mode: 'any', options: unique(works.flatMap((w) => w.genres)) },
+  { key: 'ambientazione', attr: 'settings', label: 'Ambientazione', mode: 'any', options: unique(works.flatMap((w) => w.settings)) },
+  { key: 'autori', attr: 'authors', label: 'Autori', mode: 'any', options: unique(works.flatMap((w) => w.authors)) },
+  {
+    key: 'editori', attr: 'publishers', label: 'Editori', mode: 'any',
+    options: unique(works.flatMap((w) => w.editions.map((e) => e.publisher))),
+  },
+  {
+    key: 'origine', attr: 'origin', label: 'Origine', mode: 'any',
+    options: unique(works.map((w) => ({ slug: w.origin, name: ORIGIN_LABELS[w.origin] }))),
+  },
+];
 ---
 
 <Base title="Libri">
   <h1>Libri</h1>
-  <BookFilters works={works} />
+  <CatalogFilters
+    groups={groups}
+    placeholder="Cerca titolo, autore, trope, ISBN…"
+    noun={{ one: 'libro', many: 'libri' }}
+    maxFilters={[
+      { key: 'prezzo_max', attr: 'priceMin', label: 'Prezzo massimo', unit: '€', step: 0.5 },
+      { key: 'pagine_max', attr: 'pages', label: 'Pagine massime', unit: 'pag.', step: 50 },
+    ]}
+    sorts={[
+      { value: 'titolo', label: 'Titolo', attr: 'title', type: 'text', dir: 'asc' },
+      { value: 'prezzo', label: 'Prezzo più basso', attr: 'priceMin', type: 'number', dir: 'asc' },
+      { value: 'uscita', label: 'Uscita più recente', attr: 'released', type: 'text', dir: 'desc' },
+      { value: 'pagine', label: 'Meno pagine', attr: 'pages', type: 'number', dir: 'asc' },
+    ]}
+  />
   <div class="list">
     {works.map((w) => <BookPreview work={w} />)}
   </div>

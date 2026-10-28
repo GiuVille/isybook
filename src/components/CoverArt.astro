@@ -1,12 +1,23 @@
 ---
-// Copertina 2:3: la foto se c'è, altrimenti un libro segnaposto nei colori del genere.
+// Copertina 2:3: la foto se c'è, altrimenti un segnaposto nei colori del genere.
+// Con `work` disegna il libro; con `art` qualsiasi altra cosa, per esempio la locandina di una serie o di un film.
 // Si può usare da sola o annidata in un altro SVG passando x/y/width/height.
 import { themeForWork } from '../lib/book-themes';
 import { wrapTitle } from '../lib/trope-arrows';
 import type { Work } from '../lib/types';
 
+export interface Art {
+  id: string;
+  title: string;
+  caption: string; // autori del libro, oppure "Serie TV" / "Film"
+  image?: string | null;
+  color: string;
+  variant: 'book' | 'poster';
+}
+
 interface Props {
-  work: Work;
+  work?: Work;
+  art?: Art;
   x?: number;
   y?: number;
   width?: number;
@@ -16,13 +27,21 @@ interface Props {
 
 const W = 180;
 const H = 270;
-const { work, x, y, width, height, class: className } = Astro.props;
-const theme = themeForWork(work);
-const cover = work.editions.find((e) => e.cover_url)?.cover_url;
-const authors = work.authors.map((a) => a.name).join(', ');
-const titleLines = wrapTitle(work.title, 11);
-const clipId = `cover-clip-${work.id}-${Math.random().toString(36).slice(2, 8)}`;
+const { work, art: givenArt, x, y, width, height, class: className } = Astro.props;
+const art: Art = givenArt ?? {
+  id: work!.id,
+  title: work!.title,
+  caption: work!.authors.map((a) => a.name).join(', '),
+  image: work!.editions.find((e) => e.cover_url)?.cover_url,
+  color: themeForWork(work!).cover,
+  variant: 'book',
+};
+const cover = art.image;
+const authors = art.caption;
+const titleLines = wrapTitle(art.title, 11);
+const clipId = `cover-clip-${art.id}-${Math.random().toString(36).slice(2, 8)}`;
 const standalone = x === undefined;
+const poster = art.variant === 'poster';
 ---
 
 <svg
@@ -33,16 +52,46 @@ const standalone = x === undefined;
   height={height}
   class={className}
   role={standalone ? 'img' : undefined}
-  aria-label={standalone ? `Copertina di ${work.title}` : undefined}
+  aria-label={standalone ? `${poster ? 'Locandina' : 'Copertina'} di ${art.title}` : undefined}
 >
   <defs>
     <clipPath id={clipId}><rect width={W} height={H} rx="4" /></clipPath>
   </defs>
   {cover ? (
     <image href={cover} width={W} height={H} preserveAspectRatio="xMidYMid slice" clip-path={`url(#${clipId})`} />
+  ) : poster ? (
+    <g clip-path={`url(#${clipId})`}>
+      {/* locandina: fondo scuro sfumato nel colore del genere, titolo grande, tipo in alto */}
+      <rect width={W} height={H} fill={art.color} />
+      <rect width={W} height={H} fill={`url(#${clipId}-shade)`} />
+      <defs>
+        <linearGradient id={`${clipId}-shade`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#000" stop-opacity="0.05" />
+          <stop offset="1" stop-color="#000" stop-opacity="0.6" />
+        </linearGradient>
+      </defs>
+      <text x={W / 2} y="34" text-anchor="middle" fill="rgba(255,255,255,.9)" font-family="system-ui, sans-serif" font-size="12" font-weight="700" letter-spacing="3">
+        {authors.toUpperCase()}
+      </text>
+      <line x1="60" y1="46" x2="120" y2="46" stroke="rgba(255,255,255,.6)" stroke-width="1.5" />
+      <text
+        x={W / 2}
+        y={H - 70 - (titleLines.length - 1) * 24}
+        text-anchor="middle"
+        fill="#fff"
+        font-family="Georgia, serif"
+        font-weight="700"
+        font-size="22"
+      >
+        {titleLines.map((line, i) => <tspan x={W / 2} dy={i === 0 ? 0 : 24}>{line}</tspan>)}
+      </text>
+      <text x={W / 2} y={H - 22} text-anchor="middle" fill="rgba(255,255,255,.75)" font-family="system-ui, sans-serif" font-size="10" letter-spacing="2">
+        TRATTO DAL LIBRO
+      </text>
+    </g>
   ) : (
     <g clip-path={`url(#${clipId})`}>
-      <rect width={W} height={H} fill={theme.cover} />
+      <rect width={W} height={H} fill={art.color} />
       <rect width="10" height={H} fill="rgba(0,0,0,.18)" />
       <rect x="22" y="22" width={W - 34} height={H - 44} fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5" />
       <text

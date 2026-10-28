@@ -49,14 +49,35 @@ export interface Edition {
   purchase_links: PurchaseLink[];
 }
 
+export type WatchKind = 'subscription' | 'rent' | 'buy' | 'free';
+
+/** Dove vedere un adattamento (disponibilità in Italia). */
+export interface WatchProvider {
+  platform: string;
+  url?: string | null;
+  kind: WatchKind;
+}
+
 export interface Adaptation {
   id: string;
+  slug: string;
   title: string;
   kind: 'series' | 'film';
   platform?: string | null;
   release_date?: string | null;
   production_status?: string | null;
   tmdb_id?: number | null;
+  plot?: string | null;
+  poster_url?: string | null;
+  seasons?: number | null;
+  episodes?: number | null;
+  runtime_minutes?: number | null;
+  watch_providers: WatchProvider[];
+  genres: Tag[];
+  tropes: Tag[];
+  /** true se generi/tropes non sono indicati sull'adattamento e vengono dal libro. */
+  inherited: { genres: boolean; tropes: boolean };
+  source: { slug: string; title: string; authors: Author[] };
 }
 
 export type MerchKind = 'gadget' | 'jewelry' | 'box' | 'other';

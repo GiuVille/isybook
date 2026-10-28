@@ -1,10 +1,11 @@
 ---
 // Anteprima libro: scacchiera nel colore del genere, copertina con una freccia per tropo, trama a destra.
+import '../styles/preview.css';
 import CoverArt from './CoverArt.astro';
 import SaveButtons from './SaveButtons.astro';
 import SpiceMeter from './SpiceMeter.astro';
 import { isRomance, themeForWork } from '../lib/book-themes';
-import { availability, formatDate, normalize, pageCount, releaseDate } from '../lib/format';
+import { FORMAT_LABELS, availability, cheapestEdition, formatDate, formatPrice, normalize, pageCount, releaseDate } from '../lib/format';
 import { COVER, VIEW, layoutTropeArrows } from '../lib/trope-arrows';
 import type { Work } from '../lib/types';
 
@@ -20,6 +21,7 @@ const arrowLabels = [...work.tropes.map((t) => t.name), ...work.settings.map((s)
 const arrows = layoutTropeArrows(arrowLabels, work.slug);
 const authors = work.authors.map((a) => a.name).join(', ');
 const pages = pageCount(work);
+const cheapest = cheapestEdition(work);
 const spice = isRomance(work) && work.spice_level != null ? work.spice_level : null;
 // spunte in basso a destra al posto delle frecce: audiolibro (cuffie) ed ebook (e-reader)
 const formats = availability(work);
@@ -62,6 +64,10 @@ const a11y = [
   data-publishers={slugs(work.editions.map((e) => e.publisher))}
   data-origin={work.origin}
   data-search={searchText}
+  data-price-min={cheapest?.price ?? ''}
+  data-pages={pages ?? ''}
+  data-released={released ?? ''}
+  data-title={work.title}
   style={`--light:${theme.light};--dark:${theme.dark};--panel:${theme.panel};--ink:${theme.ink};--text:${theme.text}`}
 >
   <a href={`/libri/${work.slug}`} class="visual" aria-label={work.title}>
@@ -122,8 +128,9 @@ const a11y = [
       <p class="meta">
         <a href={`/libri/${work.slug}`}>{work.title}</a> · {authors}
         {released && <span class="date">Uscita: {formatDate(released)}</span>}
-        {(pages || spice != null) && (
+        {(pages || spice != null || cheapest) && (
           <span class="facts">
+            {cheapest && <span>da {formatPrice(cheapest.price)} ({FORMAT_LABELS[cheapest.format].toLowerCase()})</span>}
             {pages && <span>{pages} pagine</span>}
             {spice != null && <SpiceMeter level={spice} size={18} />}
           </span>
@@ -133,57 +140,3 @@ const a11y = [
     </div>
   </div>
 </article>
-
-<style>
-  .preview {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    border-radius: var(--radius);
-    overflow: hidden;
-    /* scacchiera 2×2: chiaro in alto a sinistra e in basso a destra */
-    background: conic-gradient(at 50% 50%, var(--dark) 0 25%, var(--light) 0 50%, var(--dark) 0 75%, var(--light) 0);
-    font-family: 'Gochi Hand', cursive;
-    color: var(--ink);
-  }
-
-  .preview[hidden] { display: none; }
-
-  .visual { display: block; padding: 8px; min-width: 0; }
-  svg { display: block; width: 100%; height: auto; }
-
-  .cover { filter: drop-shadow(4px 6px 6px rgba(0, 0, 0, 0.28)); }
-
-  .arrows { stroke: var(--ink); stroke-width: 3; }
-  .labels text { fill: var(--ink); font-family: 'Gochi Hand', cursive; }
-  .checks .box, .checks .tick { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
-  .checks .box { stroke-width: 2; }
-  .checks .tick { stroke-width: 3; }
-  .checks .icon { fill: var(--ink); stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
-  .checks text { fill: var(--ink); stroke: none; font-family: 'Gochi Hand', cursive; }
-
-  .save-slot { position: absolute; top: 12px; right: 14px; z-index: 2; }
-  .plot { position: relative; display: flex; flex-direction: column; padding: 16px 28px 28px; min-width: 0; }
-  h3 { margin: 0 0 12px; text-align: center; font-family: inherit; font-size: 1.9rem; font-weight: 400; }
-  .box { flex: 1; background: var(--panel); padding: 18px 20px; color: var(--text); font-family: system-ui, sans-serif; }
-  .meta { margin: 0 0 8px; font-size: 0.85rem; opacity: 0.8; }
-  .meta a { color: inherit; font-weight: 600; }
-  .date { display: block; margin-top: 2px; }
-  .facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 2px; }
-  .text {
-    margin: 0;
-    line-height: 1.55;
-    display: -webkit-box;
-    -webkit-line-clamp: 10;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .empty { opacity: 0.7; font-style: italic; }
-
-  @media (max-width: 700px) {
-    .preview {
-      grid-template-columns: minmax(0, 1fr);
-      background: linear-gradient(var(--light) 0 50%, var(--dark) 0);
-    }
-    .plot { padding: 8px 16px 20px; }
-  }
-</style>

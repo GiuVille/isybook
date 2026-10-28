@@ -212,12 +212,26 @@ export const RESOURCES: Resource[] = [
     fields: [
       { name: 'work_id', label: 'Tratto da', type: 'relation', table: 'works', labelColumn: 'title', required: true },
       { name: 'title', label: 'Titolo', type: 'text', required: true },
+      { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'title', required: true },
       { name: 'kind', label: 'Tipo', type: 'select', required: true, options: [['series', 'Serie TV'], ['film', 'Film']] },
-      { name: 'platform', label: 'Piattaforma', type: 'text', help: 'Netflix, Prime Video, cinema…' },
+      { name: 'plot', label: 'Trama', type: 'textarea', help: 'Scritta da noi, senza spoiler oltre la premessa.' },
+      { name: 'platform', label: 'Piattaforma principale', type: 'text', help: 'Netflix, Prime Video, cinema…' },
       { name: 'release_date', label: 'Data di uscita', type: 'date' },
       { name: 'production_status', label: 'Stato produzione', type: 'text', help: 'Annunciata, in lavorazione, in uscita… (mostrato se manca la data)' },
+      { name: 'seasons', label: 'Stagioni (serie)', type: 'number' },
+      { name: 'episodes', label: 'Episodi in totale (serie)', type: 'number' },
+      { name: 'runtime_minutes', label: 'Durata in minuti (film)', type: 'number' },
+      { name: 'poster_url', label: 'URL locandina', type: 'text' },
+      {
+        name: 'watch_providers', label: 'Dove vederlo (Italia)', type: 'json',
+        help: 'Lista JSON: [{"platform": "Netflix", "url": "https://…", "kind": "subscription"}] — kind: subscription, rent, buy, free',
+      },
       { name: 'tmdb_id', label: 'ID TMDB', type: 'number' },
       status,
+    ],
+    manyToMany: [
+      { label: 'Generi (se vuoto: quelli del libro)', joinTable: 'adaptation_genres', ownKey: 'adaptation_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name' },
+      { label: 'Tropes (se vuoto: quelli del libro)', joinTable: 'adaptation_tropes', ownKey: 'adaptation_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name' },
     ],
   },
   {

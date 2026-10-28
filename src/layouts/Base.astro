@@ -18,8 +18,9 @@ const nav: Array<{ href: string; label: string; color: number; tab: number; mobi
   { href: '/edizioni-speciali', label: 'Edizioni speciali', color: 2, tab: 26, mobile: { right: 4 } },
   { href: '/eventi', label: 'Eventi', color: 1, tab: 20, mobile: { left: 30 } },
   { href: '/libri', label: 'Libri', color: 3, tab: 18, mobile: { right: 20 } },
-  { href: '/articoli', label: 'Articoli', color: 4, tab: 34, mobile: { left: 12 } },
-  { href: '/la-mia-libreria', label: 'La mia libreria', color: 6, tab: 16, mobile: { right: 8 } },
+  { href: '/serie-e-film', label: 'Serie e film', color: 2, tab: 14, mobile: { left: 8 } },
+  { href: '/articoli', label: 'Articoli', color: 4, tab: 22, mobile: { right: 30 } },
+  { href: '/la-mia-libreria', label: 'La mia libreria', color: 6, tab: 12, mobile: { left: 20 } },
 ];
 const mobileTab = (m: MobileTab) => ('left' in m ? `--tab-ml:${m.left}%` : `--tab-mr:${m.right}%`);
 const path = Astro.url.pathname;
@@ -184,18 +185,19 @@ const path = Astro.url.pathname;
   .folders { display: flex; align-items: flex-end; }
   .folders .folder {
     flex: 0 0 auto;
-    min-width: 150px;
+    min-width: 128px;
     height: 54px;
-    padding-right: 36px; /* corpo della cartellina oltre la linguetta */
-    margin-right: -18px;
+    padding-right: 26px; /* corpo della cartellina oltre la linguetta */
+    margin-right: -20px;
   }
-  .folders .folder:nth-child(1) { z-index: 6; }
-  .folders .folder:nth-child(2) { z-index: 5; }
-  .folders .folder:nth-child(3) { z-index: 4; }
-  .folders .folder:nth-child(4) { z-index: 3; }
-  .folders .folder:nth-child(5) { z-index: 2; }
-  .folders .folder:nth-child(6) { z-index: 1; }
-  .folders .folder.is-active { z-index: 7; }
+  .folders .folder:nth-child(1) { z-index: 7; }
+  .folders .folder:nth-child(2) { z-index: 6; }
+  .folders .folder:nth-child(3) { z-index: 5; }
+  .folders .folder:nth-child(4) { z-index: 4; }
+  .folders .folder:nth-child(5) { z-index: 3; }
+  .folders .folder:nth-child(6) { z-index: 2; }
+  .folders .folder:nth-child(7) { z-index: 1; }
+  .folders .folder.is-active { z-index: 8; }
   .saved-count {
     display: inline-block;
     min-width: 1.3em;
@@ -270,6 +272,7 @@ const path = Astro.url.pathname;
     .folders .folder:nth-child(4) { z-index: 4; }
     .folders .folder:nth-child(5) { z-index: 5; }
     .folders .folder:nth-child(6) { z-index: 6; }
+    .folders .folder:nth-child(7) { z-index: 7; }
     .folders .folder:hover { transform: none; }
     .folders :global(.folder-tab) {
       position: absolute;
