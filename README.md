@@ -27,8 +27,6 @@ Per velocizzare il lavoro mi sono fatto aiutare da Claude Code: lo uso come stru
 ```
 src/
   pages/            le pagine pubbliche
-  pages/admin/      il pannello di redazione
-  admin/            la logica del pannello
   layouts/          il layout comune
   components/
   lib/              tipi, accesso ai dati, client Supabase, formattazione
@@ -47,7 +45,7 @@ La scelta che regge tutto è tenere separati opera ed edizione. "La corona di ce
 
 Il resto ruota attorno a queste due tabelle: autori, editori, generi e tropi collegati alle opere, poi eventi, adattamenti, merch, rubriche e articoli. `review_queue` è dove finiscono i libri importati prima che qualcuno li guardi.
 
-Tutto quello che si può pubblicare ha uno `status` (`draft`, `published`, `archived`). I permessi li gestisce il database: chi visita il sito vede solo ciò che è pubblicato, e può scrivere solo chi è nella tabella `editors`. Non c'è un backend mio in mezzo, quindi è lì che deve stare la sicurezza.
+Tutto quello che si può pubblicare ha uno `status` (`draft`, `published`, `archived`). I permessi li gestisce il database: chi visita il sito vede solo ciò che è pubblicato. Non c'è un backend mio in mezzo, quindi è lì che deve stare la sicurezza.
 
 ## Farlo girare
 
@@ -62,13 +60,7 @@ Il sito parte su `localhost:4321`. Se `.env` è vuoto usa i dati di `src/data/sa
 Per collegarlo a Supabase:
 
 1. creo il progetto e copio URL, anon key e service role key nel `.env`;
-2. applico lo schema con `npx supabase link --project-ref <ref>` e poi `npx supabase db push` (oppure incollo `supabase/migrations/0001_init.sql` nell'SQL editor, che è più veloce la prima volta). Se voglio i dati finti anche lì, eseguo `supabase/seed.sql`;
-3. creo gli utenti da *Authentication → Users* e li aggiungo alla redazione:
-
-   ```sql
-   insert into editors (user_id, display_name)
-   select id, 'Nome' from auth.users where email = 'nome@example.com';
-   ```
+2. applico lo schema con `npx supabase link --project-ref <ref>` e poi `npx supabase db push` (oppure incollo i file di `supabase/migrations/` nell'SQL editor, in ordine). Se voglio i dati finti anche lì, eseguo `supabase/seed.sql`.
 
 Altri comandi utili: `npm run build` per la build in `dist/`, `npm run check` per il controllo dei tipi.
 
@@ -81,29 +73,21 @@ npm run import -- 9781649374042 --format hardcover --type limited
 
 Si possono passare più ISBN insieme. `--format` accetta `paperback`, `hardcover`, `kindle` e `audio`; `--type` accetta `standard`, `special` e `limited`. Con `--raw` prendo solo i dati bibliografici, senza preparare trama e tropi.
 
-L'import non pubblica niente: mette il libro in coda e da lì lo approvo dal pannello. Se nel `.env` manca la service role key, salva il risultato in `scripts/out/` così posso guardarlo comunque.
+L'import non pubblica niente: mette il libro in una coda e lo approvo io prima che vada online. Se nel `.env` manca la service role key, salva il risultato in `scripts/out/` così posso guardarlo comunque.
 
 Una nota pratica: senza `GOOGLE_BOOKS_API_KEY` Google Books risponde spesso con un 429. In quel caso i dati arrivano solo da Open Library, che va bene ma a volte non ha la data d'uscita.
-
-## Il pannello admin
-
-Sta su `/admin`. Ci si entra con email e password e da lì gestisco articoli, rubriche, eventi, opere, edizioni, autori, editori, generi e tropi. Dalla scheda di un'opera vedo subito le sue edizioni e ne aggiungo di nuove. In "Da approvare" trovo i libri importati: controllo i dati, sistemo la trama se serve e approvo.
-
-Tecnicamente è una pagina statica che parla direttamente con Supabase. Le tabelle che compaiono nel pannello sono descritte in `src/admin/resources.ts`, quindi per aggiungerne una basta una voce nuova con i suoi campi.
-
-Siccome il sito pubblico è statico, quello che modifico dal pannello va online solo al build successivo. Sistemare questa cosa è in cima alla lista.
 
 ## Cosa manca
 
 - [x] pagine del sito: schede libro, uscite, edizioni speciali, articoli, rubriche
 - [x] schema del database con i permessi
 - [x] import per ISBN
-- [x] pannello admin e coda di approvazione
+- [x] gestione dei contenuti con coda di approvazione
 - [x] ricerca e filtri per tropes, generi, ambientazione, autore ed editore
 - [x] scheda libro completa: saga, gadget, serie TV e film, libri simili, ebook e audiolibro, pagine, spicy
 - [x] preferiti, cartelle personali e interessi salvati nel browser, con il feed "Per te"
 - [x] calendario eventi e fiere, con il file da aggiungere al calendario
-- [ ] rebuild automatico dopo le modifiche dal pannello
+- [ ] rebuild automatico del sito dopo le modifiche ai contenuti
 - [ ] job notturno che legge le pagine "prossime uscite" degli editori
 - [ ] generatore di bozze per i post social
 - [ ] deploy su Cloudflare Pages
