@@ -3,7 +3,7 @@
 // con la copertina che spunta e la data scritta a penna sulla linguetta.
 import CoverArt from './CoverArt.astro';
 import { themeForWork } from '../lib/book-themes';
-import { FORMAT_LABELS } from '../lib/format';
+import { upcomingReleases } from '../lib/releases';
 import type { Edition, Work } from '../lib/types';
 
 interface Props {
@@ -15,23 +15,7 @@ const today = new Date().toISOString().slice(0, 10);
 const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
 
 // un'uscita per libro: la prima data futura, con tutti i formati di quel giorno
-type Item = { work: Work; date: string; formats: string[]; special: Edition['edition_type'] | null };
-const byWork = new Map<string, Item>();
-for (const e of editions.filter((e) => e.release_date && e.release_date >= today).sort((a, b) => a.release_date!.localeCompare(b.release_date!))) {
-  const item = byWork.get(e.work.slug);
-  if (!item) {
-    byWork.set(e.work.slug, {
-      work: e.work,
-      date: e.release_date!,
-      formats: [FORMAT_LABELS[e.format]],
-      special: e.edition_type !== 'standard' ? e.edition_type : null,
-    });
-  } else if (item.date === e.release_date) {
-    item.formats.push(FORMAT_LABELS[e.format]);
-    if (e.edition_type !== 'standard') item.special = e.edition_type;
-  }
-}
-const all = [...byWork.values()];
+const all = upcomingReleases(editions, today);
 // le prossime due settimane; se sono poche, le prossime sei uscite
 const soon = all.filter((i) => i.date <= in14);
 const isSoon = soon.length >= 4;

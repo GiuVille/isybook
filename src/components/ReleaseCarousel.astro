@@ -1,0 +1,516 @@
+---
+// Pagina Uscite: carosello delle prossime uscite. Ogni slide è un calendario ruotato nel colore del genere,
+// con il mese scritto a penna, il giorno cerchiato a mano, una freccia verso la copertina e una casella "Trope".
+// Entrata e uscita animate; senza JavaScript le slide scorrono in orizzontale.
+import CoverArt from './CoverArt.astro';
+import { themeForWork } from '../lib/book-themes';
+import { formatDate } from '../lib/format';
+import type { Release } from '../lib/releases';
+
+interface Props {
+  releases: Release[];
+}
+
+const { releases } = Astro.props;
+const MONTHS = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+const short = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+
+// griglia: 9 colonne (più larga della scena, così le linee arrivano ai bordi), riga 1 rilegatura,
+// riga 2 giorni della settimana, righe 3-9 giorni.
+// La data d'uscita sta sempre nella casella riga 3 / colonna 4, il giorno dopo in riga 3 / colonna 5.
+const WEEKDAYS = ['D', 'L', 'M', 'M', 'G', 'V', 'S']; // indice = getUTCDay()
+const DATE_ROW = 3;
+const DATE_COL = 4;
+const COLS = 9;
+const ROWS = 9;
+
+const slides = releases.map((r, i) => {
+  const [y, m, d] = r.date.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1)).getUTCDate();
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const header = Array.from({ length: COLS }, (_, c) => {
+    const wd = (weekday + (c + 1 - DATE_COL) + 70) % 7;
+    return { col: c + 1, label: WEEKDAYS[wd], sunday: wd === 0 };
+  });
+  const cells: Array<{ row: number; col: number; n: number; other: boolean; sunday: boolean }> = [];
+  for (let row = DATE_ROW; row <= ROWS; row++) {
+    for (let col = 1; col <= COLS; col++) {
+      if (row === DATE_ROW && (col === DATE_COL || col === DATE_COL + 1)) continue; // numeri grandi
+      // oltre la settima colonna la riga prosegue nella settimana dopo, come su un calendario affiancato
+      const offset = (row - DATE_ROW) * 7 + (col - DATE_COL);
+      const day = new Date(Date.UTC(y, m - 1, d + offset));
+      cells.push({ row, col, n: day.getUTCDate(), other: day.getUTCMonth() !== m - 1, sunday: day.getUTCDay() === 0 });
+    }
+  }
+  // riga sopra la data: i giorni della settimana precedente non stanno nel calendario visibile
+  for (let col = 1; col <= COLS; col++) {
+    const day = new Date(Date.UTC(y, m - 1, d + (col - DATE_COL) - 7));
+    if (day.getUTCMonth() === m - 1) cells.push({ row: 2, col, n: day.getUTCDate(), other: false, sunday: day.getUTCDay() === 0 });
+  }
+  const theme = themeForWork(r.work);
+  return {
+    ...r,
+    index: i,
+    id: `uscita-${r.work.slug}`,
+    month: MONTHS[m - 1],
+    day: d,
+    next,
+    header,
+    cells,
+    nextSunday: (weekday + 1) % 7 === 0,
+    trope: r.work.tropes[0]?.name ?? r.work.genres[0]?.name ?? null,
+    style: `--paper:${theme.light};--paper-2:${theme.dark};--ink:${theme.ink}`,
+  };
+});
+---
+
+{slides.length > 0 && (
+  <section class="carousel" role="region" aria-roledescription="carosello" aria-label="Prossime uscite" tabindex="-1">
+    <div class="slides">
+      {slides.map((s) => (
+        <article
+          class:list={['slide', { 'is-active': s.index === 0 }]}
+          id={s.id}
+          role="group"
+          aria-roledescription="slide"
+          aria-label={`${s.index + 1} di ${slides.length}: ${s.work.title}`}
+          style={s.style}
+        >
+          <div class="shot" aria-hidden="true">
+            <div class="cal">
+              <span class="binding">
+                {Array.from({ length: 9 }, () => <span class="ring"></span>)}
+              </span>
+              {s.header.map((h) => (
+                <span class:list={['wd', { sunday: h.sunday }]} style={`grid-area: 2 / ${h.col}`}>{h.label}</span>
+              ))}
+              {s.cells.filter((c) => c.row > 2).map((c) => (
+                <span class:list={['num', { other: c.other, sunday: c.sunday }]} style={`grid-area: ${c.row} / ${c.col}`}>{c.n}</span>
+              ))}
+              <span class="month">
+                {s.month}
+                {/* tre trattini di enfasi, appena sopra il mese */}
+                <svg class="strokes" viewBox="0 0 60 60">
+                  <path pathLength="1" style="--k:0" d="M12 48 22 14" />
+                  <path pathLength="1" style="--k:1" d="M27 50 39 20" />
+                  <path pathLength="1" style="--k:2" d="M38 56 55 46" />
+                </svg>
+              </span>
+              <span class="date">
+                <span class="day">{s.day}</span>
+                {/* cerchio tracciato a mano: non chiuso perfettamente, come fatto di getto */}
+                <svg class="circle" viewBox="0 0 100 100">
+                  <path pathLength="1" d="M58 9C35 4 11 18 10 47c-1 27 19 44 43 43 25-1 40-20 37-44C87 22 70 9 46 12c-8 1-15 4-20 9" />
+                </svg>
+              </span>
+              <span class:list={['next-day', { sunday: s.nextSunday }]}>{s.next}</span>
+              <svg class="arrow" viewBox="0 0 200 260">
+                <path class="shaft" pathLength="1" d="M18 22c58-18 112 10 118 62 6 52-34 90-76 118" />
+                <path class="tip" pathLength="1" d="M74 178 58 204 88 206" />
+              </svg>
+              {s.trope && (
+                <span class="trope">
+                  <span class="trope-label">Trope</span>
+                  <span class="trope-name">{s.trope}</span>
+                </span>
+              )}
+              <span class="cover-slot">
+                <CoverArt work={s.work} class="cover" />
+              </span>
+            </div>
+          </div>
+
+          <div class="info">
+            <p class="when">{formatDate(s.date)}</p>
+            <h3><a href={`/libri/${s.work.slug}`}>{s.work.title}</a></h3>
+            <p class="who">{s.work.authors.map((a) => a.name).join(', ')}</p>
+            <p class="formats">{s.formats.join(', ')}</p>
+            {s.special && <p class="flag">{s.special === 'limited' ? 'Edizione limitata' : 'Edizione speciale'}</p>}
+            <a class="button-strong go" href={`/libri/${s.work.slug}`}>Vai alla scheda</a>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    {slides.length > 1 && (
+      <div class="controls">
+        <button type="button" class="nav prev" aria-label="Uscita precedente">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>
+        </button>
+        <ol class="dots">
+          {slides.map((s) => (
+            <li>
+              <button type="button" class="dot" data-index={s.index} aria-label={`Vai a: ${s.work.title}, ${formatDate(s.date)}`} aria-current={s.index === 0 ? 'true' : undefined}>
+                {short(s.date)}
+              </button>
+            </li>
+          ))}
+        </ol>
+        <button type="button" class="nav next" aria-label="Uscita successiva">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+        </button>
+        <button type="button" class="play" aria-pressed="false" aria-label="Metti in pausa lo scorrimento automatico">
+          <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7Z" /></svg>
+        </button>
+      </div>
+    )}
+    <p class="live" aria-live="polite"></p>
+  </section>
+)}
+
+<script>
+  import { reducedMotion } from '../scripts/reveal';
+
+  const root = document.querySelector<HTMLElement>('.carousel');
+  if (root) init(root);
+
+  function init(root: HTMLElement) {
+    const slides = [...root.querySelectorAll<HTMLElement>('.slide')];
+    const dots = [...root.querySelectorAll<HTMLButtonElement>('.dot')];
+    const live = root.querySelector<HTMLElement>('.live')!;
+    const playButton = root.querySelector<HTMLButtonElement>('.play');
+    let current = 0;
+    let userPaused = false;
+    let hovering = false;
+    let timer: number | undefined;
+    const LEAVE_MS = 520;
+
+    slides.forEach((s, i) => (s.inert = i !== current));
+
+    function show(index: number, dir: 'next' | 'prev', manual: boolean) {
+      const n = (index + slides.length) % slides.length;
+      if (n === current) return;
+      const prev = slides[current];
+      const next = slides[n];
+      prev.classList.remove('is-active');
+      prev.dataset.dir = dir;
+      prev.inert = true;
+      if (!reducedMotion()) {
+        prev.classList.add('is-leaving');
+        window.setTimeout(() => prev.classList.remove('is-leaving'), LEAVE_MS);
+      }
+      next.dataset.dir = dir;
+      next.inert = false;
+      // riavvia le animazioni d'entrata
+      next.classList.remove('is-active');
+      void next.offsetWidth;
+      next.classList.add('is-active');
+      current = n;
+      dots.forEach((d, i) => (i === n ? d.setAttribute('aria-current', 'true') : d.removeAttribute('aria-current')));
+      if (manual) {
+        live.textContent = next.getAttribute('aria-label') ?? '';
+        history.replaceState(null, '', `#${next.id}`);
+        restart();
+      }
+    }
+
+    const canAutoplay = () => !userPaused && !hovering && !document.hidden && !reducedMotion() && slides.length > 1;
+    function restart() {
+      window.clearInterval(timer);
+      if (canAutoplay()) timer = window.setInterval(() => show(current + 1, 'next', false), 7000);
+    }
+
+    root.querySelector('.prev')?.addEventListener('click', () => show(current - 1, 'prev', true));
+    root.querySelector('.next')?.addEventListener('click', () => show(current + 1, 'next', true));
+    dots.forEach((d) =>
+      d.addEventListener('click', () => {
+        const i = Number(d.dataset.index);
+        show(i, i > current ? 'next' : 'prev', true);
+      }),
+    );
+    playButton?.addEventListener('click', () => {
+      userPaused = !userPaused;
+      playButton.setAttribute('aria-pressed', String(userPaused));
+      playButton.setAttribute('aria-label', userPaused ? 'Riprendi lo scorrimento automatico' : 'Metti in pausa lo scorrimento automatico');
+      restart();
+    });
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') show(current + 1, 'next', true);
+      if (e.key === 'ArrowLeft') show(current - 1, 'prev', true);
+    });
+    root.addEventListener('pointerenter', () => ((hovering = true), restart()));
+    root.addEventListener('pointerleave', () => ((hovering = false), restart()));
+    root.addEventListener('focusin', () => ((hovering = true), restart()));
+    root.addEventListener('focusout', () => ((hovering = false), restart()));
+    document.addEventListener('visibilitychange', restart);
+
+    // swipe su touch
+    let startX: number | null = null;
+    root.addEventListener('pointerdown', (e) => (startX = e.pointerType === 'touch' ? e.clientX : null));
+    root.addEventListener('pointerup', (e) => {
+      if (startX === null) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1), dx < 0 ? 'next' : 'prev', true);
+      startX = null;
+    });
+
+    // link diretto a un'uscita: /uscite#uscita-<slug>
+    const fromHash = slides.findIndex((s) => `#${s.id}` === location.hash);
+    if (fromHash > 0) {
+      slides[0].classList.remove('is-active');
+      slides[0].inert = true;
+      slides[fromHash].inert = false;
+      slides[fromHash].classList.add('is-active');
+      current = fromHash;
+      dots.forEach((d, i) => (i === fromHash ? d.setAttribute('aria-current', 'true') : d.removeAttribute('aria-current')));
+    }
+    restart();
+  }
+</script>
+
+<style>
+  .carousel { margin: 8px 0 40px; outline: none; }
+
+  /* senza JavaScript: fila scorrevole; con JavaScript: slide sovrapposte, una visibile */
+  .slides { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; }
+  .slide { flex: 0 0 100%; scroll-snap-align: start; display: grid; gap: 18px; align-items: center; }
+  :global(.js) .slides { display: grid; overflow: visible; }
+  :global(.js) .slide { grid-area: 1 / 1; visibility: hidden; }
+  :global(.js) .slide.is-active,
+  :global(.js) .slide.is-leaving { visibility: visible; }
+  :global(.js) .slide.is-leaving { z-index: 1; pointer-events: none; }
+
+  /* ---- lo "scatto": calendario ruotato ---- */
+  .shot {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--paper) var(--grain);
+    box-shadow: 0 14px 30px -14px rgba(40, 25, 30, 0.45);
+    container-type: inline-size;
+    --cell: 25cqw;
+  }
+  .cal {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    grid-template-columns: repeat(9, var(--cell));
+    grid-template-rows: repeat(9, var(--cell));
+    color: var(--ink);
+    --line: color-mix(in srgb, var(--ink) 62%, transparent);
+    background-image:
+      linear-gradient(to right, var(--line) 2px, transparent 2px),
+      linear-gradient(to bottom, var(--line) 2px, transparent 2px);
+    background-size: var(--cell) var(--cell);
+    /* riallineo lungo gli assi della griglia: la griglia 9×9 ha il centro spostato di una casella e mezza
+       rispetto alla composizione; un po' più in basso perché si vedano rilegatura e giorni della settimana */
+    --fix: translate(calc(var(--cell) * 1.5), calc(var(--cell) * 1.3));
+    transform: translate(-50%, -50%) rotate(-32deg) var(--fix);
+  }
+
+  /* rilegatura con gli anelli della spirale, in cima al calendario */
+  .binding {
+    grid-area: 1 / 1 / 2 / 10;
+    align-self: end;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 44%;
+    background: color-mix(in srgb, var(--ink) 82%, transparent);
+    box-shadow: 0 3px 6px -3px rgba(0, 0, 0, 0.4);
+  }
+  .ring {
+    width: calc(var(--cell) * 0.179);
+    height: calc(var(--cell) * 0.179);
+    margin-top: -60%;
+    border-radius: 50%;
+    border: calc(var(--cell) * 0.043) solid color-mix(in srgb, var(--paper) 60%, #fff);
+    background: transparent;
+    box-shadow: inset 0 0 0 calc(var(--cell) * 0.014) rgba(0, 0, 0, 0.25);
+  }
+  /* giorni della settimana su una fascia leggermente più scura */
+  .wd {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: start center;
+    padding-top: 6%;
+    font-family: var(--font-display);
+    font-size: calc(var(--cell) * 0.179);
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
+  }
+  /* numero piccolo nell'angolo in alto a destra di ogni casella */
+  .num {
+    position: relative;
+    z-index: 0;
+    justify-self: end;
+    align-self: start;
+    margin: 5% 7% 0 0;
+    font-family: var(--font-display);
+    font-size: calc(var(--cell) * 0.164);
+    line-height: 1;
+    opacity: 0.75;
+  }
+  .num.other { opacity: 0.3; }
+  .num.sunday,
+  .wd.sunday,
+  .next-day.sunday { color: color-mix(in srgb, #c0392b 75%, var(--ink)); }
+
+  .month,
+  .date,
+  .next-day,
+  .trope,
+  .cover-slot,
+  .arrow { position: relative; z-index: 1; }
+  .month {
+    grid-area: 3 / 3;
+    align-self: end;
+    justify-self: end;
+    margin: 0 10% 12% 0;
+    font-family: var(--font-hand);
+    font-size: calc(var(--cell) * 0.286);
+    line-height: 1;
+  }
+  .date { grid-area: 3 / 4; position: relative; display: grid; place-items: center; }
+  .day { font-family: var(--font-hand); font-size: calc(var(--cell) * 0.536); line-height: 1; }
+  .circle { position: absolute; inset: 6%; width: 88%; height: 88%; overflow: visible; }
+  .circle path { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 1; }
+  .strokes { position: absolute; right: 4%; bottom: 92%; width: calc(var(--cell) * 0.4); height: calc(var(--cell) * 0.4); overflow: visible; }
+  .strokes path { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 1; }
+  .next-day { grid-area: 3 / 5; align-self: start; justify-self: end; margin: 6% 8% 0 0; font-family: var(--font-hand); font-size: calc(var(--cell) * 0.393); line-height: 1; }
+  .arrow { grid-area: 3 / 5 / 5 / 6; width: 100%; height: 100%; overflow: visible; }
+  .arrow path { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; }
+  .trope { grid-area: 4 / 2; align-self: center; justify-self: center; display: flex; flex-direction: column; align-items: center; text-align: center; font-family: var(--font-hand); line-height: 1.05; }
+  .trope-label { font-size: calc(var(--cell) * 0.232); }
+  .trope-name { font-size: calc(var(--cell) * 0.164); opacity: 0.85; max-width: calc(var(--cell) * 0.95); }
+  .cover-slot { grid-area: 4 / 3 / 6 / 5; display: grid; place-items: start center; }
+  .cover-slot :global(.cover) {
+    width: calc(var(--cell) * 1.35);
+    height: auto;
+    transform: translate(12%, 4%) rotate(6deg);
+    filter: drop-shadow(6px 10px 10px rgba(0, 0, 0, 0.35));
+  }
+
+  /* ---- riquadro informazioni ---- */
+  .info {
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 18px 20px;
+    background: var(--label-paper) var(--grain);
+    border-radius: 6px;
+    box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.35);
+    color: var(--folder-ink);
+  }
+  .when { margin: 0; font-family: var(--font-hand); font-size: 1.3rem; color: var(--accent); }
+  .info h3 { margin: 2px 0 4px; font-size: var(--step-2); line-height: 1.15; }
+  .info h3 a { color: inherit; text-decoration: none; }
+  .who, .formats { margin: 0; font-size: 0.95rem; opacity: 0.8; }
+  .flag { margin: 8px 0 0; font-family: var(--font-hand); font-size: 1.2rem; color: #b4542c; transform: rotate(-2deg); display: inline-block; }
+  .go { margin-top: 14px; text-decoration: none; }
+
+  @media (min-width: 900px) {
+    .slide { position: relative; display: block; }
+    .shot { max-width: none; aspect-ratio: 16 / 8.2; container-type: size; --cell: 21cqh; }
+    /* composizione spostata a sinistra, il biglietto occupa la destra */
+    .cal { left: 40%; }
+    .info {
+      position: absolute;
+      z-index: 2;
+      top: 50%;
+      right: 5%;
+      width: min(330px, 32%);
+      margin: 0;
+      transform: translateY(-50%) rotate(2.2deg);
+      box-shadow: 0 16px 30px -14px rgba(0, 0, 0, 0.5);
+    }
+    /* nastro adesivo */
+    .info::before {
+      content: '';
+      position: absolute;
+      top: -14px;
+      left: calc(50% - 50px);
+      width: 100px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.55);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+      transform: rotate(-4deg);
+    }
+  }
+
+  /* ---- comandi ---- */
+  .controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; }
+  .nav, .play { flex-shrink: 0; }
+  .nav, .play {
+    display: inline-grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    color: var(--folder-ink);
+    background: var(--label-paper) var(--grain);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.3s var(--ease-spring);
+  }
+  .nav:hover, .play:hover { transform: scale(1.08); }
+  .nav svg, .play svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .play .i-play { display: none; fill: currentColor; }
+  .play[aria-pressed='true'] .i-play { display: block; }
+  .play[aria-pressed='true'] .i-pause { display: none; }
+  .dots { display: flex; gap: 6px; list-style: none; margin: 0; padding: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .dot { white-space: nowrap; }
+  .dot {
+    padding: 3px 10px;
+    font-family: var(--font-hand);
+    font-size: 1rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .dot[aria-current='true'] { color: var(--accent); border-color: var(--accent); }
+  .live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* ---- animazioni: entrata (.is-active) e uscita (.is-leaving), direzione in data-dir ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    .slide { --dx: 1; }
+    .slide[data-dir='prev'] { --dx: -1; }
+
+    :global(.js) .slide.is-active .cal { animation: cal-in 0.75s var(--ease-out) backwards; }
+    :global(.js) .slide.is-active .month { animation: write-in 0.5s var(--ease-out) 0.35s backwards; }
+    :global(.js) .slide.is-active .day { animation: pop 0.45s var(--ease-spring) 0.6s backwards; }
+    :global(.js) .slide.is-active .circle path { animation: draw-in 0.75s var(--ease-in-out) 0.85s backwards; }
+    :global(.js) .slide.is-active .strokes path { animation: draw-in 0.2s ease-out backwards; animation-delay: calc(0.8s + var(--k) * 0.12s); }
+    :global(.js) .slide.is-active .next-day { animation: fade-in 0.4s ease-out 0.5s backwards; }
+    :global(.js) .slide.is-active .arrow .shaft { animation: draw-in 0.6s var(--ease-out) 1.6s backwards; }
+    :global(.js) .slide.is-active .arrow .tip { animation: draw-in 0.2s ease-out 2.15s backwards; }
+    :global(.js) .slide.is-active .cover-slot { animation: cover-drop 0.85s var(--ease-spring) 1.9s backwards; }
+    :global(.js) .slide.is-active .trope { animation: write-in 0.5s var(--ease-out) 2.4s backwards; }
+    :global(.js) .slide.is-active .info { animation: info-in 0.6s var(--ease-out) 0.25s backwards; }
+
+    :global(.js) .slide.is-leaving .cal { animation: cal-out 0.5s var(--ease-in-out) forwards; }
+    :global(.js) .slide.is-leaving .cover-slot { animation: cover-out 0.45s var(--ease-in-out) forwards; }
+    :global(.js) .slide.is-leaving .info { animation: info-out 0.35s ease-in forwards; }
+  }
+
+  @keyframes draw-in { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes write-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+  @keyframes cal-in {
+    from { opacity: 0; transform: translate(calc(-50% + var(--dx) * 90px), calc(-50% - 60px)) rotate(-38deg) scale(1.06) var(--fix); }
+    to { opacity: 1; transform: translate(-50%, -50%) rotate(-32deg) var(--fix); }
+  }
+  @keyframes cal-out {
+    to { opacity: 0; transform: translate(calc(-50% - var(--dx) * 120px), calc(-50% + 40px)) rotate(-28deg) scale(0.96) var(--fix); }
+  }
+  @keyframes cover-drop {
+    0% { opacity: 0; transform: translateY(-70%) rotate(-16deg) scale(1.25); }
+    55% { opacity: 1; }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes cover-out {
+    to { opacity: 0; transform: translate(calc(var(--dx) * -140%), 25%) rotate(calc(var(--dx) * -24deg)); }
+  }
+  @keyframes info-in { from { opacity: 0; translate: 0 18px; rotate: -6deg; } to { opacity: 1; translate: 0 0; rotate: 0deg; } }
+  @keyframes info-out { to { opacity: 0; translate: 0 -10px; } }
+</style>

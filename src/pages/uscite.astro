@@ -1,26 +1,34 @@
 ---
 import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
+import ReleaseCarousel from '../components/ReleaseCarousel.astro';
 import { getEditionsWithWork } from '../lib/data';
+import { upcomingReleases } from '../lib/releases';
 
 const today = new Date().toISOString().slice(0, 10);
-const editions = (await getEditionsWithWork()).filter((e) => (e.release_date ?? '9999') >= today);
+const all = await getEditionsWithWork();
+const editions = all.filter((e) => (e.release_date ?? '9999') >= today);
+const releases = upcomingReleases(all, today).slice(0, 8);
 const byMonth = Map.groupBy(editions, (e) =>
   e.release_date ? new Date(e.release_date).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }) : 'Data da annunciare',
 );
 ---
 
 <Base title="Calendario uscite" description="Le prossime uscite cartacee e Kindle di romantasy, romance e fantasy YA.">
-  <h1>Calendario uscite</h1>
+  <h1>In arrivo</h1>
+  <ReleaseCarousel releases={releases} />
+
+  <h2 class="all">Tutte le uscite</h2>
   {editions.length === 0 && <p class="muted">Nessuna uscita in calendario.</p>}
   {[...byMonth].map(([month, list]) => (
     <section>
-      <h2 class="month">{month}</h2>
+      <h3 class="month">{month}</h3>
       <div class="grid">{list.map((e) => <EditionCard edition={e} />)}</div>
     </section>
   ))}
 </Base>
 
 <style>
-  .month { text-transform: capitalize; margin-top: 32px; }
+  .all { margin-top: 48px; }
+  .month { text-transform: capitalize; margin-top: 24px; }
 </style>
