@@ -20,6 +20,8 @@ Il budget è zero, quindi ho scelto solo servizi con un piano gratuito che basta
 
 Serve Node 22.23 o più recente. Io lavoro con la 24.
 
+Per velocizzare il lavoro mi sono fatto aiutare da Claude Code: lo uso come strumento per andare più veloce, mentre progettazione, scelte e revisione restano mie.
+
 ## Come è organizzato
 
 ```
@@ -110,3 +112,7 @@ Siccome il sito pubblico è statico, quello che modifico dal pannello va online 
 - [ ] Edicola: tracker dei numeri presi nella libreria personale
 - [ ] Edicola, più avanti: uscite di fumetti in libreria e fumetteria
 - [ ] più avanti: account per chi legge (per ritrovare preferiti e cartelle su ogni dispositivo), avvisi via email e Telegram
+
+## Licenza
+
+Il codice è pubblico per mostrare il mio lavoro, ma tutti i diritti sono riservati: si può consultare, non copiare né riutilizzare senza il mio permesso. I dettagli sono nel file [LICENSE](LICENSE). Se ti interessa usarlo o collaborare, scrivimi tramite il mio profilo GitHub [@GiuVille](https://github.com/GiuVille).
