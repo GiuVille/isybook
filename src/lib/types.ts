@@ -9,6 +9,7 @@ export interface Author {
   slug: string;
   name: string;
   bio?: string | null;
+  social_links?: Array<{ label: string; url: string }> | null;
 }
 
 export interface Publisher {

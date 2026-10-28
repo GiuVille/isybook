@@ -1,0 +1,211 @@
+---
+import Base from '../../layouts/Base.astro';
+import CoverArt from '../../components/CoverArt.astro';
+import EventCard from '../../components/EventCard.astro';
+import { themeForWork } from '../../lib/book-themes';
+import { getAuthors, getEvents, getWorks } from '../../lib/data';
+import { adaptationFacts, adaptationWhen, pageCount, releaseYear } from '../../lib/format';
+import type { Author, BookEvent, Tag, Work } from '../../lib/types';
+
+export async function getStaticPaths() {
+  const [authors, works, events] = await Promise.all([getAuthors(), getWorks(), getEvents()]);
+  const today = new Date().toISOString().slice(0, 10);
+  return authors.map((author) => ({
+    params: { slug: author.slug },
+    props: {
+      author,
+      works: works.filter((w) => w.authors.some((a) => a.slug === author.slug)),
+      events: events.filter(
+        (e) => (e.ends_on ?? e.starts_on) >= today && e.authors.some((a) => a.slug === author.slug),
+      ),
+    },
+  }));
+}
+
+const { author, works, events } = Astro.props as { author: Author; works: Work[]; events: BookEvent[] };
+
+// saghe in ordine di lettura, poi i romanzi autoconclusivi dal più recente
+const sagas = [...Map.groupBy(works.filter((w) => w.series), (w) => w.series!)].map(([name, volumes]) => ({
+  name,
+  volumes: volumes.sort((a, b) => (a.series_number ?? 99) - (b.series_number ?? 99)),
+}));
+const standalone = works
+  .filter((w) => !w.series)
+  .sort((a, b) => (releaseYear(b) ?? 0) - (releaseYear(a) ?? 0));
+const adaptations = works.flatMap((w) => w.adaptations);
+
+/** I tag più frequenti tra i suoi libri. */
+function top(tags: Tag[], limit: number) {
+  const counts = new Map<string, { tag: Tag; n: number }>();
+  for (const t of tags) counts.set(t.slug, { tag: t, n: (counts.get(t.slug)?.n ?? 0) + 1 });
+  return [...counts.values()].sort((a, b) => b.n - a.n || a.tag.name.localeCompare(b.tag.name, 'it')).slice(0, limit);
+}
+const genres = top(works.flatMap((w) => w.genres), 4);
+const tropes = top(works.flatMap((w) => w.tropes), 6);
+const years = works.map(releaseYear).filter((y): y is number => y !== null);
+const initials = author.name
+  .split(/\s+/)
+  .map((p) => p[0])
+  .slice(0, 2)
+  .join('')
+  .toUpperCase();
+const color = works[0] ? themeForWork(works[0]).cover : 'var(--accent)';
+---
+
+<Base title={author.name} description={author.bio?.slice(0, 155) ?? `I libri di ${author.name}: saghe, uscite, serie TV ed eventi.`}>
+  <article>
+    <p class="crumbs"><a href="/autori">← Tutti gli autori</a></p>
+    <div class="head">
+      <span class="avatar" style={`--c:${color}`} aria-hidden="true">{initials}</span>
+      <div class="info">
+        <h1>{author.name}</h1>
+        {author.bio && <p class="bio">{author.bio}</p>}
+        <p class="stats">
+          <span><strong>{works.length}</strong> {works.length === 1 ? 'libro' : 'libri'}</span>
+          {sagas.length > 0 && <span><strong>{sagas.length}</strong> {sagas.length === 1 ? 'saga' : 'saghe'}</span>}
+          {adaptations.length > 0 && <span><strong>{adaptations.length}</strong> tra serie e film</span>}
+          {years.length > 0 && <span>dal <strong>{Math.min(...years)}</strong></span>}
+        </p>
+        {author.social_links && author.social_links.length > 0 && (
+          <p class="social">
+            {author.social_links.map((l) => <a href={l.url} target="_blank" rel="noopener">{l.label}</a>)}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {(genres.length > 0 || tropes.length > 0) && (
+      <dl class="facets">
+        {genres.length > 0 && (
+          <>
+            <dt>Scrive soprattutto</dt>
+            <dd>{genres.map(({ tag }) => <a class="tag" href={`/libri?autori=${author.slug}&generi=${tag.slug}`}>{tag.name}</a>)}</dd>
+          </>
+        )}
+        {tropes.length > 0 && (
+          <>
+            <dt>Tropes ricorrenti</dt>
+            <dd>
+              {tropes.map(({ tag, n }) => (
+                <a class="tag trope" href={`/libri?autori=${author.slug}&tropes=${tag.slug}`}>
+                  {tag.name}{n > 1 && <span class="n"> ×{n}</span>}
+                </a>
+              ))}
+            </dd>
+          </>
+        )}
+      </dl>
+    )}
+
+    {sagas.map((saga) => (
+      <section>
+        <h2>Saga: {saga.name}</h2>
+        <div class="books">
+          {saga.volumes.map((w) => (
+            <a class="card book" href={`/libri/${w.slug}`}>
+              <CoverArt work={w} class="mini-cover" />
+              <span>
+                <span class="muted small block">{w.series_number != null ? `Volume ${w.series_number}` : 'Volume'}{releaseYear(w) && ` · ${releaseYear(w)}`}</span>
+                <strong>{w.title}</strong>
+                {pageCount(w) && <span class="muted small block">{pageCount(w)} pagine</span>}
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+    ))}
+
+    {standalone.length > 0 && (
+      <section>
+        <h2>{sagas.length ? 'Altri libri' : 'I suoi libri'}</h2>
+        <div class="books">
+          {standalone.map((w) => (
+            <a class="card book" href={`/libri/${w.slug}`}>
+              <CoverArt work={w} class="mini-cover" />
+              <span>
+                <span class="muted small block">{w.genres.map((g) => g.name).join(', ')}{releaseYear(w) && ` · ${releaseYear(w)}`}</span>
+                <strong>{w.title}</strong>
+                {pageCount(w) && <span class="muted small block">{pageCount(w)} pagine</span>}
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <p class="catalog-link"><a href={`/libri?autori=${author.slug}`}>Vedi i suoi libri nel catalogo, con filtri e anteprime →</a></p>
+
+    {adaptations.length > 0 && (
+      <section>
+        <h2>Dai suoi libri allo schermo</h2>
+        <div class="books">
+          {adaptations.map((a) => (
+            <a class="card book" href={`/serie-e-film/${a.slug}`}>
+              <CoverArt
+                art={{ id: a.id, title: a.title, caption: a.kind === 'film' ? 'Film' : 'Serie TV', image: a.poster_url, color: themeForWork(a).cover, variant: 'poster' }}
+                class="mini-cover"
+              />
+              <span>
+                <span class="muted small block">{adaptationFacts(a)}</span>
+                <strong>{a.title}</strong>
+                <span class="muted small block">{a.platform && `${a.platform} · `}{adaptationWhen(a)}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {events.length > 0 && (
+      <section>
+        <h2>Dove incontrarla o incontrarlo</h2>
+        <div class="events">{events.map((e) => <EventCard event={e} />)}</div>
+      </section>
+    )}
+  </article>
+</Base>
+
+<style>
+  .crumbs { margin: 0 0 16px; font-size: 0.9rem; }
+  .head { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .avatar {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: var(--c);
+    color: #fff;
+    font: 700 2.4rem/1 Georgia, serif;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  }
+  .info { flex: 1 1 320px; min-width: 0; }
+  h1 { margin: 0 0 6px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+  .bio { margin: 0 0 12px; max-width: 65ch; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; color: var(--muted); }
+  .stats strong { color: var(--text); }
+  .social { display: flex; gap: 14px; margin: 10px 0 0; }
+
+  .facets { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 28px 0 0; align-items: baseline; }
+  .facets dt { color: var(--muted); font-size: 0.85rem; }
+  .facets dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag.trope { background: transparent; border: 1px solid var(--accent); }
+  .n { opacity: 0.7; }
+
+  section { margin-top: 36px; }
+  .books { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .book { display: flex; gap: 14px; align-items: flex-start; color: var(--text); text-decoration: none; }
+  .book:hover { border-color: var(--accent); }
+  .book :global(.mini-cover) { width: 64px; height: auto; flex-shrink: 0; filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.2)); }
+  .small { font-size: 0.85rem; }
+  .block { display: block; }
+  .catalog-link { margin-top: 20px; }
+  .events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+  @media (max-width: 700px) {
+    .avatar { width: 84px; height: 84px; font-size: 1.8rem; }
+    .facets { grid-template-columns: 1fr; }
+    .events { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

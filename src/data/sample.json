@@ -45,7 +45,20 @@
       "id": "au1",
       "slug": "autrice-esempio",
       "name": "Autrice Esempio",
-      "bio": "Autrice di romantasy (dato di esempio)."
+      "bio": "Scrive romantasy e fantasy YA: corti piene di intrighi, magie dimenticate e amori che nascono come rivalità. (Autrice di esempio.)",
+      "social_links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/"
+        }
+      ]
+    },
+    {
+      "id": "au2",
+      "slug": "autore-esempio",
+      "name": "Autore Esempio",
+      "bio": "Gialli a porte chiuse e storie di case che ricordano più di chi le abita. (Autore di esempio.)",
+      "social_links": []
     }
   ],
   "genres": [
@@ -388,7 +401,7 @@
       "series_number": null,
       "origin": "publisher",
       "author_ids": [
-        "au1"
+        "au2"
       ],
       "genre_ids": [
         "g3"
@@ -455,7 +468,7 @@
       "series_number": null,
       "origin": "self",
       "author_ids": [
-        "au1"
+        "au2"
       ],
       "genre_ids": [
         "g4"

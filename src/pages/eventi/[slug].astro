@@ -38,7 +38,7 @@ const description = `${EVENT_KIND_LABELS[event.kind]} · ${formatDateRange(event
       {event.authors.length > 0 && (
         <>
           <dt>Con</dt>
-          <dd>{event.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/libri?autori=${a.slug}`}>{a.name}</a></>)}</dd>
+          <dd>{event.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/autori/${a.slug}`}>{a.name}</a></>)}</dd>
         </>
       )}
       {event.works.length > 0 && (

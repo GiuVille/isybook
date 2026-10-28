@@ -204,3 +204,14 @@ insert into adaptation_genres (adaptation_id, genre_id) values
   ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-0000000000d2');
 insert into adaptation_tropes (adaptation_id, trope_id) values
   ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-0000000000e3');
+
+-- Secondo autore di esempio (gialli e horror) e bio
+update authors set
+  bio = 'Scrive romantasy e fantasy YA: corti piene di intrighi, magie dimenticate e amori che nascono come rivalità. (Autrice di esempio.)',
+  social_links = '[{"label": "Instagram", "url": "https://www.instagram.com/"}]'
+  where id = '00000000-0000-0000-0000-0000000000c1';
+insert into authors (id, slug, name, bio) values
+  ('00000000-0000-0000-0000-0000000000c2', 'autore-esempio', 'Autore Esempio',
+   'Gialli a porte chiuse e storie di case che ricordano più di chi le abita. (Autore di esempio.)');
+update work_authors set author_id = '00000000-0000-0000-0000-0000000000c2'
+  where work_id in ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000f4');

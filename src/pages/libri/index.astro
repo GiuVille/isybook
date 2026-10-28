@@ -30,8 +30,11 @@ const groups: FilterGroup[] = [
 ];
 ---
 
-<Base title="Libri">
-  <h1>Libri</h1>
+<Base title="Libri" hideSearch>
+  <div class="page-head">
+    <h1>Libri</h1>
+    <a href="/autori">Sfoglia per autore →</a>
+  </div>
   <CatalogFilters
     groups={groups}
     placeholder="Cerca titolo, autore, trope, ISBN…"
@@ -54,4 +57,5 @@ const groups: FilterGroup[] = [
 
 <style>
   .list { display: grid; gap: 24px; }
+  .page-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
 </style>

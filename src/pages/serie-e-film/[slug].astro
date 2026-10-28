@@ -41,7 +41,7 @@ const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movi
       <div class="info">
         <p class="kicker">{kindLabel}{a.platform && ` · ${a.platform}`}</p>
         <h1>{a.title}</h1>
-        <p class="byline">Tratto da <a href={`/libri/${a.source.slug}`}>{a.source.title}</a> di {a.source.authors.map((x) => x.name).join(', ')}</p>
+        <p class="byline">Tratto da <a href={`/libri/${a.source.slug}`}>{a.source.title}</a> di {a.source.authors.map((x, i) => <>{i > 0 && ', '}<a href={`/autori/${x.slug}`}>{x.name}</a></>)}</p>
 
         <dl class="facts">
           <dt>{a.release_date ? 'Uscita' : 'Stato'}</dt>

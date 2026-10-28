@@ -81,7 +81,7 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
           </p>
         )}
         <h1>{work.title}</h1>
-        <p class="byline">di {work.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/libri?autori=${a.slug}`}>{a.name}</a></>)}</p>
+        <p class="byline">di {work.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/autori/${a.slug}`}>{a.name}</a></>)}</p>
         <div class="save-row"><SaveButtons slug={work.slug} title={work.title} /></div>
         <p class="muted">
           {released && <>Uscita: {formatDate(released)}</>}

@@ -19,7 +19,6 @@ const released = releaseDate(work);
 // frecce: tropes, poi ambientazioni
 const arrowLabels = [...work.tropes.map((t) => t.name), ...work.settings.map((s) => s.name)];
 const arrows = layoutTropeArrows(arrowLabels, work.slug);
-const authors = work.authors.map((a) => a.name).join(', ');
 const pages = pageCount(work);
 const cheapest = cheapestEdition(work);
 const spice = isRomance(work) && work.spice_level != null ? work.spice_level : null;
@@ -126,7 +125,7 @@ const a11y = [
     <h3>Trama</h3>
     <div class="box">
       <p class="meta">
-        <a href={`/libri/${work.slug}`}>{work.title}</a> · {authors}
+        <a href={`/libri/${work.slug}`}>{work.title}</a> · {work.authors.map((a, i) => <>{i > 0 && ', '}<a class="author" href={`/autori/${a.slug}`}>{a.name}</a></>)}
         {released && <span class="date">Uscita: {formatDate(released)}</span>}
         {(pages || spice != null || cheapest) && (
           <span class="facts">

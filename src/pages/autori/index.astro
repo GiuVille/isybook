@@ -1,0 +1,58 @@
+---
+import Base from '../../layouts/Base.astro';
+import CoverArt from '../../components/CoverArt.astro';
+import { themeForWork } from '../../lib/book-themes';
+import { getAuthors, getWorks } from '../../lib/data';
+
+const [authors, works] = await Promise.all([getAuthors(), getWorks()]);
+const booksOf = (slug: string) => works.filter((w) => w.authors.some((a) => a.slug === slug));
+---
+
+<Base title="Autori" description="Le autrici e gli autori in archivio: i loro libri, le saghe, le serie TV e gli eventi.">
+  <h1>Autori</h1>
+  <p class="muted intro">Scopri chi scrive le storie in archivio: libri, saghe, adattamenti e dove incontrarli.</p>
+  <div class="authors">
+    {authors.map((author) => {
+      const books = booksOf(author.slug);
+      const genres = [...new Set(books.flatMap((w) => w.genres.map((g) => g.name)))];
+      const initials = author.name.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+      return (
+        <a class="card author" href={`/autori/${author.slug}`}>
+          <span class="avatar" style={`--c:${books[0] ? themeForWork(books[0]).cover : 'var(--accent)'}`} aria-hidden="true">{initials}</span>
+          <span class="text">
+            <strong>{author.name}</strong>
+            <span class="muted small">{books.length} {books.length === 1 ? 'libro' : 'libri'}{genres.length > 0 && ` · ${genres.slice(0, 3).join(', ')}`}</span>
+            <span class="covers" aria-hidden="true">
+              {books.slice(0, 4).map((w) => <CoverArt work={w} class="tiny-cover" />)}
+            </span>
+          </span>
+        </a>
+      );
+    })}
+  </div>
+</Base>
+
+<style>
+  .intro { margin-top: -8px; }
+  .authors { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-top: 20px; }
+  .author { display: flex; gap: 16px; align-items: flex-start; color: var(--text); text-decoration: none; }
+  .author:hover { border-color: var(--accent); }
+  .avatar {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--c);
+    color: #fff;
+    font: 700 1.4rem/1 Georgia, serif;
+  }
+  .text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .small { font-size: 0.85rem; }
+  .covers { display: flex; gap: 6px; margin-top: 6px; }
+  .covers :global(.tiny-cover) { width: 36px; height: auto; filter: drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.2)); }
+  @media (max-width: 700px) {
+    .authors { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

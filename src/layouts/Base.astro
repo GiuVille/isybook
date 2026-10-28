@@ -6,9 +6,11 @@ import Onboarding from '../components/Onboarding.astro';
 interface Props {
   title: string;
   description?: string;
+  /** true nelle pagine con una ricerca propria (libri, serie e film): quella dell'header sarebbe un doppione. */
+  hideSearch?: boolean;
 }
 
-const { title, description = 'Uscite, edizioni speciali ed eventi attorno ai libri che ami.' } = Astro.props;
+const { title, description = 'Uscite, edizioni speciali ed eventi attorno ai libri che ami.', hideSearch = false } = Astro.props;
 const fullTitle = title.startsWith('IsyBook') ? title : `${title} · IsyBook`;
 // color: cartellina f1…f6; tab: posizione della linguetta su desktop (px);
 // mobile: linguetta ancorata a sinistra o a destra (%), così sui telefoni stretti non esce mai dalla cartellina
@@ -41,9 +43,11 @@ const path = Astro.url.pathname;
     <header class="site-header">
       <div class="container top">
         <a href="/" class="logo">IsyBook <span class="tagline">il radar delle uscite</span></a>
-        <form class="search desktop-only" action="/libri" method="get" role="search">
-          <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
-        </form>
+        {!hideSearch && (
+          <form class="search desktop-only" action="/libri" method="get" role="search">
+            <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
+          </form>
+        )}
         <button type="button" class="burger" aria-expanded="false" aria-controls="nav-drawer" aria-label="Apri il menu">
           <span class="burger-label">
             <span class="lines" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -55,9 +59,11 @@ const path = Astro.url.pathname;
       <div class="nav-wrap" id="nav-drawer">
         <div class="nav-inner">
           <div class="container drawer">
-            <form class="search mobile-only" action="/libri" method="get" role="search">
-              <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
-            </form>
+            {!hideSearch && (
+              <form class="search mobile-only" action="/libri" method="get" role="search">
+                <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
+              </form>
+            )}
             <nav class="folders" aria-label="Sezioni">
               {nav.map((item) => {
                 const active = path.startsWith(item.href);

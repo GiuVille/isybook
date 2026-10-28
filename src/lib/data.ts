@@ -9,7 +9,7 @@ const MERCH_FIELDS = 'id, name, kind, shop, price, url, affiliate, edition_id, s
 
 const WORK_SELECT = `
   id, slug, title, plot, series, series_number, origin, spice_level,
-  work_authors ( authors ( id, slug, name, bio ) ),
+  work_authors ( authors ( id, slug, name, bio, social_links ) ),
   work_genres ( genres ( id, slug, name, theme ) ),
   work_tropes ( tropes ( id, slug, name ) ),
   work_settings ( settings ( id, slug, name ) ),
@@ -146,6 +146,14 @@ export async function getWorks(): Promise<Work[]> {
   return (data ?? []).map(mapWork);
 }
 
+/** Autori con almeno un libro pubblicato, in ordine alfabetico. */
+export async function getAuthors(): Promise<Author[]> {
+  const works = await getWorks();
+  const map = new Map<string, Author>();
+  for (const w of works) for (const a of w.authors) map.set(a.slug, a);
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
 /** Tutte le serie e i film pubblicati, tratti da libri pubblicati. */
 export async function getAdaptations(): Promise<Adaptation[]> {
   return (await getWorks())
@@ -180,7 +188,7 @@ export async function getEvents(): Promise<BookEvent[]> {
     .from('events')
     .select(
       'id, slug, title, kind, starts_on, ends_on, venue, city, url, description, ' +
-        'event_authors ( authors ( id, slug, name, bio ) ), event_works ( works ( slug, title, status ) )',
+        'event_authors ( authors ( id, slug, name, bio, social_links ) ), event_works ( works ( slug, title, status ) )',
     )
     .eq('status', 'published')
     .order('starts_on');
