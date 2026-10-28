@@ -1,0 +1,74 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getEvents } from '../../lib/data';
+import { EVENT_KIND_LABELS, formatDateRange } from '../../lib/format';
+import type { BookEvent } from '../../lib/types';
+
+export async function getStaticPaths() {
+  const events = await getEvents();
+  return events.map((event) => ({ params: { slug: event.slug }, props: { event } }));
+}
+
+const { event } = Astro.props as { event: BookEvent };
+const today = new Date().toISOString().slice(0, 10);
+const isPast = (event.ends_on ?? event.starts_on) < today;
+const place = [event.venue, event.city].filter(Boolean).join(', ');
+const mapUrl = place ? `https://www.openstreetmap.org/search?query=${encodeURIComponent(place)}` : null;
+const description = `${EVENT_KIND_LABELS[event.kind]} · ${formatDateRange(event.starts_on, event.ends_on)}${event.city ? ` · ${event.city}` : ''}`;
+---
+
+<Base title={event.title} description={description}>
+  <article class="event-page">
+    <p class="crumbs"><a href="/eventi">← Tutti gli eventi</a></p>
+    <p class="kind">{EVENT_KIND_LABELS[event.kind]}{isPast && ' · concluso'}</p>
+    <h1>{event.title}</h1>
+
+    <dl class="facts">
+      <dt>Quando</dt>
+      <dd>{formatDateRange(event.starts_on, event.ends_on)}</dd>
+      {place && (
+        <>
+          <dt>Dove</dt>
+          <dd>
+            {place}
+            {mapUrl && <> · <a href={mapUrl} target="_blank" rel="noopener">Apri in mappa</a></>}
+          </dd>
+        </>
+      )}
+      {event.authors.length > 0 && (
+        <>
+          <dt>Con</dt>
+          <dd>{event.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/libri?autori=${a.slug}`}>{a.name}</a></>)}</dd>
+        </>
+      )}
+      {event.works.length > 0 && (
+        <>
+          <dt>Libri</dt>
+          <dd>{event.works.map((w, i) => <>{i > 0 && ', '}<a href={`/libri/${w.slug}`}>{w.title}</a></>)}</dd>
+        </>
+      )}
+    </dl>
+
+    {event.description && <p class="description">{event.description}</p>}
+
+    <div class="actions">
+      {!isPast && <a class="button-strong" href={`/eventi/${event.slug}.ics`} download>Aggiungi al calendario</a>}
+      {event.url && <a class="button-soft" href={event.url} target="_blank" rel="noopener">Sito dell'evento</a>}
+    </div>
+    <p class="muted small">Date e orari possono cambiare: controlla sempre il sito dell'organizzatore prima di partire.</p>
+  </article>
+</Base>
+
+<style>
+  .event-page { max-width: 720px; }
+  .crumbs { margin: 0 0 12px; font-size: 0.9rem; }
+  .kind { margin: 0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
+  h1 { margin: 4px 0 20px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0 0 20px; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; }
+  .description { font-size: 1.05rem; line-height: 1.65; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 12px; }
+  .actions a { text-decoration: none; }
+  .small { font-size: 0.85rem; }
+</style>

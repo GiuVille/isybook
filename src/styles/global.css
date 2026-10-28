@@ -1,0 +1,224 @@
+:root {
+  --bg: #fbf8f4;
+  --surface: #ffffff;
+  --text: #2a2230;
+  --muted: #6e6474;
+  --border: #e6dfe8;
+  --accent: #8a3f7a;
+  --accent-soft: #f4e6f0;
+  --limited: #b4542c;
+  --limited-soft: #fbe9e0;
+  --radius: 10px;
+  --max: 1080px;
+
+  /* cassetto d'archivio: interno e cartelline sospese */
+  --drawer-bg: #ece7e1;
+  --folder-1: #d9bb8c; /* kraft */
+  --folder-2: #e6aac6; /* rosa */
+  --folder-3: #a9c8a2; /* salvia */
+  --folder-4: #a6c4df; /* azzurro */
+  --folder-5: #e9cf74; /* senape */
+  --folder-6: #c6b2e2; /* lilla */
+  --folder-ink: #2a2230;
+  --label-paper: #fffdf8;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17131a;
+    --surface: #211b25;
+    --text: #efe8f2;
+    --muted: #a99fb0;
+    --border: #3a3140;
+    --accent: #d991c9;
+    --accent-soft: #3a2436;
+    --limited: #f0996f;
+    --limited-soft: #3e2419;
+    --drawer-bg: #1d1820;
+    --folder-1: #9c8159;
+    --folder-2: #a86d89;
+    --folder-3: #6f8d69;
+    --folder-4: #6a88a3;
+    --folder-5: #a8913f;
+    --folder-6: #8a77a6;
+    --folder-ink: #1a151d;
+    --label-paper: #efe9df;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* l'attributo hidden vince sempre sugli stili di display dei componenti */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+a { color: var(--accent); }
+img { max-width: 100%; }
+
+.container { max-width: var(--max); margin: 0 auto; padding: 0 16px; }
+
+h1, h2, h3 { line-height: 1.25; font-family: Georgia, 'Times New Roman', serif; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.badge { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.badge.special { color: var(--accent); }
+.badge.limited { color: var(--limited); }
+
+.muted { color: var(--muted); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+
+/* ------------------------------------------------------------------------
+   Cartelline sospese d'archivio (header)
+   .folder = cartellina, con --f come colore; .folder-tab = linguetta con etichetta
+   ------------------------------------------------------------------------ */
+.folder {
+  --f: var(--folder-1);
+  position: relative;
+  display: block;
+  color: var(--folder-ink);
+  text-decoration: none;
+  transition: transform 0.18s ease;
+}
+.folder::before {
+  /* corpo della cartellina, che sparisce dietro il bordo del cassetto */
+  content: '';
+  position: absolute;
+  inset: 24px 0 0 0;
+  background: var(--f);
+  border-radius: 3px 3px 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 -2px 6px rgba(0, 0, 0, 0.12);
+}
+.folder-tab {
+  position: absolute;
+  top: 0;
+  left: var(--tab-x, 10px);
+  height: 26px;
+  padding: 4px 16px 0;
+  background: var(--f);
+  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 100%, 0 100%);
+  white-space: nowrap;
+}
+.folder-tab .label {
+  display: inline-block;
+  padding: 0 8px;
+  background: var(--label-paper);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+  font-family: 'Gochi Hand', cursive;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: var(--folder-ink);
+}
+.folder:hover { transform: translateY(-4px); }
+.folder.is-active { transform: translateY(-9px); z-index: 5; }
+.folder.is-active .label { font-weight: 700; box-shadow: inset 0 -2px 0 var(--accent); }
+
+.f1 { --f: var(--folder-1); }
+.f2 { --f: var(--folder-2); }
+.f3 { --f: var(--folder-3); }
+.f4 { --f: var(--folder-4); }
+.f5 { --f: var(--folder-5); }
+.f6 { --f: var(--folder-6); }
+
+/* ------------------------------------------------------------------------
+   Card libro generate nel browser (feed "Per te", La mia libreria)
+   ------------------------------------------------------------------------ */
+.mini-books { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.mini-book {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.mini-book:hover { border-color: var(--accent); }
+.mini-book-link { flex: 1; display: flex; gap: 12px; padding: 12px; color: var(--text); text-decoration: none; min-width: 0; }
+.mini-book-cover {
+  flex-shrink: 0;
+  width: 58px;
+  height: 87px;
+  object-fit: cover;
+  border-radius: 3px;
+  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.2);
+}
+.mini-book-cover.placeholder {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  background: var(--c);
+  color: #fff;
+  font: 700 0.62rem/1.2 Georgia, serif;
+  text-align: center;
+  overflow: hidden;
+}
+.mini-book-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mini-book-meta { color: var(--muted); font-size: 0.85rem; }
+.mini-book-note { color: var(--accent); font-size: 0.85rem; margin-top: 4px; }
+.mini-book .remove {
+  margin: 8px 8px 0 0;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.mini-book .remove:hover { color: var(--limited); border-color: var(--limited); }
+
+.button-soft {
+  display: inline-block;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 0;
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button-soft:hover { filter: brightness(0.97); }
+.button-strong {
+  display: inline-block;
+  padding: 8px 18px;
+  font: inherit;
+  color: var(--surface);
+  background: var(--accent);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}

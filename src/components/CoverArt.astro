@@ -1,0 +1,72 @@
+---
+// Copertina 2:3: la foto se c'è, altrimenti un libro segnaposto nei colori del genere.
+// Si può usare da sola o annidata in un altro SVG passando x/y/width/height.
+import { themeForWork } from '../lib/book-themes';
+import { wrapTitle } from '../lib/trope-arrows';
+import type { Work } from '../lib/types';
+
+interface Props {
+  work: Work;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  class?: string;
+}
+
+const W = 180;
+const H = 270;
+const { work, x, y, width, height, class: className } = Astro.props;
+const theme = themeForWork(work);
+const cover = work.editions.find((e) => e.cover_url)?.cover_url;
+const authors = work.authors.map((a) => a.name).join(', ');
+const titleLines = wrapTitle(work.title, 11);
+const clipId = `cover-clip-${work.id}-${Math.random().toString(36).slice(2, 8)}`;
+const standalone = x === undefined;
+---
+
+<svg
+  viewBox={`0 0 ${W} ${H}`}
+  x={x}
+  y={y}
+  width={width}
+  height={height}
+  class={className}
+  role={standalone ? 'img' : undefined}
+  aria-label={standalone ? `Copertina di ${work.title}` : undefined}
+>
+  <defs>
+    <clipPath id={clipId}><rect width={W} height={H} rx="4" /></clipPath>
+  </defs>
+  {cover ? (
+    <image href={cover} width={W} height={H} preserveAspectRatio="xMidYMid slice" clip-path={`url(#${clipId})`} />
+  ) : (
+    <g clip-path={`url(#${clipId})`}>
+      <rect width={W} height={H} fill={theme.cover} />
+      <rect width="10" height={H} fill="rgba(0,0,0,.18)" />
+      <rect x="22" y="22" width={W - 34} height={H - 44} fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5" />
+      <text
+        x={W / 2 + 5}
+        y={110 - titleLines.length * 12}
+        text-anchor="middle"
+        fill="#fff"
+        font-family="Georgia, serif"
+        font-weight="700"
+        font-size="20"
+      >
+        {titleLines.map((line, i) => <tspan x={W / 2 + 5} dy={i === 0 ? 0 : 26}>{line}</tspan>)}
+      </text>
+      <text
+        x={W / 2 + 5}
+        y={H - 40}
+        text-anchor="middle"
+        fill="rgba(255,255,255,.85)"
+        font-family="system-ui, sans-serif"
+        font-size="12"
+        letter-spacing="1"
+      >
+        {authors.toUpperCase()}
+      </text>
+    </g>
+  )}
+</svg>

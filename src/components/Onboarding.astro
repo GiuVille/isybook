@@ -1,0 +1,113 @@
+---
+// Questionario degli interessi: si apre da solo alla prima visita e ogni volta che
+// qualcuno lancia l'evento `open-onboarding` (feed "Per te", La mia libreria).
+---
+
+<dialog class="onboarding" aria-labelledby="onboarding-title">
+  <form method="dialog" class="sheet">
+    <p class="kicker">Benvenuta, benvenuto su IsyBook</p>
+    <h2 id="onboarding-title">Cosa ti piace leggere?</h2>
+    <p class="muted intro">Scegli quello che ti incuriosisce: useremo le tue scelte per il feed "Per te". Puoi cambiarle quando vuoi.</p>
+    <div class="groups"><p class="muted">Caricamento…</p></div>
+    <div class="actions">
+      <button type="button" class="skip">Salta</button>
+      <button type="submit" class="go button-strong">Crea il mio feed</button>
+    </div>
+    <p class="note muted">Le tue scelte restano salvate solo in questo browser.</p>
+  </form>
+</dialog>
+
+<script>
+  import { loadCatalog } from '../lib/catalog';
+  import { getLibrary, markOnboardingDone, setInterests, type Interests } from '../lib/library';
+  import { esc } from '../lib/book-card';
+
+  const dialog = document.querySelector<HTMLDialogElement>('dialog.onboarding')!;
+  const groupsEl = dialog.querySelector<HTMLElement>('.groups')!;
+  const GROUPS: Array<{ key: keyof Interests; label: string }> = [
+    { key: 'genres', label: 'Generi' },
+    { key: 'tropes', label: 'Tropes' },
+    { key: 'settings', label: 'Ambientazioni' },
+  ];
+
+  async function open() {
+    try {
+      const catalog = await loadCatalog();
+      const current = getLibrary().interests;
+      groupsEl.innerHTML = GROUPS.filter((g) => catalog[g.key].length > 0)
+        .map(
+          (g) => `
+          <fieldset>
+            <legend>${g.label}</legend>
+            ${catalog[g.key]
+              .map(
+                (t) => `<label class="chip"><input type="checkbox" name="${g.key}" value="${esc(t.slug)}"
+                  ${current?.[g.key].includes(t.slug) ? 'checked' : ''}><span>${esc(t.name)}</span></label>`,
+              )
+              .join('')}
+          </fieldset>`,
+        )
+        .join('');
+    } catch {
+      groupsEl.innerHTML = '<p class="muted">Non riesco a caricare le categorie in questo momento.</p>';
+    }
+    if (!dialog.open) dialog.showModal();
+  }
+
+  const selected = (key: keyof Interests) =>
+    [...dialog.querySelectorAll<HTMLInputElement>(`input[name="${key}"]:checked`)].map((i) => i.value);
+
+  dialog.querySelector('form')!.addEventListener('submit', () => {
+    setInterests({ genres: selected('genres'), tropes: selected('tropes'), settings: selected('settings') });
+  });
+  dialog.querySelector('.skip')!.addEventListener('click', () => {
+    markOnboardingDone();
+    dialog.close();
+  });
+  // Esc: chiude senza salvare interessi e senza riproporre il questionario
+  dialog.addEventListener('cancel', () => markOnboardingDone());
+
+  window.addEventListener('open-onboarding', () => open());
+
+  if (!getLibrary().onboardingDone) setTimeout(open, 600);
+</script>
+
+<style>
+  .onboarding {
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    padding: 0;
+    color: var(--text);
+    background: var(--surface);
+    border: 0;
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  .onboarding::backdrop { background: rgba(30, 20, 35, 0.55); }
+  .sheet { padding: 28px 28px 20px; }
+  .kicker { margin: 0; font-family: 'Gochi Hand', cursive; font-size: 1.2rem; color: var(--accent); }
+  h2 { margin: 2px 0 6px; font-size: 1.8rem; }
+  .intro { margin: 0 0 16px; }
+  .groups :global(fieldset) { border: 0; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .groups :global(legend) { width: 100%; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
+  .groups :global(.chip) { position: relative; cursor: pointer; }
+  .groups :global(.chip input) { position: absolute; opacity: 0; pointer-events: none; }
+  .groups :global(.chip span) {
+    display: inline-block;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.92rem;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .groups :global(.chip:hover span) { border-color: var(--accent); }
+  .groups :global(.chip input:checked + span) { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  .groups :global(.chip input:focus-visible + span) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+  .skip { font: inherit; color: var(--muted); background: none; border: 0; cursor: pointer; text-decoration: underline; }
+  .note { margin: 12px 0 0; font-size: 0.8rem; text-align: right; }
+  @media (max-width: 700px) {
+    .sheet { padding: 22px 18px 16px; }
+    h2 { font-size: 1.5rem; }
+  }
+</style>

@@ -1,0 +1,283 @@
+---
+import '@fontsource/gochi-hand';
+import '../styles/global.css';
+import Onboarding from '../components/Onboarding.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Uscite, edizioni speciali ed eventi attorno ai libri che ami.' } = Astro.props;
+const fullTitle = title.startsWith('IsyBook') ? title : `${title} · IsyBook`;
+// color: cartellina f1…f6; tab: posizione della linguetta su desktop (px);
+// mobile: linguetta ancorata a sinistra o a destra (%), così sui telefoni stretti non esce mai dalla cartellina
+type MobileTab = { left: number } | { right: number };
+const nav: Array<{ href: string; label: string; color: number; tab: number; mobile: MobileTab }> = [
+  { href: '/uscite', label: 'Uscite', color: 5, tab: 12, mobile: { left: 4 } },
+  { href: '/edizioni-speciali', label: 'Edizioni speciali', color: 2, tab: 26, mobile: { right: 4 } },
+  { href: '/eventi', label: 'Eventi', color: 1, tab: 20, mobile: { left: 30 } },
+  { href: '/libri', label: 'Libri', color: 3, tab: 18, mobile: { right: 20 } },
+  { href: '/articoli', label: 'Articoli', color: 4, tab: 34, mobile: { left: 12 } },
+  { href: '/la-mia-libreria', label: 'La mia libreria', color: 6, tab: 16, mobile: { right: 8 } },
+];
+const mobileTab = (m: MobileTab) => ('left' in m ? `--tab-ml:${m.left}%` : `--tab-mr:${m.right}%`);
+const path = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <link rel="canonical" href={new URL(path, Astro.site)} />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container top">
+        <a href="/" class="logo">IsyBook <span class="tagline">il radar delle uscite</span></a>
+        <form class="search desktop-only" action="/libri" method="get" role="search">
+          <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
+        </form>
+        <button type="button" class="burger" aria-expanded="false" aria-controls="nav-drawer" aria-label="Apri il menu">
+          <span class="burger-label">
+            <span class="lines" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span class="burger-text">Menu</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="nav-wrap" id="nav-drawer">
+        <div class="nav-inner">
+          <div class="container drawer">
+            <form class="search mobile-only" action="/libri" method="get" role="search">
+              <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
+            </form>
+            <nav class="folders" aria-label="Sezioni">
+              {nav.map((item) => {
+                const active = path.startsWith(item.href);
+                return (
+                  <a
+                    href={item.href}
+                    class:list={['folder', `f${item.color}`, { 'is-active': active }]}
+                    style={`--tab-x:${item.tab}px;${mobileTab(item.mobile)}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <span class="folder-tab">
+                      <span class="label">
+                        {item.label}
+                        {item.href === '/la-mia-libreria' && <span class="saved-count" hidden></span>}
+                      </span>
+                    </span>
+                  </a>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="container">
+      <slot />
+    </main>
+    <Onboarding />
+    <footer class="container site-footer muted">
+      <p>Alcuni link d'acquisto sono link affiliati: se acquisti tramite essi riceviamo una piccola commissione, senza costi aggiuntivi per te.</p>
+    </footer>
+
+    <script>
+      import { getLibrary, onLibraryChange, savedCount } from '../lib/library';
+
+      // bollino sulla cartellina "La mia libreria"
+      const badge = document.querySelector<HTMLElement>('.saved-count');
+      const showCount = () => {
+        if (!badge) return;
+        const n = savedCount(getLibrary());
+        badge.hidden = n === 0;
+        badge.textContent = String(n);
+      };
+      showCount();
+      onLibraryChange(showCount);
+
+      // Menu hamburger (solo mobile): apre e chiude il cassetto delle sezioni.
+      const header = document.querySelector<HTMLElement>('.site-header')!;
+      const burger = header.querySelector<HTMLButtonElement>('.burger')!;
+      document.documentElement.classList.add('js');
+
+      const setOpen = (open: boolean) => {
+        header.classList.toggle('menu-open', open);
+        burger.setAttribute('aria-expanded', String(open));
+        burger.setAttribute('aria-label', open ? 'Chiudi il menu' : 'Apri il menu');
+        burger.querySelector('.burger-text')!.textContent = open ? 'Chiudi' : 'Menu';
+      };
+
+      burger.addEventListener('click', () => setOpen(!header.classList.contains('menu-open')));
+      header.querySelectorAll('.folder').forEach((a) => a.addEventListener('click', () => setOpen(false)));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setOpen(false);
+      });
+      document.addEventListener('click', (e) => {
+        if (!header.contains(e.target as Node)) setOpen(false);
+      });
+      if (location.hash === '#menu') setOpen(true);
+    </script>
+  </body>
+</html>
+
+<style>
+  .site-header { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .top { display: flex; align-items: center; gap: 16px; padding-top: 14px; padding-bottom: 10px; }
+  .logo {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-right: auto;
+    font-family: Georgia, serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .tagline { font-family: 'Gochi Hand', cursive; font-size: 1.05rem; font-weight: 400; color: var(--accent); }
+  @media (max-width: 700px) {
+    .logo { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.1; }
+    .tagline { font-size: 0.95rem; }
+  }
+
+  .search input {
+    width: 220px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 0.9rem;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .search input:focus { outline: none; border-color: var(--accent); }
+  .mobile-only, .burger { display: none; }
+
+  /* cassetto: interno scuro-caldo, cartelline in fila */
+  /* cassetto aperto: le cartelline scendono fino al bordo e spariscono dentro, un'ombra le separa dalla pagina */
+  .site-header { position: relative; z-index: 10; box-shadow: 0 8px 14px -10px rgba(0, 0, 0, 0.35); }
+  .nav-wrap { background: var(--drawer-bg); box-shadow: inset 0 6px 8px -6px rgba(0, 0, 0, 0.25); }
+  .nav-inner { overflow: hidden; }
+  .folders .folder::after {
+    /* il corpo prosegue sotto il bordo: sollevando la cartellina non si vede mai il fondo */
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -14px;
+    height: 14px;
+    background: var(--f, var(--folder-1));
+  }
+  .drawer { padding-top: 16px; }
+  /* su desktop la linguetta sta nel flusso: la cartellina si allarga quanto serve e la linguetta non sporge mai */
+  .folders :global(.folder-tab) { position: relative; display: inline-block; left: 0; margin-left: var(--tab-x); height: 30px; padding-top: 5px; }
+  .folders :global(.folder-tab .label) { font-size: 1.15rem; }
+  .folders .folder::before { top: 28px; }
+  .folders { display: flex; align-items: flex-end; }
+  .folders .folder {
+    flex: 0 0 auto;
+    min-width: 150px;
+    height: 54px;
+    padding-right: 36px; /* corpo della cartellina oltre la linguetta */
+    margin-right: -18px;
+  }
+  .folders .folder:nth-child(1) { z-index: 6; }
+  .folders .folder:nth-child(2) { z-index: 5; }
+  .folders .folder:nth-child(3) { z-index: 4; }
+  .folders .folder:nth-child(4) { z-index: 3; }
+  .folders .folder:nth-child(5) { z-index: 2; }
+  .folders .folder:nth-child(6) { z-index: 1; }
+  .folders .folder.is-active { z-index: 7; }
+  .saved-count {
+    display: inline-block;
+    min-width: 1.3em;
+    margin-left: 4px;
+    padding: 0 5px;
+    font: 600 0.7rem/1.5 system-ui, sans-serif;
+    text-align: center;
+    vertical-align: 2px;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 999px;
+  }
+  .saved-count[hidden] { display: none; }
+
+  main { padding-top: 24px; padding-bottom: 48px; }
+  .site-footer { border-top: 1px solid var(--border); font-size: 0.85rem; padding-top: 16px; padding-bottom: 32px; }
+
+  @media (max-width: 700px) {
+    .desktop-only { display: none; }
+    .mobile-only { display: block; margin-bottom: 18px; }
+    .mobile-only input { width: 100%; }
+
+    /* pulsante menu: una linguetta di cartellina kraft con l'etichetta di carta, come le sezioni */
+    :global(.js) .burger {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 4px 14px 0;
+      font: inherit;
+      color: var(--folder-ink);
+      background: var(--folder-1);
+      border: 0;
+      clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
+      cursor: pointer;
+      transition: transform 0.18s ease;
+    }
+    .burger:active { transform: translateY(1px); }
+    .menu-open .burger { background: var(--folder-2); }
+    .burger-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 1px 8px;
+      background: var(--label-paper);
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      border-radius: 2px;
+      font-family: 'Gochi Hand', cursive;
+      font-size: 1.1rem;
+      line-height: 1.3;
+    }
+    .lines { display: inline-grid; gap: 3px; }
+    .lines span { display: block; width: 14px; height: 2px; border-radius: 2px; background: currentColor; transition: transform 0.2s, opacity 0.2s; }
+    .menu-open .lines span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+    .menu-open .lines span:nth-child(2) { opacity: 0; }
+    .menu-open .lines span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+
+    /* il cassetto scivola giù */
+    :global(.js) .nav-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease; }
+    :global(.js) .menu-open .nav-wrap { grid-template-rows: 1fr; }
+    .nav-inner { overflow: hidden; min-height: 0; }
+    .drawer { padding: 16px 14px 0; }
+
+    /* cartelline viste dall'alto, una dietro l'altra, linguette sfalsate */
+    .folders { flex-direction: column; align-items: stretch; }
+    .folders .folder { min-width: 0; height: 58px; margin: -20px 0 0; }
+    .folders .folder:first-child { margin-top: 0; }
+    /* su mobile l'ordine davanti/dietro resta quello del cassetto: la sezione attiva si riconosce dall'etichetta */
+    .folders .folder.is-active { transform: none; }
+    .folders .folder:nth-child(1) { z-index: 1; }
+    .folders .folder:nth-child(2) { z-index: 2; }
+    .folders .folder:nth-child(3) { z-index: 3; }
+    .folders .folder:nth-child(4) { z-index: 4; }
+    .folders .folder:nth-child(5) { z-index: 5; }
+    .folders .folder:nth-child(6) { z-index: 6; }
+    .folders .folder:hover { transform: none; }
+    .folders :global(.folder-tab) {
+      position: absolute;
+      left: var(--tab-ml, auto);
+      right: var(--tab-mr, auto);
+      max-width: calc(100% - 8px);
+      margin-left: 0;
+    }
+    .folders :global(.folder-tab .label) { font-size: 1.15rem; }
+  }
+</style>

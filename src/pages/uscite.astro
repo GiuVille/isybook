@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import EditionCard from '../components/EditionCard.astro';
+import { getEditionsWithWork } from '../lib/data';
+
+const today = new Date().toISOString().slice(0, 10);
+const editions = (await getEditionsWithWork()).filter((e) => (e.release_date ?? '9999') >= today);
+const byMonth = Map.groupBy(editions, (e) =>
+  e.release_date ? new Date(e.release_date).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }) : 'Data da annunciare',
+);
+---
+
+<Base title="Calendario uscite" description="Le prossime uscite cartacee e Kindle di romantasy, romance e fantasy YA.">
+  <h1>Calendario uscite</h1>
+  {editions.length === 0 && <p class="muted">Nessuna uscita in calendario.</p>}
+  {[...byMonth].map(([month, list]) => (
+    <section>
+      <h2 class="month">{month}</h2>
+      <div class="grid">{list.map((e) => <EditionCard edition={e} />)}</div>
+    </section>
+  ))}
+</Base>
+
+<style>
+  .month { text-transform: capitalize; margin-top: 32px; }
+</style>

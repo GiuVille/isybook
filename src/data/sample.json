@@ -1,0 +1,520 @@
+{
+  "sections": [
+    {
+      "id": "s1",
+      "slug": "da-wattpad-alla-libreria",
+      "name": "Da Wattpad alla libreria",
+      "description": "Storie nate su Wattpad e arrivate in libreria."
+    },
+    {
+      "id": "s2",
+      "slug": "novita",
+      "name": "Novità",
+      "description": "Le uscite della settimana."
+    }
+  ],
+  "articles": [
+    {
+      "id": "a1",
+      "slug": "benvenuti-su-isybook",
+      "title": "Benvenuti su IsyBook",
+      "excerpt": "Uscite, edizioni speciali ed eventi attorno ai libri che ami, in un posto solo.",
+      "body": "IsyBook raccoglie tutto quello che succede attorno ai libri: uscite, edizioni speciali e limitate, eventi e firmacopie.\n\nQuesto è un articolo di esempio.",
+      "section_id": "s2",
+      "published_at": "2026-10-28"
+    }
+  ],
+  "publishers": [
+    {
+      "id": "p1",
+      "slug": "editrice-esempio",
+      "name": "Editrice Esempio",
+      "kind": "publisher",
+      "website": null
+    },
+    {
+      "id": "p2",
+      "slug": "box-esempio",
+      "name": "Box Esempio",
+      "kind": "box",
+      "website": null
+    }
+  ],
+  "authors": [
+    {
+      "id": "au1",
+      "slug": "autrice-esempio",
+      "name": "Autrice Esempio",
+      "bio": "Autrice di romantasy (dato di esempio)."
+    }
+  ],
+  "genres": [
+    {
+      "id": "g1",
+      "slug": "romantasy",
+      "name": "Romantasy",
+      "theme": "romance"
+    },
+    {
+      "id": "g2",
+      "slug": "fantasy-ya",
+      "name": "Fantasy YA",
+      "theme": "ya"
+    },
+    {
+      "id": "g3",
+      "slug": "giallo",
+      "name": "Giallo",
+      "theme": "giallo"
+    },
+    {
+      "id": "g4",
+      "slug": "horror",
+      "name": "Horror",
+      "theme": "horror"
+    }
+  ],
+  "tropes": [
+    {
+      "id": "t1",
+      "slug": "enemies-to-lovers",
+      "name": "Enemies to lovers"
+    },
+    {
+      "id": "t2",
+      "slug": "slow-burn",
+      "name": "Slow burn"
+    },
+    {
+      "id": "t3",
+      "slug": "found-family",
+      "name": "Found family"
+    },
+    {
+      "id": "t4",
+      "slug": "fake-relationship",
+      "name": "Fake relationship"
+    },
+    {
+      "id": "t5",
+      "slug": "doppio-pov",
+      "name": "Doppio pov"
+    },
+    {
+      "id": "t6",
+      "slug": "he-falls-first",
+      "name": "He falls first"
+    },
+    {
+      "id": "t7",
+      "slug": "forced-proximity",
+      "name": "Forced proximity"
+    },
+    {
+      "id": "t8",
+      "slug": "locked-room",
+      "name": "Delitto della camera chiusa"
+    },
+    {
+      "id": "t9",
+      "slug": "casa-infestata",
+      "name": "Casa infestata"
+    },
+    {
+      "id": "t10",
+      "slug": "small-town",
+      "name": "Paesino isolato"
+    },
+    {
+      "id": "t11",
+      "slug": "unreliable-narrator",
+      "name": "Narratore inaffidabile"
+    }
+  ],
+  "works": [
+    {
+      "id": "w1",
+      "slug": "la-corona-di-cenere",
+      "title": "La corona di cenere",
+      "plot": "Una ladra cresciuta nei bassifondi viene costretta a servire il principe che ha distrutto la sua famiglia. Tra intrighi di corte e una magia che si credeva estinta, dovrà scegliere tra vendetta e libertà. (Titolo e trama di esempio.)",
+      "series": "Cronache di cenere",
+      "series_number": 1,
+      "origin": "publisher",
+      "author_ids": [
+        "au1"
+      ],
+      "genre_ids": [
+        "g1"
+      ],
+      "trope_ids": [
+        "t4",
+        "t5",
+        "t1",
+        "t7",
+        "t2",
+        "t6"
+      ],
+      "editions": [
+        {
+          "id": "e1",
+          "isbn": "9780000000001",
+          "format": "hardcover",
+          "publisher_id": "p1",
+          "release_date": "2026-11-12",
+          "price": 19.9,
+          "language": "it",
+          "edition_type": "standard",
+          "print_run": null,
+          "details": "Prima tiratura con segnalibro in omaggio",
+          "cover_url": null,
+          "purchase_links": [],
+          "first_print": true,
+          "pages": 432
+        },
+        {
+          "id": "e2",
+          "isbn": null,
+          "format": "hardcover",
+          "publisher_id": "p2",
+          "release_date": "2026-12-01",
+          "price": 39,
+          "language": "it",
+          "edition_type": "limited",
+          "print_run": 1500,
+          "details": "Bordi decorati, copertina alternativa, firma stampata",
+          "cover_url": null,
+          "purchase_links": [],
+          "pages": 432
+        },
+        {
+          "id": "e3",
+          "isbn": null,
+          "format": "kindle",
+          "publisher_id": "p1",
+          "release_date": "2026-11-12",
+          "price": 6.99,
+          "language": "it",
+          "edition_type": "standard",
+          "print_run": null,
+          "details": null,
+          "cover_url": null,
+          "purchase_links": []
+        },
+        {
+          "id": "e8",
+          "isbn": null,
+          "format": "audio",
+          "publisher_id": "p1",
+          "release_date": "2026-11-12",
+          "price": 14.99,
+          "language": "it",
+          "edition_type": "standard",
+          "print_run": null,
+          "details": "Letto da una narratrice di esempio, 14 h 20 min",
+          "cover_url": null,
+          "purchase_links": []
+        }
+      ],
+      "adaptations": [
+        {
+          "id": "ad1",
+          "title": "La corona di cenere",
+          "kind": "series",
+          "platform": "Netflix",
+          "release_date": null,
+          "production_status": "In lavorazione",
+          "tmdb_id": null
+        }
+      ],
+      "setting_ids": [
+        "s-court"
+      ],
+      "merch": [
+        {
+          "id": "m1",
+          "name": "Segnalibro illustrato",
+          "kind": "gadget",
+          "shop": "Editrice Esempio",
+          "price": null,
+          "url": null,
+          "affiliate": false,
+          "edition_id": "e1"
+        },
+        {
+          "id": "m2",
+          "name": "Stampa artistica dei protagonisti",
+          "kind": "gadget",
+          "shop": "Box Esempio",
+          "price": null,
+          "url": null,
+          "affiliate": false,
+          "edition_id": "e2"
+        },
+        {
+          "id": "m3",
+          "name": "Collana con la corona di cenere",
+          "kind": "jewelry",
+          "shop": "Negozio Esempio",
+          "price": 24.9,
+          "url": "https://example.com",
+          "affiliate": true,
+          "edition_id": null
+        }
+      ],
+      "spice_level": 3
+    },
+    {
+      "id": "w5",
+      "slug": "il-trono-di-brace",
+      "title": "Il trono di brace",
+      "plot": "Ora che la corona è sua, la ladra scopre che governare è più pericoloso che rubare: la corte trama nell’ombra e il principe nasconde un segreto che può bruciare il regno. (Titolo e trama di esempio.)",
+      "series": "Cronache di cenere",
+      "series_number": 2,
+      "origin": "publisher",
+      "author_ids": [
+        "au1"
+      ],
+      "genre_ids": [
+        "g1"
+      ],
+      "trope_ids": [
+        "t1",
+        "t2",
+        "t5"
+      ],
+      "setting_ids": [
+        "s-court"
+      ],
+      "editions": [
+        {
+          "id": "e7",
+          "isbn": null,
+          "format": "hardcover",
+          "publisher_id": "p1",
+          "release_date": "2027-05-14",
+          "price": 19.9,
+          "language": "it",
+          "edition_type": "standard",
+          "print_run": null,
+          "details": null,
+          "cover_url": null,
+          "purchase_links": [],
+          "pages": 480
+        }
+      ],
+      "spice_level": 4
+    },
+    {
+      "id": "w2",
+      "slug": "il-patto-delle-stelle",
+      "title": "Il patto delle stelle",
+      "plot": "Cinque ragazzi senza casa trovano rifugio in una nave volante e scoprono di essere legati da un'antica profezia. (Titolo e trama di esempio.)",
+      "series": null,
+      "series_number": null,
+      "origin": "wattpad",
+      "author_ids": [
+        "au1"
+      ],
+      "genre_ids": [
+        "g2"
+      ],
+      "trope_ids": [
+        "t3"
+      ],
+      "editions": [
+        {
+          "id": "e4",
+          "isbn": "9780000000002",
+          "format": "paperback",
+          "publisher_id": "p1",
+          "release_date": "2026-10-20",
+          "price": 16,
+          "language": "it",
+          "edition_type": "special",
+          "print_run": null,
+          "details": "Prima tiratura con sovraccoperta esclusiva",
+          "cover_url": null,
+          "purchase_links": [],
+          "pages": 352
+        }
+      ],
+      "setting_ids": [
+        "s-academy"
+      ]
+    },
+    {
+      "id": "w3",
+      "slug": "lultimo-ospite",
+      "title": "L’ultimo ospite",
+      "plot": "Una tempesta isola sei invitati in una villa sul lago. Al mattino il padrone di casa è morto in una stanza chiusa a chiave dall’interno, e tutti hanno qualcosa da nascondere. (Titolo e trama di esempio.)",
+      "series": null,
+      "series_number": null,
+      "origin": "publisher",
+      "author_ids": [
+        "au1"
+      ],
+      "genre_ids": [
+        "g3"
+      ],
+      "trope_ids": [
+        "t8"
+      ],
+      "editions": [
+        {
+          "id": "e5",
+          "isbn": null,
+          "format": "paperback",
+          "publisher_id": "p1",
+          "release_date": "2026-11-26",
+          "price": 18,
+          "language": "it",
+          "edition_type": "standard",
+          "print_run": null,
+          "details": null,
+          "cover_url": null,
+          "purchase_links": [],
+          "pages": 288
+        }
+      ],
+      "setting_ids": [
+        "s-villa"
+      ]
+    },
+    {
+      "id": "w4",
+      "slug": "la-casa-sul-fiume",
+      "title": "La casa sul fiume",
+      "plot": "Tornata nel paese dove è cresciuta per vendere la casa della nonna, Marta inizia a sentire passi al piano di sopra. Ma i suoi ricordi di quell’estate non coincidono con quelli di nessun altro. (Titolo e trama di esempio.)",
+      "series": null,
+      "series_number": null,
+      "origin": "self",
+      "author_ids": [
+        "au1"
+      ],
+      "genre_ids": [
+        "g4"
+      ],
+      "trope_ids": [
+        "t9",
+        "t10",
+        "t11"
+      ],
+      "editions": [
+        {
+          "id": "e6",
+          "isbn": null,
+          "format": "kindle",
+          "publisher_id": null,
+          "release_date": "2026-10-31",
+          "price": 3.99,
+          "language": "it",
+          "edition_type": "standard",
+          "print_run": null,
+          "details": null,
+          "cover_url": null,
+          "purchase_links": []
+        }
+      ],
+      "setting_ids": [
+        "s-village"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "id": "s-court",
+      "slug": "corte-reale",
+      "name": "Corte reale"
+    },
+    {
+      "id": "s-academy",
+      "slug": "accademia",
+      "name": "Accademia"
+    },
+    {
+      "id": "s-college",
+      "slug": "college",
+      "name": "College"
+    },
+    {
+      "id": "s-village",
+      "slug": "paese-di-provincia",
+      "name": "Paese di provincia"
+    },
+    {
+      "id": "s-villa",
+      "slug": "villa-isolata",
+      "name": "Villa isolata"
+    }
+  ],
+  "events": [
+    {
+      "id": "ev1",
+      "slug": "firmacopie-la-corona-di-cenere-milano",
+      "title": "Firmacopie de «La corona di cenere»",
+      "kind": "signing",
+      "starts_on": "2026-11-21",
+      "ends_on": null,
+      "venue": "Libreria Esempio, corso di esempio 1",
+      "city": "Milano",
+      "url": null,
+      "description": "L’autrice firma le copie del primo volume della saga. Prima tiratura con segnalibro fino a esaurimento. (Evento di esempio.)",
+      "author_ids": [
+        "au1"
+      ],
+      "work_slugs": [
+        "la-corona-di-cenere"
+      ]
+    },
+    {
+      "id": "ev2",
+      "slug": "presentazione-il-patto-delle-stelle-roma",
+      "title": "Presentazione de «Il patto delle stelle»",
+      "kind": "presentation",
+      "starts_on": "2026-12-05",
+      "ends_on": null,
+      "venue": "Biblioteca di esempio",
+      "city": "Roma",
+      "url": null,
+      "description": "Incontro con l’autrice e lettura di alcuni capitoli. (Evento di esempio.)",
+      "author_ids": [
+        "au1"
+      ],
+      "work_slugs": [
+        "il-patto-delle-stelle"
+      ]
+    },
+    {
+      "id": "ev3",
+      "slug": "fiera-del-libro-di-esempio-torino-2027",
+      "title": "Fiera del libro di esempio",
+      "kind": "fair",
+      "starts_on": "2027-05-14",
+      "ends_on": "2027-05-18",
+      "venue": "Padiglione di esempio",
+      "city": "Torino",
+      "url": "https://example.com",
+      "description": "Cinque giorni di incontri, firmacopie e stand degli editori, con un’area dedicata al romantasy. (Evento di esempio.)",
+      "author_ids": [
+        "au1"
+      ],
+      "work_slugs": [
+        "il-trono-di-brace"
+      ]
+    },
+    {
+      "id": "ev4",
+      "slug": "incontro-lettrici-bologna-settembre",
+      "title": "Incontro tra lettrici e lettori",
+      "kind": "other",
+      "starts_on": "2026-09-20",
+      "ends_on": null,
+      "venue": "Caffè letterario di esempio",
+      "city": "Bologna",
+      "url": null,
+      "description": "Scambio di libri e chiacchiere sui tropes preferiti. (Evento di esempio.)",
+      "author_ids": [],
+      "work_slugs": []
+    }
+  ]
+}

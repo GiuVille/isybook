@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import BookFilters from '../../components/BookFilters.astro';
+import BookPreview from '../../components/BookPreview.astro';
+import { getWorks } from '../../lib/data';
+
+const works = await getWorks();
+---
+
+<Base title="Libri">
+  <h1>Libri</h1>
+  <BookFilters works={works} />
+  <div class="list">
+    {works.map((w) => <BookPreview work={w} />)}
+  </div>
+</Base>
+
+<style>
+  .list { display: grid; gap: 24px; }
+</style>

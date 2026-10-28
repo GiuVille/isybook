@@ -1,0 +1,29 @@
+---
+import type { Edition, Work } from '../lib/types';
+import { EDITION_TYPE_LABELS, FORMAT_LABELS, formatDate } from '../lib/format';
+
+interface Props {
+  edition: Edition & { work: Work };
+}
+
+const { edition } = Astro.props;
+---
+
+<article class="card">
+  {edition.edition_type !== 'standard' && (
+    <span class={`badge ${edition.edition_type}`}>Edizione {EDITION_TYPE_LABELS[edition.edition_type].toLowerCase()}</span>
+  )}
+  <h3><a href={`/libri/${edition.work.slug}`}>{edition.work.title}</a></h3>
+  <p class="muted">{edition.work.authors.map((a) => a.name).join(', ')}</p>
+  <p>
+    {FORMAT_LABELS[edition.format]}{edition.publisher && ` · ${edition.publisher.name}`}<br />
+    <strong>{formatDate(edition.release_date)}</strong>
+  </p>
+  {edition.details && <p class="muted">{edition.details}</p>}
+</article>
+
+<style>
+  h3 { margin: 4px 0; font-size: 1.15rem; }
+  h3 a { color: var(--text); text-decoration: none; }
+  p { margin: 4px 0; }
+</style>

@@ -1,0 +1,352 @@
+---
+import Base from '../../layouts/Base.astro';
+import CoverArt from '../../components/CoverArt.astro';
+import EventCard from '../../components/EventCard.astro';
+import SaveButtons from '../../components/SaveButtons.astro';
+import SpiceMeter from '../../components/SpiceMeter.astro';
+import { isRomance } from '../../lib/book-themes';
+import { getEvents, getWorks } from '../../lib/data';
+import {
+  EDITION_TYPE_LABELS,
+  FORMAT_LABELS,
+  availability,
+  formatDate,
+  formatPrice,
+  pageCount,
+  releaseDate,
+  releaseYear,
+} from '../../lib/format';
+import { seriesInfo, similarWorks, type SeriesInfo, type SimilarWork } from '../../lib/similar';
+import type { BookEvent, Edition, MerchKind, Work } from '../../lib/types';
+
+export async function getStaticPaths() {
+  const [works, allEvents] = await Promise.all([getWorks(), getEvents()]);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = allEvents.filter((e) => (e.ends_on ?? e.starts_on) >= today);
+  return works.map((work) => ({
+    params: { slug: work.slug },
+    props: {
+      work,
+      series: seriesInfo(work, works),
+      similar: similarWorks(work, works),
+      events: upcoming.filter(
+        (e) => e.works.some((w) => w.slug === work.slug) || e.authors.some((a) => work.authors.some((wa) => wa.slug === a.slug)),
+      ),
+    },
+  }));
+}
+
+const { work, series, similar, events } = Astro.props as {
+  work: Work;
+  series: SeriesInfo | null;
+  similar: SimilarWork[];
+  events: BookEvent[];
+};
+const authors = work.authors.map((a) => a.name).join(', ');
+const released = releaseDate(work);
+const pages = pageCount(work);
+const formats = availability(work);
+const digital = [formats.ebook && 'ebook', formats.audiobook && 'audiolibro'].filter(Boolean);
+const spice = isRomance(work) && work.spice_level != null ? work.spice_level : null;
+const ORIGIN_LABELS = { publisher: null, self: 'Self-publishing', wattpad: 'Nato su Wattpad' } as const;
+const MERCH_LABELS: Record<MerchKind, string> = { gadget: 'Gadget', jewelry: 'Gioiello', box: 'Box', other: 'Altro' };
+const ADAPTATION_LABELS = { series: 'Serie TV', film: 'Film' } as const;
+
+const editionsById = new Map(work.editions.map((e) => [e.id, e]));
+const included = work.merch.filter((m) => m.edition_id && editionsById.has(m.edition_id));
+const forSale = work.merch.filter((m) => !m.edition_id);
+
+/** "la prima edizione (Editrice) · copertina rigida" */
+function editionName(e: Edition): string {
+  const what = e.first_print
+    ? 'la prima edizione'
+    : e.edition_type === 'standard'
+      ? `l'edizione ${FORMAT_LABELS[e.format].toLowerCase()}`
+      : `l'edizione ${EDITION_TYPE_LABELS[e.edition_type].toLowerCase()}`;
+  return e.publisher ? `${what} di ${e.publisher.name}` : what;
+}
+
+const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_number}` : 'Volume');
+---
+
+<Base title={`${work.title} di ${authors}`} description={work.plot?.slice(0, 155) ?? undefined}>
+  <article>
+    <div class="head">
+      <CoverArt work={work} class="cover" />
+      <div class="info">
+        {series && (
+          <p class="saga-line">
+            {work.series_number != null ? `Volume ${work.series_number} della saga ` : 'Fa parte della saga '}
+            <a href="#saga">{series.name}</a>
+          </p>
+        )}
+        <h1>{work.title}</h1>
+        <p class="byline">di {work.authors.map((a, i) => <>{i > 0 && ', '}<a href={`/libri?autori=${a.slug}`}>{a.name}</a></>)}</p>
+        <div class="save-row"><SaveButtons slug={work.slug} title={work.title} /></div>
+        <p class="muted">
+          {released && <>Uscita: {formatDate(released)}</>}
+          {ORIGIN_LABELS[work.origin] && <> · {ORIGIN_LABELS[work.origin]}</>}
+        </p>
+        {(pages || digital.length > 0) && (
+          <p class="muted">
+            {pages && <>{pages} pagine</>}
+            {pages && digital.length > 0 && ' · '}
+            {digital.length > 0 && <>Disponibile anche in {digital.join(' e ')}</>}
+          </p>
+        )}
+
+        <dl class="facets">
+          {work.genres.length > 0 && (
+            <>
+              <dt>Generi</dt>
+              <dd>{work.genres.map((g) => <a class="tag" href={`/libri?generi=${g.slug}`}>{g.name}</a>)}</dd>
+            </>
+          )}
+          {work.tropes.length > 0 && (
+            <>
+              <dt>Tropes</dt>
+              <dd>{work.tropes.map((t) => <a class="tag trope" href={`/libri?tropes=${t.slug}`} title="Altri libri con questo trope">{t.name}</a>)}</dd>
+            </>
+          )}
+          {spice != null && (
+            <>
+              <dt>Spicy</dt>
+              <dd><SpiceMeter level={spice} /></dd>
+            </>
+          )}
+          {work.settings.length > 0 && (
+            <>
+              <dt>Ambientazione</dt>
+              <dd>{work.settings.map((s) => <a class="tag" href={`/libri?ambientazione=${s.slug}`}>{s.name}</a>)}</dd>
+            </>
+          )}
+        </dl>
+      </div>
+    </div>
+
+    {work.plot && (
+      <section>
+        <h2>Trama</h2>
+        <p class="plot">{work.plot}</p>
+      </section>
+    )}
+
+    {series && (
+      <section id="saga">
+        <h2>La saga: {series.name}</h2>
+        <div class="saga-nav">
+          {series.previous ? (
+            <a class="card step" href={`/libri/${series.previous.slug}`}>
+              <span class="muted small">← Da leggere prima · {volumeLabel(series.previous)}</span>
+              <strong>{series.previous.title}</strong>
+            </a>
+          ) : (
+            <div class="card step first">
+              <span class="muted small">Da dove iniziare</span>
+              <strong>È il primo volume: puoi partire da qui</strong>
+            </div>
+          )}
+          {series.next ? (
+            <a class="card step next" href={`/libri/${series.next.slug}`}>
+              <span class="muted small">Da leggere dopo · {volumeLabel(series.next)} →</span>
+              <strong>{series.next.title}</strong>
+            </a>
+          ) : (
+            <div class="card step next">
+              <span class="muted small">Dopo questo</span>
+              <strong>{series.volumes.length > 1 ? "Per ora è l'ultimo volume della saga" : 'Per ora non ci sono altri volumi'}</strong>
+            </div>
+          )}
+        </div>
+        {series.volumes.length > 1 && (
+          <ol class="reading-order">
+            {series.volumes.map((v) => (
+              <li class={v.id === work.id ? 'current' : undefined}>
+                <span class="num">{v.series_number ?? '·'}</span>
+                {v.id === work.id ? <strong>{v.title}</strong> : <a href={`/libri/${v.slug}`}>{v.title}</a>}
+                {releaseYear(v) && <span class="muted small">{releaseYear(v)}</span>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    )}
+
+    <section>
+      <h2>Edizioni</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Tipo</th><th>Formato</th><th>Editore</th><th>Uscita</th><th>Prezzo</th><th>Dettagli</th><th>Acquista</th></tr>
+          </thead>
+          <tbody>
+            {work.editions.map((e) => {
+              const extras = included.filter((m) => m.edition_id === e.id);
+              return (
+                <tr>
+                  <td>
+                    <span class={`badge ${e.edition_type}`}>{EDITION_TYPE_LABELS[e.edition_type]}</span>
+                    {e.first_print && <div class="badge first">Prima edizione</div>}
+                  </td>
+                  <td>{FORMAT_LABELS[e.format]}{e.language !== 'it' && ` (${e.language})`}</td>
+                  <td>{e.publisher?.name ?? '—'}</td>
+                  <td>{formatDate(e.release_date)}</td>
+                  <td>{formatPrice(e.price)}</td>
+                  <td>
+                    {e.details}
+                    {e.pages && <span class="muted"> {e.pages} pagine.</span>}
+                    {e.print_run && <span class="muted"> Tiratura: {e.print_run.toLocaleString('it-IT')} copie.</span>}
+                    {extras.length > 0 && <div class="small">Incluso: {extras.map((m) => m.name).join(', ')}</div>}
+                    {e.isbn && <div class="muted isbn">ISBN {e.isbn}</div>}
+                  </td>
+                  <td>
+                    {e.purchase_links.length
+                      ? e.purchase_links.map((l) => (
+                          <a href={l.url} rel={l.affiliate ? 'sponsored noopener' : 'noopener'} target="_blank">{l.label}</a>
+                        ))
+                      : <span class="muted">—</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    {work.merch.length > 0 && (
+      <section>
+        <h2>Gadget</h2>
+        <div class="grid">
+          {included.map((m) => (
+            <div class="card gadget">
+              <span class="muted small">{MERCH_LABELS[m.kind]} · incluso</span>
+              <strong>{m.name}</strong>
+              <span class="small">Venduto con {editionName(editionsById.get(m.edition_id!)!)}</span>
+            </div>
+          ))}
+          {forSale.map((m) => (
+            <div class="card gadget">
+              <span class="muted small">{MERCH_LABELS[m.kind]}{m.shop && ` · ${m.shop}`}</span>
+              <strong>{m.name}</strong>
+              {m.price != null && <span class="small">{formatPrice(m.price)}</span>}
+              {m.url && (
+                <a href={m.url} rel={m.affiliate ? 'sponsored noopener' : 'noopener'} target="_blank" class="small">Vai al negozio</a>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {work.adaptations.length > 0 && (
+      <section>
+        <h2>Serie TV e film</h2>
+        <div class="grid">
+          {work.adaptations.map((a) => (
+            <div class="card adaptation">
+              <span class="badge special">{ADAPTATION_LABELS[a.kind]}</span>
+              <strong>{a.title}</strong>
+              <span class="small">
+                {a.platform && <>{a.platform} · </>}
+                {a.release_date ? formatDate(a.release_date) : (a.production_status ?? 'Annunciato')}
+              </span>
+              {a.tmdb_id && (
+                <a class="small" href={`https://www.themoviedb.org/${a.kind === 'film' ? 'movie' : 'tv'}/${a.tmdb_id}`} target="_blank" rel="noopener">
+                  Scheda su TMDB
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {events.length > 0 && (
+      <section>
+        <h2>Eventi in arrivo</h2>
+        <div class="events">{events.map((e) => <EventCard event={e} />)}</div>
+      </section>
+    )}
+
+    {similar.length > 0 && (
+      <section>
+        <h2>Potrebbero piacerti</h2>
+        <div class="similar">
+          {similar.map(({ work: other, reason }) => (
+            <a class="card similar-item" href={`/libri/${other.slug}`}>
+              <CoverArt work={other} class="mini-cover" />
+              <span>
+                <strong>{other.title}</strong>
+                <span class="muted small block">{other.authors.map((a) => a.name).join(', ')}</span>
+                <span class="small block reason">{reason}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+  </article>
+</Base>
+
+<style>
+  .head { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+  .head :global(.cover) {
+    width: 220px;
+    height: auto;
+    flex-shrink: 0;
+    filter: drop-shadow(4px 8px 10px rgba(0, 0, 0, 0.25));
+  }
+  .info { flex: 1 1 320px; min-width: 0; }
+  .saga-line { margin: 0 0 4px; color: var(--muted); font-size: 0.95rem; }
+  h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+  .byline { font-size: 1.1rem; margin: 4px 0; }
+  .save-row { margin: 10px 0 4px; }
+
+  .facets { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 16px 0 0; align-items: baseline; }
+  .facets dt { color: var(--muted); font-size: 0.85rem; }
+  .facets dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag.trope { background: transparent; border: 1px solid var(--accent); }
+
+  section { margin-top: 40px; }
+  .plot { max-width: 70ch; }
+  .small { font-size: 0.85rem; }
+  .block { display: block; }
+  .isbn { font-size: 0.8rem; }
+  td a { display: block; }
+  .badge.first { margin-top: 4px; color: var(--limited); }
+
+  .saga-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .step { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--text); }
+  a.step:hover { border-color: var(--accent); }
+  .step.next { text-align: right; }
+  .reading-order { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; }
+  .reading-order li { display: flex; gap: 12px; align-items: baseline; }
+  .reading-order .num {
+    display: inline-grid;
+    place-items: center;
+    width: 1.8em;
+    height: 1.8em;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .reading-order li.current .num { background: var(--accent); color: var(--surface); }
+
+  .gadget, .adaptation { display: flex; flex-direction: column; gap: 4px; }
+  .events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+  .similar { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .similar-item { display: flex; gap: 14px; align-items: flex-start; text-decoration: none; color: var(--text); }
+  .similar-item:hover { border-color: var(--accent); }
+  .similar-item :global(.mini-cover) { width: 64px; height: auto; flex-shrink: 0; filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.2)); }
+  .reason { color: var(--accent); margin-top: 4px; }
+
+  @media (max-width: 700px) {
+    .head :global(.cover) { width: 160px; }
+    .step.next { text-align: left; }
+    .events { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

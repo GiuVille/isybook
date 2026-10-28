@@ -1,0 +1,74 @@
+---
+// Feed "Per te": calcolato nel browser da interessi e preferiti (src/lib/recommend.ts).
+---
+
+<section class="for-you" aria-labelledby="for-you-title">
+  <div class="head">
+    <h2 id="for-you-title">Per te</h2>
+    <button type="button" class="button-soft edit" hidden>Modifica interessi</button>
+  </div>
+  <div class="body">
+    <p class="muted">Caricamento…</p>
+  </div>
+</section>
+
+<script>
+  import { bookCard } from '../lib/book-card';
+  import { loadCatalog } from '../lib/catalog';
+  import { getLibrary, onLibraryChange } from '../lib/library';
+  import { recommend } from '../lib/recommend';
+
+  const section = document.querySelector<HTMLElement>('.for-you')!;
+  const body = section.querySelector<HTMLElement>('.body')!;
+  const edit = section.querySelector<HTMLButtonElement>('.edit')!;
+  const openOnboarding = () => window.dispatchEvent(new Event('open-onboarding'));
+  edit.addEventListener('click', openOnboarding);
+
+  async function render() {
+    const library = getLibrary();
+    const hasInterests = Boolean(
+      library.interests && (library.interests.tropes.length || library.interests.genres.length || library.interests.settings.length),
+    );
+    edit.hidden = !hasInterests;
+
+    if (!hasInterests && library.favorites.length === 0) {
+      body.innerHTML = `
+        <div class="invite">
+          <p>Dicci cosa ti piace leggere e qui troverai uscite ed edizioni scelte per te.</p>
+          <button type="button" class="button-strong start">Dicci cosa ti piace</button>
+        </div>`;
+      body.querySelector('.start')!.addEventListener('click', openOnboarding);
+      return;
+    }
+
+    try {
+      const catalog = await loadCatalog();
+      const picks = recommend(catalog.books, library);
+      body.innerHTML = picks.length
+        ? `<div class="mini-books">${picks.map((p) => bookCard(p.book, { note: p.reason })).join('')}</div>`
+        : `<p class="muted">Per ora nessun libro corrisponde ai tuoi interessi. <a href="/libri">Sfoglia tutti i libri</a> o prova ad ampliarli.</p>`;
+    } catch {
+      body.innerHTML = '<p class="muted">Non riesco a caricare i suggerimenti in questo momento.</p>';
+    }
+  }
+
+  render();
+  onLibraryChange(() => render());
+</script>
+
+<style>
+  .for-you { margin: 32px 0 8px; }
+  .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  h2 { margin: 0 0 12px; }
+  .body :global(.invite) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px;
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+  }
+  .body :global(.invite p) { margin: 0; max-width: 52ch; }
+</style>

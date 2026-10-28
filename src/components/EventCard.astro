@@ -1,0 +1,77 @@
+---
+// Card evento con la data in evidenza, come un foglietto di calendario.
+import { slugify } from '../admin/resources';
+import { EVENT_KIND_LABELS, formatDateRange } from '../lib/format';
+import type { BookEvent } from '../lib/types';
+
+interface Props {
+  event: BookEvent;
+}
+
+const { event } = Astro.props;
+const [, month, day] = event.starts_on.split('-').map(Number);
+const MONTHS_SHORT = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+const multiDay = Boolean(event.ends_on && event.ends_on !== event.starts_on);
+---
+
+<article
+  class="event"
+  data-city={event.city ? slugify(event.city) : ''}
+  data-kind={event.kind}
+>
+  <div class="cal" aria-hidden="true">
+    <span class="cal-month">{MONTHS_SHORT[month - 1]}</span>
+    <span class="day">{day}</span>
+    {multiDay && <span class="more">–{Number(event.ends_on!.slice(8, 10))}</span>}
+  </div>
+  <div class="info">
+    <p class="kind">{EVENT_KIND_LABELS[event.kind]}{event.city && ` · ${event.city}`}</p>
+    <h3><a href={`/eventi/${event.slug}`}>{event.title}</a></h3>
+    <p class="when">{formatDateRange(event.starts_on, event.ends_on)}{event.venue && ` · ${event.venue}`}</p>
+    {event.authors.length > 0 && <p class="who">Con {event.authors.map((a) => a.name).join(', ')}</p>}
+  </div>
+</article>
+
+<style>
+  .event {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .event:hover { border-color: var(--accent); }
+  .cal {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 58px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 2px 0 var(--border);
+  }
+  .cal-month {
+    width: 100%;
+    padding: 2px 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: var(--accent);
+  }
+  .day { font-family: Georgia, serif; font-size: 1.6rem; font-weight: 700; line-height: 1.3; }
+  .more { margin: -4px 0 4px; font-size: 0.7rem; color: var(--muted); }
+  .info { min-width: 0; }
+  .kind { margin: 0; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
+  h3 { margin: 2px 0 4px; font-size: 1.1rem; }
+  h3 a { color: var(--text); text-decoration: none; }
+  h3 a:hover { color: var(--accent); }
+  .when, .who { margin: 0; font-size: 0.9rem; color: var(--muted); }
+</style>

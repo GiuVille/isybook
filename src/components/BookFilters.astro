@@ -1,0 +1,379 @@
+---
+// Filtri della pagina Libri. Le opzioni si calcolano in build, il filtro gira nel browser
+// sulle card `article.preview` (vedi i data-* in BookPreview.astro). Stato sincronizzato con l'URL.
+import type { Work } from '../lib/types';
+
+interface Props {
+  works: Work[];
+}
+
+type Option = { slug: string; name: string };
+
+const { works } = Astro.props;
+
+function unique(items: Array<Option | null | undefined>): Option[] {
+  const map = new Map<string, Option>();
+  for (const item of items) if (item) map.set(item.slug, { slug: item.slug, name: item.name });
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+const ORIGIN_LABELS = { publisher: 'Editore', self: 'Self-publishing', wattpad: 'Wattpad' } as const;
+
+// mode: 'all' = il libro deve avere tutti i valori scelti, 'any' = almeno uno
+const groups = [
+  { key: 'tropes', attr: 'tropes', label: 'Tropes', mode: 'all', options: unique(works.flatMap((w) => w.tropes)) },
+  { key: 'generi', attr: 'genres', label: 'Generi', mode: 'any', options: unique(works.flatMap((w) => w.genres)) },
+  {
+    key: 'ambientazione', attr: 'settings', label: 'Ambientazione', mode: 'any',
+    options: unique(works.flatMap((w) => w.settings)),
+  },
+  { key: 'autori', attr: 'authors', label: 'Autori', mode: 'any', options: unique(works.flatMap((w) => w.authors)) },
+  {
+    key: 'editori', attr: 'publishers', label: 'Editori', mode: 'any',
+    options: unique(works.flatMap((w) => w.editions.map((e) => e.publisher))),
+  },
+  {
+    key: 'origine', attr: 'origin', label: 'Origine', mode: 'any',
+    options: unique(works.map((w) => ({ slug: w.origin, name: ORIGIN_LABELS[w.origin] }))),
+  },
+].filter((g) => g.options.length > 0);
+---
+
+<section class="filters" aria-label="Filtri">
+  <div class="bar">
+    <input
+      type="search"
+      class="query"
+      placeholder="Cerca titolo, autore, trope, ISBN…"
+      aria-label="Cerca tra i libri"
+      autocomplete="off"
+    />
+    {groups.map((g) => (
+      <details class="group" data-group={g.key} data-attr={g.attr} data-mode={g.mode}>
+        <summary>
+          {g.label} <span class="badge" hidden></span>
+        </summary>
+        <div class="menu">
+          {g.options.length > 8 && <input type="search" class="search" placeholder={`Cerca ${g.label.toLowerCase()}…`} />}
+          {g.mode === 'all' && <p class="hint">Mostra i libri che li hanno tutti</p>}
+          <ul>
+            {g.options.map((o) => (
+              <li>
+                <label>
+                  <input type="checkbox" value={o.slug} data-label={o.name} />
+                  <span class="name">{o.name}</span>
+                  <span class="count"></span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
+    ))}
+  </div>
+
+  <div class="status">
+    <span class="total" aria-live="polite"></span>
+    <ul class="chips"></ul>
+    <button type="button" class="reset" hidden>Azzera filtri</button>
+  </div>
+
+  <div class="empty" hidden>
+    <p>Nessun libro corrisponde a questi filtri.</p>
+    <button type="button" class="reset">Azzera filtri</button>
+  </div>
+</section>
+
+<script>
+  type Group = { key: string; attr: string; mode: 'all' | 'any'; el: HTMLDetailsElement; inputs: HTMLInputElement[] };
+  type Card = { el: HTMLElement; text: string; values: Record<string, Set<string>> };
+
+  import { normalize } from '../lib/format';
+
+  const root = document.querySelector<HTMLElement>('.filters');
+  if (root) init(root);
+
+  function init(root: HTMLElement) {
+    const groups: Group[] = [...root.querySelectorAll<HTMLDetailsElement>('details.group')].map((el) => ({
+      key: el.dataset.group!,
+      attr: el.dataset.attr!,
+      mode: el.dataset.mode === 'all' ? 'all' : 'any',
+      el,
+      inputs: [...el.querySelectorAll<HTMLInputElement>('input[type=checkbox]')],
+    }));
+    const cards: Card[] = [...document.querySelectorAll<HTMLElement>('article.preview')].map((el) => ({
+      el,
+      text: el.dataset.search ?? '',
+      values: Object.fromEntries(groups.map((g) => [g.key, new Set((el.dataset[g.attr] ?? '').split(' ').filter(Boolean))])),
+    }));
+    const total = root.querySelector<HTMLElement>('.total')!;
+    const chips = root.querySelector<HTMLUListElement>('.chips')!;
+    const resetButtons = root.querySelectorAll<HTMLButtonElement>('.reset');
+    const empty = root.querySelector<HTMLElement>('.empty')!;
+
+    const query = root.querySelector<HTMLInputElement>('input.query')!;
+    const selected = (g: Group) => g.inputs.filter((i) => i.checked).map((i) => i.value);
+    // tutte le parole cercate devono comparire
+    const terms = () => normalize(query.value).split(/\s+/).filter(Boolean);
+
+    function passes(card: Card, g: Group, values: string[]): boolean {
+      if (values.length === 0) return true;
+      const own = card.values[g.key];
+      return g.mode === 'all' ? values.every((v) => own.has(v)) : values.some((v) => own.has(v));
+    }
+
+    /** Il libro supera tutti i gruppi, eventualmente con una selezione alternativa per `override`. */
+    function matches(card: Card, override?: { group: Group; values: string[] }): boolean {
+      return (
+        terms().every((t) => card.text.includes(t)) &&
+        groups.every((g) => passes(card, g, override?.group === g ? override.values : selected(g)))
+      );
+    }
+
+    function readUrl() {
+      const params = new URLSearchParams(location.search);
+      query.value = params.get('q') ?? '';
+      for (const g of groups) {
+        const wanted = new Set((params.get(g.key) ?? '').split(',').filter(Boolean));
+        for (const input of g.inputs) input.checked = wanted.has(input.value);
+      }
+    }
+
+    function writeUrl() {
+      const params = new URLSearchParams(location.search);
+      if (query.value.trim()) params.set('q', query.value.trim());
+      else params.delete('q');
+      for (const g of groups) {
+        const values = selected(g);
+        if (values.length) params.set(g.key, values.join(','));
+        else params.delete(g.key);
+      }
+      const search = params.toString().replaceAll('%2C', ',');
+      history.replaceState(null, '', search ? `${location.pathname}?${search}` : location.pathname);
+    }
+
+    function update() {
+      let visible = 0;
+      for (const card of cards) {
+        card.el.hidden = !matches(card);
+        if (!card.el.hidden) visible++;
+      }
+
+      for (const g of groups) {
+        const current = selected(g);
+        for (const input of g.inputs) {
+          // quanti libri resterebbero aggiungendo questa opzione alla selezione del gruppo
+          const values = g.mode === 'all' ? [...new Set([...current, input.value])] : [input.value];
+          const n = cards.filter((c) => matches(c, { group: g, values })).length;
+          const label = input.closest('label')!;
+          label.querySelector('.count')!.textContent = String(n);
+          input.disabled = n === 0 && !input.checked;
+          label.classList.toggle('disabled', input.disabled);
+        }
+        const badge = g.el.querySelector<HTMLElement>('.badge')!;
+        badge.hidden = current.length === 0;
+        badge.textContent = String(current.length);
+      }
+
+      const chip = (text: string, onRemove: () => void) => {
+        const li = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `${text} ×`;
+        button.setAttribute('aria-label', `Rimuovi filtro ${text}`);
+        button.addEventListener('click', onRemove);
+        li.append(button);
+        return li;
+      };
+
+      chips.replaceChildren(
+        ...(query.value.trim()
+          ? [
+              chip(`“${query.value.trim()}”`, () => {
+                query.value = '';
+                changed();
+              }),
+            ]
+          : []),
+        ...groups.flatMap((g) =>
+          g.inputs
+            .filter((i) => i.checked)
+            .map((input) => {
+              const li = document.createElement('li');
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = `${input.dataset.label} ×`;
+              button.setAttribute('aria-label', `Rimuovi filtro ${input.dataset.label}`);
+              button.addEventListener('click', () => {
+                input.checked = false;
+                changed();
+              });
+              li.append(button);
+              return li;
+            }),
+        ),
+      );
+
+      const active = terms().length > 0 || groups.some((g) => selected(g).length > 0);
+      total.textContent = visible === 1 ? '1 libro' : `${visible} libri`;
+      resetButtons[0].hidden = !active;
+      empty.hidden = visible > 0;
+    }
+
+    function changed() {
+      update();
+      writeUrl();
+    }
+
+    root.addEventListener('change', (e) => {
+      if ((e.target as HTMLElement).matches('input[type=checkbox]')) changed();
+    });
+
+    query.addEventListener('input', changed);
+
+    resetButtons.forEach((b) =>
+      b.addEventListener('click', () => {
+        query.value = '';
+        for (const g of groups) for (const i of g.inputs) i.checked = false;
+        changed();
+      }),
+    );
+
+    root.querySelectorAll<HTMLInputElement>('input.search').forEach((search) =>
+      search.addEventListener('input', () => {
+        const q = search.value.trim().toLowerCase();
+        search.closest('details')!.querySelectorAll('li').forEach((li) => {
+          li.hidden = q !== '' && !li.textContent!.toLowerCase().includes(q);
+        });
+      }),
+    );
+
+    // un solo menu aperto alla volta; click fuori lo chiude
+    for (const g of groups) {
+      g.el.addEventListener('toggle', () => {
+        if (g.el.open) for (const other of groups) if (other !== g) other.el.open = false;
+      });
+    }
+    document.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('details.group')) for (const g of groups) g.el.open = false;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') for (const g of groups) g.el.open = false;
+    });
+
+    window.addEventListener('popstate', () => {
+      readUrl();
+      update();
+    });
+
+    readUrl();
+    update();
+  }
+</script>
+
+<style>
+  .filters { margin-bottom: 24px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; position: relative; }
+
+  .query {
+    flex: 1 1 260px;
+    padding: 8px 14px;
+    font: inherit;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .query:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .group { position: relative; }
+  summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    user-select: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: ' ▾'; color: var(--muted); }
+  .group[open] summary { border-color: var(--accent); color: var(--accent); }
+  .badge {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--surface);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+  .badge[hidden] { display: none; }
+
+  .menu {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 280px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  .search {
+    width: 100%;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .hint { margin: 0 0 6px; font-size: 0.8rem; color: var(--muted); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li[hidden] { display: none; }
+  label { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 6px; cursor: pointer; }
+  label:hover { background: var(--accent-soft); }
+  label.disabled { opacity: 0.45; cursor: default; }
+  label.disabled:hover { background: none; }
+  .name { flex: 1; }
+  .count { font-size: 0.8rem; color: var(--muted); }
+
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; min-height: 32px; }
+  .total { color: var(--muted); font-size: 0.9rem; margin-right: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* le chip sono create dallo script: fuori dallo scope degli stili del componente */
+  .chips :global(button) {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 2px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .reset {
+    font: inherit;
+    font-size: 0.85rem;
+    background: none;
+    border: 0;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .reset[hidden], .empty[hidden] { display: none; }
+
+  .empty { margin-top: 24px; padding: 32px 16px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
+  .empty p { margin: 0 0 8px; }
+
+  @media (max-width: 700px) {
+    .group { position: static; }
+    .menu { left: 0; right: 0; width: auto; }
+  }
+</style>

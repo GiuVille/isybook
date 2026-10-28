@@ -1,0 +1,189 @@
+---
+// Anteprima libro: scacchiera nel colore del genere, copertina con una freccia per tropo, trama a destra.
+import CoverArt from './CoverArt.astro';
+import SaveButtons from './SaveButtons.astro';
+import SpiceMeter from './SpiceMeter.astro';
+import { isRomance, themeForWork } from '../lib/book-themes';
+import { availability, formatDate, normalize, pageCount, releaseDate } from '../lib/format';
+import { COVER, VIEW, layoutTropeArrows } from '../lib/trope-arrows';
+import type { Work } from '../lib/types';
+
+interface Props {
+  work: Work;
+}
+
+const { work } = Astro.props;
+const theme = themeForWork(work);
+const released = releaseDate(work);
+// frecce: tropes, poi ambientazioni
+const arrowLabels = [...work.tropes.map((t) => t.name), ...work.settings.map((s) => s.name)];
+const arrows = layoutTropeArrows(arrowLabels, work.slug);
+const authors = work.authors.map((a) => a.name).join(', ');
+const pages = pageCount(work);
+const spice = isRomance(work) && work.spice_level != null ? work.spice_level : null;
+// spunte in basso a destra al posto delle frecce: audiolibro (cuffie) ed ebook (e-reader)
+const formats = availability(work);
+const checks = [
+  formats.audiobook && { kind: 'audio', label: 'Audiolibro' },
+  formats.ebook && { kind: 'ebook', label: 'Ebook' },
+].filter((c): c is { kind: string; label: string } => Boolean(c));
+const CHECK_X = 300;
+const checkY = (i: number) => VIEW.height - 34 - (checks.length - 1 - i) * 34;
+const slugs = (items: Array<{ slug: string } | null | undefined>) => [...new Set(items.filter(Boolean).map((i) => i!.slug))].join(' ');
+const searchText = normalize(
+  [
+    work.title,
+    work.series,
+    ...work.authors.map((a) => a.name),
+    ...work.tropes.map((t) => t.name),
+    ...work.genres.map((g) => g.name),
+    ...work.settings.map((s) => s.name),
+    ...work.editions.flatMap((e) => [e.isbn, e.publisher?.name]),
+  ]
+    .filter(Boolean)
+    .join(' '),
+);
+const a11y = [
+  `Copertina di ${work.title}`,
+  work.tropes.length && `Tropes: ${work.tropes.map((t) => t.name).join(', ')}`,
+  work.settings.length && `Ambientazione: ${work.settings.map((s) => s.name).join(', ')}`,
+  checks.length && `Disponibile anche come: ${checks.map((c) => c.label.toLowerCase()).join(' e ')}`,
+]
+  .filter(Boolean)
+  .join('. ');
+---
+
+<article
+  class="preview"
+  data-tropes={slugs(work.tropes)}
+  data-genres={slugs(work.genres)}
+  data-settings={slugs(work.settings)}
+  data-authors={slugs(work.authors)}
+  data-publishers={slugs(work.editions.map((e) => e.publisher))}
+  data-origin={work.origin}
+  data-search={searchText}
+  style={`--light:${theme.light};--dark:${theme.dark};--panel:${theme.panel};--ink:${theme.ink};--text:${theme.text}`}
+>
+  <a href={`/libri/${work.slug}`} class="visual" aria-label={work.title}>
+    <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y}>
+      <g class="cover">
+        <CoverArt work={work} x={COVER.x} y={COVER.y} width={COVER.width} height={COVER.height} />
+      </g>
+
+      <g class="arrows" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        {arrows.map((a) => (
+          <g>
+            <path d={a.path} />
+            <path d={a.head} />
+          </g>
+        ))}
+      </g>
+
+      <g class="checks">
+        {checks.map((c, i) => (
+          <g transform={`translate(${CHECK_X} ${checkY(i)})`}>
+            {/* quadratino tracciato a mano con la spunta che esce un po' dal bordo */}
+            <path class="box" d="M1.5 3.2 L19.6 1.8 L20.4 19.5 L2.6 20.6 Z" />
+            <path class="tick" d="M5 11.5 L9.5 16 L19 1" />
+            <g transform="translate(30 -2)" class="icon">
+              {c.kind === 'audio' ? (
+                <>
+                  <path d="M4 15v-3a8 8 0 0 1 16 0v3" fill="none" />
+                  <rect x="2.5" y="13.5" width="5" height="8" rx="2" />
+                  <rect x="16.5" y="13.5" width="5" height="8" rx="2" />
+                </>
+              ) : (
+                <>
+                  <rect x="5" y="1.5" width="14" height="21" rx="2.5" fill="none" />
+                  <path d="M8.5 6h7M8.5 9h7M8.5 12h7M8.5 15h4.5" fill="none" />
+                  <circle cx="12" cy="19.3" r="1" />
+                </>
+              )}
+            </g>
+            <text x="62" y="17" font-size="20">{c.label}</text>
+          </g>
+        ))}
+      </g>
+
+      <g class="labels">
+        {arrows.map((a) => (
+          <text x={a.x} y={a.y} font-size={a.fontSize}>
+            {a.label.map((line, i) => <tspan x={a.x} dy={i === 0 ? 0 : a.fontSize * 1.05}>{line}</tspan>)}
+          </text>
+        ))}
+      </g>
+    </svg>
+  </a>
+
+  <div class="plot">
+    <div class="save-slot"><SaveButtons slug={work.slug} title={work.title} compact /></div>
+    <h3>Trama</h3>
+    <div class="box">
+      <p class="meta">
+        <a href={`/libri/${work.slug}`}>{work.title}</a> · {authors}
+        {released && <span class="date">Uscita: {formatDate(released)}</span>}
+        {(pages || spice != null) && (
+          <span class="facts">
+            {pages && <span>{pages} pagine</span>}
+            {spice != null && <SpiceMeter level={spice} size={18} />}
+          </span>
+        )}
+      </p>
+      {work.plot ? <p class="text">{work.plot}</p> : <p class="text empty">Trama in arrivo.</p>}
+    </div>
+  </div>
+</article>
+
+<style>
+  .preview {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border-radius: var(--radius);
+    overflow: hidden;
+    /* scacchiera 2×2: chiaro in alto a sinistra e in basso a destra */
+    background: conic-gradient(at 50% 50%, var(--dark) 0 25%, var(--light) 0 50%, var(--dark) 0 75%, var(--light) 0);
+    font-family: 'Gochi Hand', cursive;
+    color: var(--ink);
+  }
+
+  .preview[hidden] { display: none; }
+
+  .visual { display: block; padding: 8px; min-width: 0; }
+  svg { display: block; width: 100%; height: auto; }
+
+  .cover { filter: drop-shadow(4px 6px 6px rgba(0, 0, 0, 0.28)); }
+
+  .arrows { stroke: var(--ink); stroke-width: 3; }
+  .labels text { fill: var(--ink); font-family: 'Gochi Hand', cursive; }
+  .checks .box, .checks .tick { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
+  .checks .box { stroke-width: 2; }
+  .checks .tick { stroke-width: 3; }
+  .checks .icon { fill: var(--ink); stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
+  .checks text { fill: var(--ink); stroke: none; font-family: 'Gochi Hand', cursive; }
+
+  .save-slot { position: absolute; top: 12px; right: 14px; z-index: 2; }
+  .plot { position: relative; display: flex; flex-direction: column; padding: 16px 28px 28px; min-width: 0; }
+  h3 { margin: 0 0 12px; text-align: center; font-family: inherit; font-size: 1.9rem; font-weight: 400; }
+  .box { flex: 1; background: var(--panel); padding: 18px 20px; color: var(--text); font-family: system-ui, sans-serif; }
+  .meta { margin: 0 0 8px; font-size: 0.85rem; opacity: 0.8; }
+  .meta a { color: inherit; font-weight: 600; }
+  .date { display: block; margin-top: 2px; }
+  .facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 2px; }
+  .text {
+    margin: 0;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 10;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .empty { opacity: 0.7; font-style: italic; }
+
+  @media (max-width: 700px) {
+    .preview {
+      grid-template-columns: minmax(0, 1fr);
+      background: linear-gradient(var(--light) 0 50%, var(--dark) 0);
+    }
+    .plot { padding: 8px 16px 20px; }
+  }
+</style>

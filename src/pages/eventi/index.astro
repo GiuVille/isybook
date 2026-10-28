@@ -1,0 +1,141 @@
+---
+import Base from '../../layouts/Base.astro';
+import EventCard from '../../components/EventCard.astro';
+import { slugify } from '../../admin/resources';
+import { getEvents } from '../../lib/data';
+import { EVENT_KIND_LABELS } from '../../lib/format';
+
+const today = new Date().toISOString().slice(0, 10);
+const events = await getEvents();
+// un evento di più giorni resta tra i prossimi finché non è finito
+const upcoming = events.filter((e) => (e.ends_on ?? e.starts_on) >= today);
+const past = events.filter((e) => (e.ends_on ?? e.starts_on) < today).reverse();
+
+const byMonth = Map.groupBy(upcoming, (e) =>
+  new Date(e.starts_on).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }),
+);
+const cities = [...new Map(upcoming.filter((e) => e.city).map((e) => [slugify(e.city!), e.city!])).entries()].sort((a, b) =>
+  a[1].localeCompare(b[1], 'it'),
+);
+const kinds = [...new Set(upcoming.map((e) => e.kind))];
+---
+
+<Base title="Eventi e fiere" description="Firmacopie, presentazioni e fiere del libro: il calendario per chi ama romantasy, romance e fantasy YA.">
+  <h1>Eventi e fiere</h1>
+  <p class="muted intro">Firmacopie, presentazioni e fiere del libro in Italia. Aggiungi al tuo calendario quelli che non vuoi perdere.</p>
+
+  {upcoming.length > 0 && (
+    <div class="filters" aria-label="Filtri">
+      {cities.length > 1 && (
+        <div class="chip-row" data-filter="citta">
+          <span class="label">Città</span>
+          {cities.map(([slug, name]) => <button type="button" class="chip" data-value={slug} aria-pressed="false">{name}</button>)}
+        </div>
+      )}
+      {kinds.length > 1 && (
+        <div class="chip-row" data-filter="tipo">
+          <span class="label">Tipo</span>
+          {kinds.map((k) => <button type="button" class="chip" data-value={k} aria-pressed="false">{EVENT_KIND_LABELS[k]}</button>)}
+        </div>
+      )}
+    </div>
+  )}
+
+  <div class="months">
+    {[...byMonth].map(([month, list]) => (
+      <section class="month">
+        <h2>{month}</h2>
+        <div class="list">{list.map((e) => <EventCard event={e} />)}</div>
+      </section>
+    ))}
+  </div>
+
+  <p class="empty" hidden>Nessun evento con questi filtri. <button type="button" class="reset">Mostra tutti</button></p>
+  {upcoming.length === 0 && <p class="empty-all">Per ora non ci sono eventi in calendario. Torna presto!</p>}
+
+  {past.length > 0 && (
+    <details class="past">
+      <summary>Eventi passati ({past.length})</summary>
+      <div class="list">{past.map((e) => <EventCard event={e} />)}</div>
+    </details>
+  )}
+</Base>
+
+<script>
+  // Filtri per città e tipo: più valori nello stesso gruppo = basta uno, gruppi diversi = tutti.
+  const rows = [...document.querySelectorAll<HTMLElement>('.chip-row')];
+  const cards = [...document.querySelectorAll<HTMLElement>('.months .event')];
+  const months = [...document.querySelectorAll<HTMLElement>('.months .month')];
+  const empty = document.querySelector<HTMLElement>('.empty');
+  const attr = { citta: 'city', tipo: 'kind' } as const;
+
+  const selected = (row: HTMLElement) =>
+    [...row.querySelectorAll<HTMLButtonElement>('.chip[aria-pressed="true"]')].map((b) => b.dataset.value!);
+
+  function apply() {
+    for (const card of cards) {
+      card.hidden = !rows.every((row) => {
+        const values = selected(row);
+        return values.length === 0 || values.includes(card.dataset[attr[row.dataset.filter as keyof typeof attr]] ?? '');
+      });
+    }
+    for (const month of months) month.hidden = !month.querySelector('.event:not([hidden])');
+    if (empty) empty.hidden = cards.length === 0 || cards.some((c) => !c.hidden);
+
+    const params = new URLSearchParams(location.search);
+    for (const row of rows) {
+      const values = selected(row);
+      if (values.length) params.set(row.dataset.filter!, values.join(','));
+      else params.delete(row.dataset.filter!);
+    }
+    const query = params.toString().replaceAll('%2C', ',');
+    history.replaceState(null, '', query ? `${location.pathname}?${query}` : location.pathname);
+  }
+
+  const params = new URLSearchParams(location.search);
+  for (const row of rows) {
+    const wanted = (params.get(row.dataset.filter!) ?? '').split(',');
+    row.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
+      chip.setAttribute('aria-pressed', String(wanted.includes(chip.dataset.value!)));
+      chip.addEventListener('click', () => {
+        chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+        apply();
+      });
+    });
+  }
+  document.querySelector('.reset')?.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    apply();
+  });
+  apply();
+</script>
+
+<style>
+  .intro { margin-top: -8px; }
+  .filters { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 8px; }
+  .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .label { width: 56px; font-size: 0.85rem; color: var(--muted); }
+  .chip {
+    padding: 5px 14px;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed='true'] { color: var(--surface); background: var(--accent); border-color: var(--accent); }
+  .month h2 { margin: 32px 0 12px; text-transform: capitalize; font-size: 1.3rem; }
+  .list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .empty, .empty-all { margin-top: 24px; padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
+  .reset { font: inherit; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+  .past { margin-top: 40px; }
+  .past summary { cursor: pointer; font-weight: 600; margin-bottom: 12px; }
+  .past .list { opacity: 0.75; }
+  @media (max-width: 700px) {
+    .list { grid-template-columns: minmax(0, 1fr); }
+    .label { width: 100%; }
+  }
+</style>
