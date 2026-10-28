@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import '../styles/drawer.css';
 ---
 
 <Base title="La mia libreria" description="I tuoi libri preferiti e le tue cartelle personali.">
@@ -16,7 +17,10 @@ import Base from '../layouts/Base.astro';
     Presto potrai creare un account per ritrovarli su tutti i dispositivi. Nel frattempo puoi fare un backup qui sotto.
   </p>
 
-  <div id="library"><p class="muted">Caricamento…</p></div>
+  <div id="library">
+    <div class="lib-drawer" role="tablist" aria-label="Le tue raccolte"><p class="muted">Caricamento…</p></div>
+    <div class="drawer-panel" role="tabpanel"></div>
+  </div>
 
   <section class="interests">
     <h2>I tuoi interessi</h2>
@@ -38,7 +42,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
-  import { bookCard, esc } from '../lib/book-card';
+  import { bookCard, esc, miniCover } from '../lib/book-card';
   import { loadCatalog, type Catalog, type CatalogBook } from '../lib/catalog';
   import {
     createCollection,
@@ -53,6 +57,12 @@ import Base from '../layouts/Base.astro';
   } from '../lib/library';
 
   const root = document.getElementById('library')!;
+  const drawer = root.querySelector<HTMLElement>('.lib-drawer')!;
+  const panel = root.querySelector<HTMLElement>('.drawer-panel')!;
+  const FAVORITES = 'preferiti';
+  // cartellina aperta: dall'URL (#cartella-<id>), altrimenti i Preferiti
+  let selected = location.hash.startsWith('#cartella-') ? decodeURIComponent(location.hash.slice('#cartella-'.length)) : FAVORITES;
+  let firstRender = true;
   const interestsBody = document.querySelector<HTMLElement>('.interests-body')!;
   let catalog: Catalog | null = null;
 
@@ -84,28 +94,74 @@ import Base from '../layouts/Base.astro';
       </section>`;
   }
 
+  type Folder = { id: string; name: string; slugs: string[]; color: number };
+
+  function folders(): Folder[] {
+    const library = getLibrary();
+    return [
+      { id: FAVORITES, name: 'Preferiti', slugs: library.favorites, color: 2 },
+      ...library.collections.map((c, i) => ({ id: c.id, name: c.name, slugs: c.slugs, color: [1, 3, 4, 5, 6][i % 5] })),
+    ];
+  }
+
+  function folderButton(folder: Folder, index: number) {
+    const list = books(folder.slugs);
+    const isSelected = folder.id === selected;
+    return `
+      <li class="wk" style="--d:${index}">
+        <button type="button" class="folder-btn" role="tab" id="tab-${esc(folder.id)}" data-folder="${esc(folder.id)}"
+          aria-selected="${isSelected}" tabindex="${isSelected ? 0 : -1}" style="--f:var(--folder-${folder.color})">
+          <span class="fan" aria-hidden="true">${list.slice(0, 3).map(miniCover).join('')}</span>
+          <span class="front">
+            <span class="tab"><span class="label">${folder.id === FAVORITES ? '❤ ' : ''}${esc(folder.name)}</span></span>
+            <span class="count-big">${list.length}</span>
+            <span class="count-label">${list.length === 1 ? 'libro' : 'libri'}</span>
+            ${list.length === 0 ? '<span class="empty-note">vuota</span>' : ''}
+          </span>
+        </button>
+      </li>`;
+  }
+
   function render() {
     if (!catalog) return;
     const library = getLibrary();
-    root.innerHTML =
-      section('❤ Preferiti', books(library.favorites), {
-        empty: 'Ancora nessun preferito: tocca il cuore su un libro per salvarlo qui. <a href="/libri">Sfoglia i libri</a>',
-      }) +
-      library.collections
-        .map((c) =>
-          section(`📁 ${esc(c.name)}`, books(c.slugs), {
-            id: c.id,
+    const all = folders();
+    if (!all.some((f) => f.id === selected)) selected = FAVORITES;
+
+    drawer.innerHTML = `<ol class="row">
+        ${all.map(folderButton).join('')}
+        <li class="wk" style="--d:${all.length}">
+          <button type="button" class="folder-btn new-folder" data-new>
+            <span class="front"><span class="plus">+</span><span class="count-label">Nuova cartella</span></span>
+          </button>
+        </li>
+      </ol>`;
+    drawer.classList.toggle('is-first', firstRender);
+    // senza copertine da mostrare il cassetto si abbassa
+    drawer.classList.toggle('no-covers', all.every((f) => books(f.slugs).length === 0));
+    firstRender = false;
+
+    const current = all.find((f) => f.id === selected)!;
+    panel.setAttribute('aria-labelledby', `tab-${current.id}`);
+    panel.innerHTML =
+      current.id === FAVORITES
+        ? section('❤ Preferiti', books(current.slugs), {
+            empty: 'Ancora nessun preferito: tocca il cuore su un libro per salvarlo qui. <a href="/libri">Sfoglia i libri</a>',
+          })
+        : section(`📁 ${esc(current.name)}`, books(current.slugs), {
+            id: current.id,
             empty: 'Cartella vuota: aggiungi libri dal pulsante «Cartella» nella scheda di un libro.',
             tools: `<span class="tools">
-              <button type="button" class="link" data-rename="${esc(c.id)}">Rinomina</button>
-              <button type="button" class="link danger" data-delete="${esc(c.id)}">Elimina</button>
+              <button type="button" class="link" data-rename="${esc(current.id)}">Rinomina</button>
+              <button type="button" class="link danger" data-delete="${esc(current.id)}">Elimina</button>
             </span>`,
-          }),
-        )
-        .join('') +
-      (library.collections.length === 0
-        ? '<p class="muted hint">Crea una cartella per organizzare i libri come vuoi: «Da leggere», «Regali», «Edizioni da cacciare»…</p>'
-        : '');
+          });
+    if (library.collections.length === 0) {
+      panel.insertAdjacentHTML(
+        'beforeend',
+        '<p class="muted hint">Crea una cartella per organizzare i libri come vuoi: «Da leggere», «Regali», «Edizioni da cacciare»…</p>',
+      );
+    }
 
     const i = library.interests;
     const names = (slugs: string[], list: Catalog['tropes']) =>
@@ -117,6 +173,37 @@ import Base from '../layouts/Base.astro';
       ? `<p class="chips">${chosen.map((n) => `<span class="tag">${esc(n)}</span>`).join('')}</p>`
       : '<p class="muted">Non hai ancora indicato i tuoi interessi.</p>';
   }
+
+  function select(id: string, focus = false) {
+    if (id === selected) return;
+    selected = id;
+    history.replaceState(null, '', id === FAVORITES ? location.pathname : `#cartella-${encodeURIComponent(id)}`);
+    render();
+    panel.classList.remove('is-changing');
+    void panel.offsetWidth;
+    panel.classList.add('is-changing');
+    if (focus) drawer.querySelector<HTMLElement>(`[data-folder="${CSS.escape(id)}"]`)?.focus();
+  }
+
+  drawer.addEventListener('click', (e) => {
+    const button = (e.target as HTMLElement).closest<HTMLButtonElement>('.folder-btn');
+    if (!button) return;
+    if (button.dataset.new !== undefined) {
+      const input = document.querySelector<HTMLInputElement>('.new-collection input')!;
+      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      input.focus({ preventScroll: true });
+      return;
+    }
+    select(button.dataset.folder!);
+  });
+  drawer.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const ids = folders().map((f) => f.id);
+    const i = ids.indexOf(selected);
+    const next = ids[(i + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length];
+    e.preventDefault();
+    select(next, true);
+  });
 
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
@@ -139,8 +226,9 @@ import Base from '../layouts/Base.astro';
     e.preventDefault();
     const input = (e.target as HTMLFormElement).querySelector('input')!;
     if (!input.value.trim()) return input.focus();
-    createCollection(input.value);
+    const created = createCollection(input.value);
     input.value = '';
+    select(created.id);
   });
 
   document.querySelector('.edit-interests')!.addEventListener('click', () =>
@@ -173,7 +261,7 @@ import Base from '../layouts/Base.astro';
       render();
     })
     .catch(() => {
-      root.innerHTML = '<p class="muted">Non riesco a caricare i libri in questo momento.</p>';
+      drawer.innerHTML = '<p class="muted">Non riesco a caricare i libri in questo momento.</p>';
     });
   onLibraryChange(render);
 </script>
@@ -200,7 +288,8 @@ import Base from '../layouts/Base.astro';
     border-radius: var(--radius);
   }
 
-  #library :global(.shelf) { margin-top: 32px; }
+  #library { margin-top: 28px; }
+  .drawer-panel :global(.shelf) { margin-top: 28px; }
   #library :global(.shelf-head) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
   #library :global(h2) { margin: 0 0 12px; font-size: 1.35rem; }
   #library :global(.count) { font-family: var(--font-text); font-size: 0.85rem; font-weight: 400; color: var(--muted); }

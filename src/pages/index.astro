@@ -3,18 +3,24 @@ import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
 import EventCard from '../components/EventCard.astro';
 import ForYou from '../components/ForYou.astro';
-import WeekDrawer from '../components/WeekDrawer.astro';
+import ReleaseCarousel from '../components/ReleaseCarousel.astro';
 import { getEditionsWithWork, getEvents } from '../lib/data';
+import { upcomingReleases } from '../lib/releases';
 
 const today = new Date().toISOString().slice(0, 10);
 const editions = await getEditionsWithWork();
 const upcoming = editions.filter((e) => (e.release_date ?? '9999') >= today).slice(0, 6);
 const special = editions.filter((e) => e.edition_type !== 'standard').slice(0, 6);
+const releases = upcomingReleases(editions, today).slice(0, 8);
 const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= today).slice(0, 3);
 ---
 
 <Base title="IsyBook – il radar delle uscite">
-  <WeekDrawer editions={editions} />
+  <div class="section-head first">
+    <h1>In arrivo</h1>
+    <a href="/uscite">Tutte le uscite →</a>
+  </div>
+  <ReleaseCarousel releases={releases} />
   <p class="intro muted">Uscite, edizioni speciali, serie tratte dai libri ed eventi di romantasy, romance e fantasy YA, in un posto solo.</p>
 
   <ForYou />
@@ -40,7 +46,9 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
 </Base>
 
 <style>
-  .intro { margin: 18px 0 0; }
+  .intro { margin: 0; }
+  .section-head.first { margin-top: 0; }
+  .section-head.first h1 { margin: 0 0 6px; }
   h2 { margin-top: 40px; }
   .section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 40px; }
   .section-head h2 { margin: 0 0 12px; }

@@ -232,8 +232,13 @@ th { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
 .mini-book-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mini-book-meta { color: var(--muted); font-size: 0.85rem; }
 .mini-book-note { color: var(--accent); font-size: 0.85rem; margin-top: 4px; }
+/* il pulsante Rimuovi sta in basso a destra, sotto il testo */
+.mini-book:has(.remove) .mini-book-link { padding-bottom: 40px; }
 .mini-book .remove {
-  margin: 8px 8px 0 0;
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  margin: 0;
   padding: 2px 8px;
   font: inherit;
   font-size: 0.8rem;

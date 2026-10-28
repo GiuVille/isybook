@@ -1,0 +1,129 @@
+/* Cassetto d'archivio con le cartelline: una per raccolta della libreria personale
+   (Preferiti e cartelle create). Disegnato nel browser da la-mia-libreria.astro. */
+
+.lib-drawer {
+  position: relative;
+  padding: 44px 18px 0;
+  background: var(--drawer-bg) var(--grain);
+  border-radius: 16px 16px 0 0;
+  box-shadow: inset 0 10px 16px -10px rgba(0, 0, 0, 0.3), 0 14px 18px -14px rgba(0, 0, 0, 0.35);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.lib-drawer .row { display: flex; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.lib-drawer .wk { flex: 1 0 176px; max-width: 220px; scroll-snap-align: start; }
+
+/* la cartellina è un pulsante (tab) */
+.lib-drawer .folder-btn {
+  --f: var(--folder-1);
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 268px;
+  padding: 0;
+  font: inherit;
+  color: var(--folder-ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.4s var(--ease-spring);
+}
+.lib-drawer.no-covers .folder-btn { height: 170px; }
+.lib-drawer .folder-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.lib-drawer .folder-btn[aria-selected='true'] { transform: translateY(-16px); }
+.lib-drawer .folder-btn:hover:not([aria-selected='true']) { transform: translateY(-6px); }
+
+/* copertine che spuntano a ventaglio */
+.lib-drawer .fan { position: absolute; left: 0; right: 0; top: 0; height: 140px; }
+.lib-drawer .fan .mini-book-cover {
+  position: absolute;
+  top: 10px;
+  left: calc(50% - 38px);
+  width: 76px;
+  height: 114px;
+  font-size: 0.7rem;
+  transition: transform 0.4s var(--ease-spring);
+}
+.lib-drawer .fan .mini-book-cover:nth-child(1) { transform: translateX(-34px) rotate(-9deg); }
+.lib-drawer .fan .mini-book-cover:nth-child(2) { transform: translateY(-8px); z-index: 1; }
+.lib-drawer .fan .mini-book-cover:nth-child(3) { transform: translateX(34px) rotate(8deg); }
+.lib-drawer .fan .mini-book-cover:only-child { transform: none; }
+.lib-drawer .folder-btn:hover .fan .mini-book-cover:nth-child(1),
+.lib-drawer .folder-btn[aria-selected='true'] .fan .mini-book-cover:nth-child(1) { transform: translate(-44px, -10px) rotate(-14deg); }
+.lib-drawer .folder-btn:hover .fan .mini-book-cover:nth-child(3),
+.lib-drawer .folder-btn[aria-selected='true'] .fan .mini-book-cover:nth-child(3) { transform: translate(44px, -10px) rotate(13deg); }
+
+.lib-drawer .front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 150px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 30px 14px 14px;
+  background: var(--f) var(--grain);
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.lib-drawer .tab {
+  position: absolute;
+  top: -24px;
+  left: 14px;
+  max-width: calc(100% - 28px);
+  height: 26px;
+  padding: 4px 14px 0;
+  background: var(--f);
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
+}
+.lib-drawer .label {
+  display: block;
+  padding: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: var(--label-paper) var(--grain);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+  font-family: var(--font-hand);
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: var(--folder-ink);
+}
+.lib-drawer .folder-btn[aria-selected='true'] .label { box-shadow: inset 0 -2px 0 var(--accent); }
+.lib-drawer .count-big { font-family: var(--font-display); font-size: 1.9rem; line-height: 1; }
+.lib-drawer .count-label { font-size: 0.85rem; opacity: 0.8; }
+.lib-drawer .empty-note { margin-top: auto; font-family: var(--font-hand); font-size: 1.05rem; opacity: 0.7; transform: rotate(-2deg); }
+
+/* cartellina tratteggiata per crearne una nuova */
+.lib-drawer .new-folder .front {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--folder-ink) 35%, transparent);
+  box-shadow: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--muted);
+}
+.lib-drawer .new-folder .plus { font-family: var(--font-display); font-size: 2.2rem; line-height: 1; }
+.lib-drawer .new-folder .count-label { font-family: var(--font-hand); font-size: 1.15rem; opacity: 1; }
+
+@keyframes peek { from { opacity: 0; transform: translateY(70px); } to { opacity: 1; } }
+@keyframes panel-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* apertura: il cassetto avanza, le cartelline salgono una dopo l'altra, le copertine spuntano */
+@media (prefers-reduced-motion: no-preference) {
+  .js .lib-drawer.is-first { animation: rise 0.6s var(--ease-out) backwards; }
+  .js .lib-drawer.is-first .wk { animation: rise 0.65s var(--ease-spring) backwards; animation-delay: calc(var(--d) * 90ms + 280ms); }
+  .js .lib-drawer.is-first .fan { animation: peek 0.6s var(--ease-spring) backwards; animation-delay: calc(var(--d) * 90ms + 560ms); }
+  .js .drawer-panel.is-changing { animation: panel-in 0.4s var(--ease-out); }
+}
+
+@media (max-width: 700px) {
+  .lib-drawer { margin: 0 -16px; border-radius: 0; padding: 40px 16px 0; }
+  .lib-drawer .wk { flex-basis: 156px; }
+}
