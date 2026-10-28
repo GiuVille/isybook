@@ -23,11 +23,13 @@ interface Props {
   width?: number;
   height?: number;
   class?: string;
+  /** Nome per la transizione tra pagine: la stessa copertina "vola" da una pagina all'altra. */
+  transitionName?: string;
 }
 
 const W = 180;
 const H = 270;
-const { work, art: givenArt, x, y, width, height, class: className } = Astro.props;
+const { work, art: givenArt, x, y, width, height, class: className, transitionName } = Astro.props;
 const art: Art = givenArt ?? {
   id: work!.id,
   title: work!.title,
@@ -51,6 +53,7 @@ const poster = art.variant === 'poster';
   width={width}
   height={height}
   class={className}
+  style={transitionName ? `view-transition-name: ${transitionName}` : undefined}
   role={standalone ? 'img' : undefined}
   aria-label={standalone ? `${poster ? 'Locandina' : 'Copertina'} di ${art.title}` : undefined}
 >
@@ -70,7 +73,7 @@ const poster = art.variant === 'poster';
           <stop offset="1" stop-color="#000" stop-opacity="0.6" />
         </linearGradient>
       </defs>
-      <text x={W / 2} y="34" text-anchor="middle" fill="rgba(255,255,255,.9)" font-family="system-ui, sans-serif" font-size="12" font-weight="700" letter-spacing="3">
+      <text x={W / 2} y="34" text-anchor="middle" fill="rgba(255,255,255,.9)" style="font-family: var(--font-text)" font-size="12" font-weight="700" letter-spacing="3">
         {authors.toUpperCase()}
       </text>
       <line x1="60" y1="46" x2="120" y2="46" stroke="rgba(255,255,255,.6)" stroke-width="1.5" />
@@ -79,13 +82,12 @@ const poster = art.variant === 'poster';
         y={H - 70 - (titleLines.length - 1) * 24}
         text-anchor="middle"
         fill="#fff"
-        font-family="Georgia, serif"
-        font-weight="700"
+        style="font-family: var(--font-display)"
         font-size="22"
       >
         {titleLines.map((line, i) => <tspan x={W / 2} dy={i === 0 ? 0 : 24}>{line}</tspan>)}
       </text>
-      <text x={W / 2} y={H - 22} text-anchor="middle" fill="rgba(255,255,255,.75)" font-family="system-ui, sans-serif" font-size="10" letter-spacing="2">
+      <text x={W / 2} y={H - 22} text-anchor="middle" fill="rgba(255,255,255,.75)" style="font-family: var(--font-text)" font-size="10" letter-spacing="2">
         TRATTO DAL LIBRO
       </text>
     </g>
@@ -99,8 +101,7 @@ const poster = art.variant === 'poster';
         y={110 - titleLines.length * 12}
         text-anchor="middle"
         fill="#fff"
-        font-family="Georgia, serif"
-        font-weight="700"
+        style="font-family: var(--font-display)"
         font-size="20"
       >
         {titleLines.map((line, i) => <tspan x={W / 2 + 5} dy={i === 0 ? 0 : 26}>{line}</tspan>)}
@@ -110,7 +111,7 @@ const poster = art.variant === 'poster';
         y={H - 40}
         text-anchor="middle"
         fill="rgba(255,255,255,.85)"
-        font-family="system-ui, sans-serif"
+        style="font-family: var(--font-text)"
         font-size="12"
         letter-spacing="1"
       >

@@ -1,6 +1,9 @@
 ---
 import '@fontsource/gochi-hand';
+import '@fontsource/young-serif';
+import '@fontsource-variable/literata';
 import '../styles/global.css';
+import '../styles/motion.css';
 import Onboarding from '../components/Onboarding.astro';
 
 interface Props {
@@ -36,6 +39,8 @@ const path = Astro.url.pathname;
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <link rel="canonical" href={new URL(path, Astro.site)} />
+    <!-- prima del primo disegno: gli stati iniziali delle animazioni valgono solo con JavaScript attivo -->
+    <script is:inline>document.documentElement.classList.add('js');</script>
   </head>
   <body>
     <header class="site-header">
@@ -63,13 +68,13 @@ const path = Astro.url.pathname;
               </form>
             )}
             <nav class="folders" aria-label="Sezioni">
-              {nav.map((item) => {
+              {nav.map((item, n) => {
                 const active = path.startsWith(item.href);
                 return (
                   <a
                     href={item.href}
                     class:list={['folder', `f${item.color}`, { 'is-active': active }]}
-                    style={`--tab-x:${item.tab}px;${mobileTab(item.mobile)}`}
+                    style={`--tab-x:${item.tab}px;--n:${n};${mobileTab(item.mobile)}`}
                     aria-current={active ? 'page' : undefined}
                   >
                     <span class="folder-tab">
@@ -96,6 +101,10 @@ const path = Astro.url.pathname;
 
     <script>
       import { getLibrary, onLibraryChange, savedCount } from '../lib/library';
+      import { initReveal } from '../scripts/reveal';
+
+      // animazioni d'ingresso (frecce delle anteprime, peperoncini…)
+      initReveal();
 
       // bollino sulla cartellina "La mia libreria"
       const badge = document.querySelector<HTMLElement>('.saved-count');
@@ -111,7 +120,7 @@ const path = Astro.url.pathname;
       // Menu hamburger (solo mobile): apre e chiude il cassetto delle sezioni.
       const header = document.querySelector<HTMLElement>('.site-header')!;
       const burger = header.querySelector<HTMLButtonElement>('.burger')!;
-      document.documentElement.classList.add('js');
+
 
       const setOpen = (open: boolean) => {
         header.classList.toggle('menu-open', open);
@@ -141,7 +150,7 @@ const path = Astro.url.pathname;
     align-items: baseline;
     gap: 10px;
     margin-right: auto;
-    font-family: Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.45rem;
     font-weight: 700;
     color: var(--text);
@@ -168,7 +177,7 @@ const path = Astro.url.pathname;
 
   /* cassetto: interno scuro-caldo, cartelline in fila */
   /* cassetto aperto: le cartelline scendono fino al bordo e spariscono dentro, un'ombra le separa dalla pagina */
-  .site-header { position: relative; z-index: 10; box-shadow: 0 8px 14px -10px rgba(0, 0, 0, 0.35); }
+  .site-header { view-transition-name: site-header; position: relative; z-index: 10; box-shadow: 0 8px 14px -10px rgba(0, 0, 0, 0.35); }
   .nav-wrap { background: var(--drawer-bg); box-shadow: inset 0 6px 8px -6px rgba(0, 0, 0, 0.25); }
   .nav-inner { overflow: hidden; }
   .folders .folder::after {
@@ -205,7 +214,7 @@ const path = Astro.url.pathname;
     min-width: 1.3em;
     margin-left: 4px;
     padding: 0 5px;
-    font: 600 0.7rem/1.5 system-ui, sans-serif;
+    font: 600 0.7rem/1.5 var(--font-text);
     text-align: center;
     vertical-align: 2px;
     color: #fff;

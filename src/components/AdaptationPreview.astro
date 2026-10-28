@@ -37,6 +37,7 @@ const a11y = [
 
 <article
   class="preview"
+  data-reveal
   data-kind={a.kind}
   data-platforms={platforms.map(slugify).join(' ')}
   data-genres={slugs(a.genres)}
@@ -47,7 +48,7 @@ const a11y = [
   style={`--light:${theme.light};--dark:${theme.dark};--panel:${theme.panel};--ink:${theme.ink};--text:${theme.text}`}
 >
   <a href={href} class="visual" aria-label={a.title}>
-    <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y}>
+    <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y} style={`--base:${arrows.length}`}>
       <g class="cover">
         <CoverArt
           art={{ id: a.id, title: a.title, caption: ADAPTATION_KIND_LABELS[a.kind], image: a.poster_url, color: theme.cover, variant: 'poster' }}
@@ -59,19 +60,19 @@ const a11y = [
       </g>
 
       <g class="arrows" fill="none" stroke-linecap="round" stroke-linejoin="round">
-        {arrows.map((arrow) => (
-          <g>
-            <path d={arrow.path} />
-            <path d={arrow.head} />
+        {arrows.map((arrow, i) => (
+          <g style={`--i:${i}`}>
+            <path class="shaft" d={arrow.path} pathLength="1" />
+            <path class="tip" d={arrow.head} pathLength="1" />
           </g>
         ))}
       </g>
 
       <g class="checks">
         {checks.map((label, i) => (
-          <g transform={`translate(${CHECK_X} ${checkY(i)})`}>
-            <path class="box" d="M1.5 3.2 L19.6 1.8 L20.4 19.5 L2.6 20.6 Z" />
-            <path class="tick" d="M5 11.5 L9.5 16 L19 1" />
+          <g transform={`translate(${CHECK_X} ${checkY(i)})`} style={`--i:${i}`}>
+            <path class="box" d="M1.5 3.2 L19.6 1.8 L20.4 19.5 L2.6 20.6 Z" pathLength="1" />
+            <path class="tick" d="M5 11.5 L9.5 16 L19 1" pathLength="1" />
             {/* televisore: dove vederlo */}
             <g transform="translate(30 -2)" class="icon">
               <rect x="2" y="4" width="20" height="14" rx="2" fill="none" />
@@ -83,9 +84,9 @@ const a11y = [
       </g>
 
       <g class="labels">
-        {arrows.map((arrow) => (
-          <text x={arrow.x} y={arrow.y} font-size={arrow.fontSize}>
-            {arrow.label.map((line, i) => <tspan x={arrow.x} dy={i === 0 ? 0 : arrow.fontSize * 1.05}>{line}</tspan>)}
+        {arrows.map((arrow, i) => (
+          <text x={arrow.x} y={arrow.y} font-size={arrow.fontSize} style={`--i:${i}`}>
+            {arrow.label.map((line, n) => <tspan x={arrow.x} dy={n === 0 ? 0 : arrow.fontSize * 1.05}>{line}</tspan>)}
           </text>
         ))}
       </g>

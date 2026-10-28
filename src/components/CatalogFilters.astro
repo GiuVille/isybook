@@ -126,6 +126,7 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
 
 <script>
   import { normalize } from '../lib/format';
+  import { reducedMotion } from '../scripts/reveal';
 
   type MaxFilter = { key: string; attr: string; label: string; unit: string };
   type SortOption = { value: string; attr: string; type: 'number' | 'text'; dir: 'asc' | 'desc' };
@@ -249,7 +250,36 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
       return li;
     };
 
+    /** Anima il passaggio dallo stato precedente: le card rimaste scivolano, quelle nuove compaiono. */
+    function animateFrom(before: Map<HTMLElement, DOMRect>) {
+      if (reducedMotion()) return;
+      for (const card of cards) {
+        if (card.el.hidden) continue;
+        const old = before.get(card.el);
+        const now = card.el.getBoundingClientRect();
+        if (old) {
+          const dx = old.left - now.left;
+          const dy = old.top - now.top;
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+          card.el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], {
+            duration: 420,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          });
+        } else {
+          card.el.animate([{ opacity: 0, transform: 'scale(0.97) translateY(12px)' }, { opacity: 1, transform: 'none' }], {
+            duration: 380,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          });
+        }
+      }
+    }
+
+    let firstRun = true;
+
     function update() {
+      // posizioni prima del cambiamento (non al primo giro: lì non c'è niente da cui partire)
+      const before = new Map<HTMLElement, DOMRect>();
+      if (!firstRun) for (const c of cards) if (!c.el.hidden) before.set(c.el, c.el.getBoundingClientRect());
       let visible = 0;
       for (const card of cards) {
         card.el.hidden = !matches(card);
@@ -259,6 +289,8 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
       for (const section of sections) {
         section.hidden = !cards.some((c) => !c.el.hidden && section.contains(c.el));
       }
+      if (!firstRun) animateFrom(before);
+      firstRun = false;
 
       for (const g of groups) {
         const current = selected(g);
@@ -352,7 +384,7 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
   .bar { display: flex; flex-wrap: wrap; gap: 8px; position: relative; }
 
   .query {
-    flex: 1 1 200px;
+    flex: 1 1 160px;
     padding: 8px 14px;
     font: inherit;
     color: inherit;
@@ -365,7 +397,8 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
   summary {
     list-style: none;
     cursor: pointer;
-    padding: 8px 14px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface);
@@ -436,6 +469,12 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
   .status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; min-height: 32px; }
   .total { color: var(--muted); font-size: 0.9rem; margin-right: 4px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .group[open] .menu { animation: menu-in 0.2s var(--ease-out); transform-origin: top left; }
+    .chips :global(li) { animation: pop 0.32s var(--ease-spring); }
+    summary { transition: border-color 0.2s, color 0.2s, transform 0.2s var(--ease-spring); }
+    summary:active { transform: scale(0.96); }
+  }
   /* le chip sono create dallo script: fuori dallo scope degli stili del componente */
   .chips :global(button) {
     font: inherit;

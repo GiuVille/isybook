@@ -29,7 +29,7 @@
 .preview .save-slot { position: absolute; top: 12px; right: 14px; z-index: 2; }
 .preview .plot { position: relative; display: flex; flex-direction: column; padding: 16px 28px 28px; min-width: 0; }
 .preview .plot h3 { margin: 0 0 12px; text-align: center; font-family: inherit; font-size: 1.9rem; font-weight: 400; }
-.preview .box { flex: 1; background: var(--panel); padding: 18px 20px; color: var(--text); font-family: system-ui, sans-serif; }
+.preview .box { flex: 1; background: var(--panel) var(--grain); padding: 18px 20px; color: var(--text); font-family: var(--font-text); }
 .preview .meta { margin: 0 0 8px; font-size: 0.85rem; opacity: 0.8; }
 .preview .meta a { color: inherit; font-weight: 600; }
 .preview .date { display: block; margin-top: 2px; }

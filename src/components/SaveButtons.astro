@@ -47,6 +47,7 @@ const { slug, title, compact = false } = Astro.props;
     type Library,
   } from '../lib/library';
   import { esc } from '../lib/book-card';
+  import { flyToLibrary, heartBurst } from '../scripts/celebrate';
 
   const blocks = [...document.querySelectorAll<HTMLElement>('.save[data-slug]')];
 
@@ -88,7 +89,15 @@ const { slug, title, compact = false } = Astro.props;
     const pop = block.querySelector<HTMLElement>('.pop')!;
     const add = block.querySelector<HTMLButtonElement>('.add')!;
 
-    block.querySelector('.fav')!.addEventListener('click', () => toggleFavorite(slug));
+    const favButton = block.querySelector<HTMLButtonElement>('.fav')!;
+    favButton.addEventListener('click', () => {
+      const library = toggleFavorite(slug);
+      // festeggia solo quando si aggiunge, non quando si toglie
+      if (library.favorites.includes(slug)) {
+        heartBurst(favButton);
+        flyToLibrary(favButton, '#c2185b');
+      }
+    });
 
     add.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -101,7 +110,9 @@ const { slug, title, compact = false } = Astro.props;
     pop.addEventListener('click', (e) => e.stopPropagation());
     pop.addEventListener('change', (e) => {
       const input = e.target as HTMLInputElement;
-      if (input.type === 'checkbox') toggleInCollection(input.value, slug);
+      if (input.type !== 'checkbox') return;
+      toggleInCollection(input.value, slug);
+      if (input.checked) flyToLibrary(add);
     });
 
     pop.querySelector('form')!.addEventListener('submit', (e) => {
@@ -110,6 +121,7 @@ const { slug, title, compact = false } = Astro.props;
       if (!input.value.trim()) return;
       const collection = createCollection(input.value);
       toggleInCollection(collection.id, slug);
+      flyToLibrary(add);
       input.value = '';
     });
   }
@@ -171,7 +183,7 @@ const { slug, title, compact = false } = Astro.props;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-    font-family: system-ui, sans-serif;
+    font-family: var(--font-text);
     text-align: left;
   }
   .pop[hidden] { display: none; }

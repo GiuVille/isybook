@@ -56,6 +56,7 @@ const a11y = [
 
 <article
   class="preview"
+  data-reveal
   data-tropes={slugs(work.tropes)}
   data-genres={slugs(work.genres)}
   data-settings={slugs(work.settings)}
@@ -75,26 +76,26 @@ const a11y = [
   style={`--light:${theme.light};--dark:${theme.dark};--panel:${theme.panel};--ink:${theme.ink};--text:${theme.text}`}
 >
   <a href={`/libri/${work.slug}`} class="visual" aria-label={work.title}>
-    <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y}>
+    <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y} style={`--base:${arrows.length}`}>
       <g class="cover">
         <CoverArt work={work} x={COVER.x} y={COVER.y} width={COVER.width} height={COVER.height} />
       </g>
 
       <g class="arrows" fill="none" stroke-linecap="round" stroke-linejoin="round">
-        {arrows.map((a) => (
-          <g>
-            <path d={a.path} />
-            <path d={a.head} />
+        {arrows.map((a, i) => (
+          <g style={`--i:${i}`}>
+            <path class="shaft" d={a.path} pathLength="1" />
+            <path class="tip" d={a.head} pathLength="1" />
           </g>
         ))}
       </g>
 
       <g class="checks">
         {checks.map((c, i) => (
-          <g transform={`translate(${CHECK_X} ${checkY(i)})`}>
+          <g transform={`translate(${CHECK_X} ${checkY(i)})`} style={`--i:${i}`}>
             {/* quadratino tracciato a mano con la spunta che esce un po' dal bordo */}
-            <path class="box" d="M1.5 3.2 L19.6 1.8 L20.4 19.5 L2.6 20.6 Z" />
-            <path class="tick" d="M5 11.5 L9.5 16 L19 1" />
+            <path class="box" d="M1.5 3.2 L19.6 1.8 L20.4 19.5 L2.6 20.6 Z" pathLength="1" />
+            <path class="tick" d="M5 11.5 L9.5 16 L19 1" pathLength="1" />
             <g transform="translate(30 -2)" class="icon">
               {c.kind === 'audio' ? (
                 <>
@@ -116,9 +117,9 @@ const a11y = [
       </g>
 
       <g class="labels">
-        {arrows.map((a) => (
-          <text x={a.x} y={a.y} font-size={a.fontSize}>
-            {a.label.map((line, i) => <tspan x={a.x} dy={i === 0 ? 0 : a.fontSize * 1.05}>{line}</tspan>)}
+        {arrows.map((a, i) => (
+          <text x={a.x} y={a.y} font-size={a.fontSize} style={`--i:${i}`}>
+            {a.label.map((line, n) => <tspan x={a.x} dy={n === 0 ? 0 : a.fontSize * 1.05}>{line}</tspan>)}
           </text>
         ))}
       </g>

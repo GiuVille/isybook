@@ -72,7 +72,7 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
 <Base title={`${work.title} di ${authors}`} description={work.plot?.slice(0, 155) ?? undefined}>
   <article>
     <div class="head">
-      <CoverArt work={work} class="cover" />
+      <CoverArt work={work} class="cover" transitionName={`cover-${work.slug}`} />
       <div class="info">
         {series && (
           <p class="saga-line">

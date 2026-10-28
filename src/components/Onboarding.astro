@@ -84,6 +84,11 @@
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   }
   .onboarding::backdrop { background: rgba(30, 20, 35, 0.55); }
+  @media (prefers-reduced-motion: no-preference) {
+    .onboarding[open] { animation: rise 0.5s var(--ease-out); }
+    .onboarding[open]::backdrop { animation: fade-in 0.4s ease-out; }
+    .groups :global(.chip input:checked + span) { animation: pop 0.3s var(--ease-spring); }
+  }
   .sheet { padding: 28px 28px 20px; }
   .kicker { margin: 0; font-family: 'Gochi Hand', cursive; font-size: 1.2rem; color: var(--accent); }
   h2 { margin: 2px 0 6px; font-size: 1.8rem; }
