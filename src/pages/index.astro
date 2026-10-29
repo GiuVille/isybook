@@ -3,8 +3,10 @@ import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
 import EventCard from '../components/EventCard.astro';
 import ForYou from '../components/ForYou.astro';
+import PromoCoupon from '../components/PromoCoupon.astro';
 import ReleaseCarousel from '../components/ReleaseCarousel.astro';
-import { getEditionsWithWork, getEvents } from '../lib/data';
+import { getEditionsWithWork, getEvents, getPromotions } from '../lib/data';
+import { promotionState } from '../lib/promotions';
 import { upcomingReleases } from '../lib/releases';
 
 const today = new Date().toISOString().slice(0, 10);
@@ -12,6 +14,8 @@ const editions = await getEditionsWithWork();
 const upcoming = editions.filter((e) => (e.release_date ?? '9999') >= today).slice(0, 6);
 const special = editions.filter((e) => e.edition_type !== 'standard').slice(0, 6);
 const releases = upcomingReleases(editions, today).slice(0, 8);
+// prima quelle che scadono presto
+const promotions = (await getPromotions()).filter((p) => !['over', 'upcoming'].includes(promotionState(p, today))).slice(0, 3);
 const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= today).slice(0, 3);
 ---
 
@@ -22,6 +26,16 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
   </div>
   <ReleaseCarousel releases={releases} />
   <p class="intro muted">Uscite, edizioni speciali, serie tratte dai libri ed eventi di romantasy, romance e fantasy YA, in un posto solo.</p>
+
+  {promotions.length > 0 && (
+    <>
+      <div class="section-head">
+        <h2>Promozioni in corso</h2>
+        <a href="/promozioni">Tutte le promozioni →</a>
+      </div>
+      <div class="coupons">{promotions.map((p, i) => <PromoCoupon promotion={p} index={i} />)}</div>
+    </>
+  )}
 
   <ForYou />
 
@@ -52,6 +66,7 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
   h2 { margin-top: 40px; }
   .section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 40px; }
   .section-head h2 { margin: 0 0 12px; }
+  .coupons { display: grid; gap: 26px; padding-top: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
   .events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   @media (max-width: 700px) { .events { grid-template-columns: minmax(0, 1fr); } }
 </style>

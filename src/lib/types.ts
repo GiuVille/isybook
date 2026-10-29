@@ -129,3 +129,25 @@ export interface BookEvent {
   authors: Author[];
   works: Array<{ slug: string; title: string }>;
 }
+
+export type PromotionKind = 'gift_with_purchase' | 'bundle' | 'discount' | 'contest' | 'preorder';
+export type PromotionChannel = 'online' | 'bookstores' | 'chain' | 'everywhere';
+
+/** Promozione di un editore o di una libreria: omaggio, 3x2, sconto, concorso, bonus preordine. */
+export interface Promotion {
+  id: string;
+  slug: string;
+  title: string;
+  kind: PromotionKind;
+  publisher: Publisher | null;
+  description?: string | null;
+  conditions?: string | null;
+  reward?: string | null;
+  starts_on?: string | null;
+  ends_on?: string | null;
+  channel: PromotionChannel;
+  where_note?: string | null;
+  url?: string | null;
+  image_url?: string | null;
+  works: Array<{ slug: string; title: string }>;
+}

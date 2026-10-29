@@ -672,5 +672,109 @@
       "author_ids": [],
       "work_slugs": []
     }
+  ],
+  "promotions": [
+    {
+      "id": "pr1",
+      "slug": "plaid-d-autunno",
+      "title": "Il plaid d'autunno",
+      "publisher_id": "p1",
+      "kind": "gift_with_purchase",
+      "description": "Per l'arrivo del freddo l'editore regala un plaid a quadri con il logo della collana a chi compra tre romantasy in libreria. (Promozione di esempio.)",
+      "conditions": "Acquistando 3 libri della collana Romantasy",
+      "reward": "Un plaid in omaggio",
+      "starts_on": "2026-10-15",
+      "ends_on": "2026-11-30",
+      "channel": "bookstores",
+      "where_note": "Nelle librerie aderenti, fino a esaurimento scorte",
+      "url": null,
+      "image_url": null,
+      "source_url": null,
+      "work_slugs": [
+        "la-corona-di-cenere",
+        "il-patto-delle-stelle"
+      ]
+    },
+    {
+      "id": "pr2",
+      "slug": "tre-per-due-gialli",
+      "title": "3x2 sui gialli",
+      "publisher_id": "p1",
+      "kind": "bundle",
+      "description": "Tre gialli al prezzo di due: il meno caro è in regalo. (Promozione di esempio.)",
+      "conditions": "Su tutti i gialli e i thriller del catalogo",
+      "reward": "Il terzo libro è gratis",
+      "starts_on": "2026-10-20",
+      "ends_on": "2026-10-31",
+      "channel": "everywhere",
+      "where_note": "Online e in libreria",
+      "url": null,
+      "image_url": null,
+      "source_url": null,
+      "work_slugs": [
+        "lultimo-ospite",
+        "la-casa-sul-fiume"
+      ]
+    },
+    {
+      "id": "pr3",
+      "slug": "bonus-preordine-il-trono-di-brace",
+      "title": "Bonus preordine «Il trono di brace»",
+      "publisher_id": "p1",
+      "kind": "preorder",
+      "description": "Chi preordina il seguito della saga riceve un segnalibro olografico e una cartolina con la firma stampata dell’autrice. (Promozione di esempio.)",
+      "conditions": "Preordinando il libro entro il 31 marzo",
+      "reward": "Segnalibro olografico e cartolina firmata",
+      "starts_on": "2026-10-01",
+      "ends_on": "2027-03-31",
+      "channel": "online",
+      "where_note": "Sul sito dell'editore",
+      "url": null,
+      "image_url": null,
+      "source_url": null,
+      "work_slugs": [
+        "il-trono-di-brace"
+      ]
+    },
+    {
+      "id": "pr4",
+      "slug": "vinci-la-special-edition",
+      "title": "Vinci la special edition",
+      "publisher_id": "p2",
+      "kind": "contest",
+      "description": "Estrazione di cinque copie della special edition con bordi decorati tra chi si iscrive alla newsletter del box. (Promozione di esempio.)",
+      "conditions": "Iscrivendosi alla newsletter",
+      "reward": "5 special edition in palio",
+      "starts_on": "2026-10-25",
+      "ends_on": "2026-11-15",
+      "channel": "online",
+      "where_note": "Sul sito del box",
+      "url": null,
+      "image_url": null,
+      "source_url": null,
+      "work_slugs": [
+        "la-corona-di-cenere"
+      ]
+    },
+    {
+      "id": "pr5",
+      "slug": "tote-bag-di-settembre",
+      "title": "La tote bag di settembre",
+      "publisher_id": "p1",
+      "kind": "gift_with_purchase",
+      "description": "Una tote bag illustrata con due libri della collana Young Adult. (Promozione di esempio, già conclusa.)",
+      "conditions": "Acquistando 2 libri Young Adult",
+      "reward": "Una tote bag in omaggio",
+      "starts_on": "2026-09-01",
+      "ends_on": "2026-10-10",
+      "channel": "chain",
+      "where_note": "Nelle librerie di una catena",
+      "url": null,
+      "image_url": null,
+      "source_url": null,
+      "work_slugs": [
+        "il-patto-delle-stelle"
+      ]
+    }
   ]
 }

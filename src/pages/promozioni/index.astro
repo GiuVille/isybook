@@ -1,0 +1,72 @@
+---
+import Base from '../../layouts/Base.astro';
+import CatalogFilters, { type FilterGroup, type FilterOption } from '../../components/CatalogFilters.astro';
+import PromoCoupon from '../../components/PromoCoupon.astro';
+import { getPromotions } from '../../lib/data';
+import { PROMOTION_CHANNEL_LABELS, PROMOTION_KIND_LABELS, promotionState } from '../../lib/promotions';
+
+const promotions = await getPromotions();
+const current = promotions.filter((p) => promotionState(p) !== 'over');
+// concluse: dalla più recente
+const over = promotions.filter((p) => promotionState(p) === 'over').reverse();
+
+function unique(items: FilterOption[]): FilterOption[] {
+  return [...new Map(items.map((i) => [i.slug, i])).values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+const groups: FilterGroup[] = [
+  {
+    key: 'editore', attr: 'publisher', label: 'Editore', mode: 'any',
+    options: unique(current.filter((p) => p.publisher).map((p) => ({ slug: p.publisher!.slug, name: p.publisher!.name }))),
+  },
+  { key: 'tipo', attr: 'kind', label: 'Tipo', mode: 'any', options: unique(current.map((p) => ({ slug: p.kind, name: PROMOTION_KIND_LABELS[p.kind] }))) },
+  { key: 'dove', attr: 'channel', label: 'Dove', mode: 'any', options: unique(current.map((p) => ({ slug: p.channel, name: PROMOTION_CHANNEL_LABELS[p.channel] }))) },
+];
+---
+
+<Base
+  title="Promozioni"
+  hideSearch
+  description="Omaggi, 3x2, bonus preordine e concorsi delle case editrici: le promozioni in corso per chi ama romantasy, romance e fantasy YA."
+>
+  <h1>Promozioni</h1>
+  <p class="muted intro">
+    Plaid, tote bag, segnalibri e libri in regalo: le iniziative di editori e librerie ancora in corso. Ritaglia quella che ti interessa per
+    leggere le condizioni e segnarti la scadenza.
+  </p>
+
+  {current.length > 0 ? (
+    <CatalogFilters
+      groups={groups}
+      placeholder="Cerca promozione, editore, libro…"
+      noun={{ one: 'promozione', many: 'promozioni' }}
+      itemSelector=".pad.current .coupon"
+      sorts={[
+        { value: 'scadenza', label: 'Scade prima', attr: 'ends', type: 'text', dir: 'asc' },
+        { value: 'recenti', label: 'Iniziata da poco', attr: 'starts', type: 'text', dir: 'desc' },
+      ]}
+    />
+  ) : (
+    <p class="empty-all">Per ora non ci sono promozioni in corso. Torna presto!</p>
+  )}
+
+  <div class="pad current">
+    {current.map((p, i) => <PromoCoupon promotion={p} index={i} />)}
+  </div>
+
+  {over.length > 0 && (
+    <details class="past">
+      <summary>Promozioni concluse ({over.length})</summary>
+      <div class="pad">{over.map((p) => <PromoCoupon promotion={p} />)}</div>
+    </details>
+  )}
+</Base>
+
+<style>
+  .intro { margin-top: -8px; max-width: 70ch; }
+  .pad { display: grid; gap: 30px 26px; margin-top: 28px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); }
+  .empty-all { margin-top: 24px; padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
+  .past { margin-top: 48px; }
+  .past summary { cursor: pointer; font-weight: 600; }
+  .past .pad { margin-top: 20px; }
+</style>

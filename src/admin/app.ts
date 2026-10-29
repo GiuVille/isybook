@@ -65,6 +65,7 @@ function shell(content: string): string {
       <aside>
         <a href="#/" class="brand">IsyBook <small>admin</small></a>
         ${link('#/review', 'Da approvare')}
+        ${link('#/segnala', 'Segnala promozione')}
         ${groups
           .map(
             (g) => `<p class="group">${g}</p>${RESOURCES.filter((r) => r.group === g)
@@ -138,6 +139,7 @@ async function renderDashboard() {
         <a class="button" href="#/r/articles/new">Nuovo articolo</a>
         <a class="button secondary" href="#/r/works/new">Nuova opera</a>
         <a class="button secondary" href="#/r/events/new">Nuovo evento</a>
+        <a class="button secondary" href="#/segnala">Segnala promozione</a>
       </p>
       <p class="muted small">Il sito pubblico è statico: le modifiche compaiono online al build successivo.</p>`),
   );
@@ -456,7 +458,35 @@ function defaults(resource: Resource): Row {
 // ---------------------------------------------------------------------------
 // Coda di revisione
 // ---------------------------------------------------------------------------
-const CONTENT_TYPE_LABELS: Record<string, string> = { book: 'Libro', event: 'Evento', article: 'Articolo' };
+const CONTENT_TYPE_LABELS: Record<string, string> = { book: 'Libro', event: 'Evento', article: 'Articolo', promotion: 'Promozione' };
+
+const PROMOTION_KINDS = getResource('promotions')!.fields.find((f) => f.name === 'kind')!.options!;
+
+/** Campi di una promozione proposta, modificabili prima di approvare. */
+function promotionSummary(p: Row): string {
+  const input = (name: string, label: string, value: unknown, type = 'text') =>
+    `<label for="pr-${name}">${label}</label><input id="pr-${name}" data-field="${name}" type="${type}" value="${esc(value ?? '')}">`;
+  return `
+    <dl class="summary">
+      <dt>Editore</dt><dd>${esc(p.publisher?.name ?? '—')}</dd>
+      <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
+      <dt>Fonte</dt><dd>${p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a>` : '—'}</dd>
+      ${p.note ? `<dt>Nota</dt><dd>${esc(p.note)}</dd>` : ''}
+    </dl>
+    ${p.needs_extraction ? '<p class="muted">Segnalazione in attesa della lettura notturna: puoi aspettare oppure compilare i campi qui sotto.</p>' : ''}
+    ${p.extraction_note ? `<p class="muted">${esc(p.extraction_note)}</p>` : ''}
+    ${p.raw_text ? `<details><summary>Testo incollato</summary><p class="muted">${esc(p.raw_text)}</p></details>` : ''}
+    ${input('title', 'Titolo', p.title)}
+    <label for="pr-kind">Tipo</label>
+    <select id="pr-kind" data-field="kind">${PROMOTION_KINDS.map(([v, l]) => `<option value="${v}" ${v === p.kind ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+    ${input('reward', 'Cosa si ottiene', p.reward)}
+    ${input('conditions', 'Condizioni', p.conditions)}
+    ${input('starts_on', 'Inizio', p.starts_on, 'date')}
+    ${input('ends_on', 'Fine', p.ends_on, 'date')}
+    ${input('where_note', 'Dove, in dettaglio', p.where_note)}
+    <label for="pr-description">Descrizione (scritta da noi)</label>
+    <textarea id="pr-description" data-field="description" rows="4">${esc(p.description)}</textarea>`;
+}
 
 function reviewTitle(item: Row): string {
   const p = item.payload ?? {};
@@ -511,7 +541,9 @@ async function renderReviewItem(id: string) {
         <label for="plot">Trama (modificabile prima di approvare)</label>
         <textarea id="plot" rows="6">${esc(p.work?.plot)}</textarea>
         ${p.original_description ? `<details><summary>Descrizione originale (solo riferimento, non pubblicare)</summary><p class="muted">${esc(p.original_description)}</p></details>` : ''}`
-      : '';
+      : item.content_type === 'promotion'
+        ? promotionSummary(p)
+        : '';
 
   render(
     shell(`
@@ -522,7 +554,7 @@ async function renderReviewItem(id: string) {
         <details ${summary ? '' : 'open'}><summary>Dati completi</summary><pre>${esc(JSON.stringify(p, null, 2))}</pre></details>
         ${item.status === 'pending'
           ? `<div class="actions">
-              ${item.content_type === 'book' ? '<button id="approve">Approva e pubblica</button>' : ''}
+              ${['book', 'promotion'].includes(item.content_type) ? '<button id="approve">Approva e pubblica</button>' : ''}
               <button class="danger" id="reject">Scarta</button>
             </div>`
           : `<p class="muted">Stato: ${esc(item.status)}</p>`}
@@ -531,12 +563,19 @@ async function renderReviewItem(id: string) {
   bindShell();
 
   document.getElementById('approve')?.addEventListener('click', async () => {
-    const plot = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim();
-    const payload = { ...p, work: { ...p.work, plot: plot || null } };
+    let payload: Row;
+    if (item.content_type === 'book') {
+      const plot = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim();
+      payload = { ...p, work: { ...p.work, plot: plot || null } };
+    } else {
+      // promozione: valgono i campi corretti a mano
+      payload = { ...p, needs_extraction: false };
+      document.querySelectorAll<HTMLInputElement>('[data-field]').forEach((el) => (payload[el.dataset.field!] = el.value.trim() || null));
+    }
     try {
-      const workId = await approveReviewItem(sb, { ...item, payload }, session!.user.id);
+      const approved = await approveReviewItem(sb, { ...item, payload }, session!.user.id);
       flash('Approvato');
-      go(`#/r/works/${workId}`);
+      go(`#/r/${approved.resource}/${approved.id}`);
     } catch (err) {
       fail(err);
     }
@@ -555,6 +594,58 @@ async function renderReviewItem(id: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Segnala promozione: link o testo incollato (post Instagram, newsletter…).
+// La segnalazione entra in coda; la lettura notturna ne estrae i dati, oppure si compila a mano.
+// ---------------------------------------------------------------------------
+function renderReport() {
+  render(
+    shell(`
+      <h1>Segnala promozione</h1>
+      <p class="muted">Incolla il link della pagina o il testo del post o della newsletter. Finisce in «Da approvare»: i campi si compilano
+        da soli con la lettura notturna, oppure puoi completarli subito a mano.</p>
+      <form class="card" id="report">
+        <label for="rep-url">Link</label>
+        <input id="rep-url" name="url" type="url" placeholder="https://…">
+        <label for="rep-text">Testo</label>
+        <textarea id="rep-text" name="text" rows="8" placeholder="Testo del post, della storia o della newsletter"></textarea>
+        <label for="rep-note">Nota per chi approva (facoltativa)</label>
+        <input id="rep-note" name="note" type="text">
+        <div class="actions"><button type="submit">Metti in coda</button></div>
+      </form>`),
+  );
+  bindShell();
+  document.getElementById('report')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target as HTMLFormElement);
+    const url = String(form.get('url') ?? '').trim();
+    const text = String(form.get('text') ?? '').trim();
+    if (!url && !text) return flash('Serve almeno il link o il testo', 'error');
+    // titolo provvisorio: le prime parole del testo, altrimenti il sito
+    const title = text ? text.split(/\s+/).slice(0, 8).join(' ') : new URL(url).hostname.replace(/^www\./, '');
+    const { data, error } = await getSupabase()
+      .from('review_queue')
+      .insert({
+        content_type: 'promotion',
+        payload: {
+          title: `Segnalazione: ${title}`,
+          kind: 'gift_with_purchase',
+          channel: 'everywhere',
+          source_url: url || null,
+          url: url || null,
+          raw_text: text || null,
+          note: String(form.get('note') ?? '').trim() || null,
+          needs_extraction: true,
+        },
+      })
+      .select('id')
+      .single();
+    if (error) fail(error);
+    flash('In coda');
+    go(`#/review/${data.id}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 async function route() {
@@ -562,6 +653,7 @@ async function route() {
   const [path, query = ''] = location.hash.replace(/^#/, '').split('?');
   const parts = path.split('/').filter(Boolean);
   try {
+    if (parts[0] === 'segnala') return renderReport();
     if (parts[0] === 'review') {
       return parts[1] ? await renderReviewItem(parts[1]) : await renderReviewList();
     }

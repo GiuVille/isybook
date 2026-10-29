@@ -240,3 +240,19 @@ insert into work_settings (work_id, setting_id) values
 insert into editions (work_id, format, publisher_id, release_date, price, pages) values
   ('00000000-0000-0000-0000-0000000000f6', 'paperback', '00000000-0000-0000-0000-0000000000b1', '2026-12-10', 17.90, 384),
   ('00000000-0000-0000-0000-0000000000f6', 'kindle', '00000000-0000-0000-0000-0000000000b1', '2026-12-10', 5.99, null);
+
+-- Promozioni di esempio (una già conclusa)
+insert into promotions (id, slug, title, publisher_id, kind, description, conditions, reward, starts_on, ends_on, channel, where_note, status) values
+  ('00000000-0000-0000-0000-0000000001a1', 'plaid-d-autunno', 'Il plaid d''autunno', '00000000-0000-0000-0000-0000000000b1', 'gift_with_purchase', 'Per l''arrivo del freddo l''editore regala un plaid a quadri con il logo della collana a chi compra tre romantasy in libreria. (Promozione di esempio.)', 'Acquistando 3 libri della collana Romantasy', 'Un plaid in omaggio', '2026-10-15', '2026-11-30', 'bookstores', 'Nelle librerie aderenti, fino a esaurimento scorte', 'published'),
+  ('00000000-0000-0000-0000-0000000001a2', 'tre-per-due-gialli', '3x2 sui gialli', '00000000-0000-0000-0000-0000000000b1', 'bundle', 'Tre gialli al prezzo di due: il meno caro è in regalo. (Promozione di esempio.)', 'Su tutti i gialli e i thriller del catalogo', 'Il terzo libro è gratis', '2026-10-20', '2026-10-31', 'everywhere', 'Online e in libreria', 'published'),
+  ('00000000-0000-0000-0000-0000000001a3', 'bonus-preordine-il-trono-di-brace', 'Bonus preordine «Il trono di brace»', '00000000-0000-0000-0000-0000000000b1', 'preorder', 'Chi preordina il seguito della saga riceve un segnalibro olografico e una cartolina con la firma stampata dell’autrice. (Promozione di esempio.)', 'Preordinando il libro entro il 31 marzo', 'Segnalibro olografico e cartolina firmata', '2026-10-01', '2027-03-31', 'online', 'Sul sito dell''editore', 'published'),
+  ('00000000-0000-0000-0000-0000000001a4', 'vinci-la-special-edition', 'Vinci la special edition', '00000000-0000-0000-0000-0000000000b2', 'contest', 'Estrazione di cinque copie della special edition con bordi decorati tra chi si iscrive alla newsletter del box. (Promozione di esempio.)', 'Iscrivendosi alla newsletter', '5 special edition in palio', '2026-10-25', '2026-11-15', 'online', 'Sul sito del box', 'published'),
+  ('00000000-0000-0000-0000-0000000001a5', 'tote-bag-di-settembre', 'La tote bag di settembre', '00000000-0000-0000-0000-0000000000b1', 'gift_with_purchase', 'Una tote bag illustrata con due libri della collana Young Adult. (Promozione di esempio, già conclusa.)', 'Acquistando 2 libri Young Adult', 'Una tote bag in omaggio', '2026-09-01', '2026-10-10', 'chain', 'Nelle librerie di una catena', 'published');
+insert into promotion_works (promotion_id, work_id) values
+  ('00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000000f1'),
+  ('00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000000f2'),
+  ('00000000-0000-0000-0000-0000000001a2', '00000000-0000-0000-0000-0000000000f3'),
+  ('00000000-0000-0000-0000-0000000001a2', '00000000-0000-0000-0000-0000000000f4'),
+  ('00000000-0000-0000-0000-0000000001a3', '00000000-0000-0000-0000-0000000000f5'),
+  ('00000000-0000-0000-0000-0000000001a4', '00000000-0000-0000-0000-0000000000f1'),
+  ('00000000-0000-0000-0000-0000000001a5', '00000000-0000-0000-0000-0000000000f2');

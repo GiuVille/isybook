@@ -3,7 +3,7 @@
 // Restituisce solo contenuti con status = 'published' (lato DB lo garantisce anche la RLS).
 import sample from '../data/sample.json';
 import { getSupabase, supabaseConfigured } from './supabase';
-import type { Adaptation, Author, BookEvent, Edition, Merch, Publisher, Tag, Work } from './types';
+import type { Adaptation, Author, BookEvent, Edition, Merch, Promotion, Publisher, Tag, Work } from './types';
 
 const MERCH_FIELDS = 'id, name, kind, shop, price, url, affiliate, edition_id, status';
 
@@ -201,4 +201,40 @@ export async function getEvents(): Promise<BookEvent[]> {
       .filter((w: Row | null) => w?.status === 'published')
       .map((w: Row) => ({ slug: w.slug, title: w.title })),
   })) as BookEvent[];
+}
+
+/** Promozioni pubblicate, dalla fine più vicina; quelle senza scadenza in fondo. */
+export async function getPromotions(): Promise<Promotion[]> {
+  const byEnd = (a: Promotion, b: Promotion) => (a.ends_on ?? '9999').localeCompare(b.ends_on ?? '9999');
+  if (!supabaseConfigured) {
+    return sample.promotions
+      .map(
+        ({ publisher_id, work_slugs, ...p }): Promotion => ({
+          ...p,
+          kind: p.kind as Promotion['kind'],
+          channel: p.channel as Promotion['channel'],
+          publisher: (sample.publishers as Publisher[]).find((x) => x.id === publisher_id) ?? null,
+          works: sample.works.filter((w) => work_slugs.includes(w.slug)).map((w) => ({ slug: w.slug, title: w.title })),
+        }),
+      )
+      .sort(byEnd);
+  }
+  const { data, error } = await getSupabase()
+    .from('promotions')
+    .select(
+      'id, slug, title, kind, description, conditions, reward, starts_on, ends_on, channel, where_note, url, image_url, ' +
+        'publishers ( id, slug, name, kind, website ), promotion_works ( works ( slug, title, status ) )',
+    )
+    .eq('status', 'published');
+  if (error) throw error;
+  return (data ?? [])
+    .map(({ publishers, promotion_works, ...p }: Row) => ({
+      ...p,
+      publisher: publishers ?? null,
+      works: (promotion_works ?? [])
+        .map((r: Row) => r.works)
+        .filter((w: Row | null) => w?.status === 'published')
+        .map((w: Row) => ({ slug: w.slug, title: w.title })),
+    }) as Promotion)
+    .sort(byEnd);
 }

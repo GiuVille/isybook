@@ -2,7 +2,7 @@
 
 IsyBook nasce da un problema molto concreto: le notizie sui libri che mi interessano sono sparse ovunque. Una special edition la annunciano su Instagram, l'uscita Kindle la trovo per caso sul sito dell'editore, il firmacopie lo scopro il giorno dopo. E le edizioni limitate, se non le prendi nelle prime ore, sono andate.
 
-Quindi sto costruendo un sito che raccolga tutto in un posto solo: uscite, edizioni speciali e limitate, eventi e fiere. Per ora mi concentro su romantasy, romance e fantasy YA in Italia, il mondo dove le special edition contano di più.
+Quindi sto costruendo un sito che raccolga tutto in un posto solo: uscite, edizioni speciali e limitate, promozioni degli editori, eventi e fiere. Per ora mi concentro su romantasy, romance e fantasy YA in Italia, il mondo dove le special edition contano di più.
 
 Non è un catalogo con le recensioni (per quello ci sono già Goodreads e compagnia). Qui conta quello che succede attorno al libro.
 
@@ -33,6 +33,8 @@ src/
   data/sample.json  dati finti per lavorare senza database
 scripts/
   import-isbn.ts    import dei libri per ISBN
+  check-promotions.ts  lettura notturna delle promozioni
+  sources.json      fonti di prova, usate quando Supabase non è configurato
   lib/              chiamate alle API esterne
 supabase/
   migrations/       schema del database
@@ -77,6 +79,26 @@ L'import non pubblica niente: mette il libro in una coda e lo approvo io prima c
 
 Una nota pratica: senza `GOOGLE_BOOKS_API_KEY` Google Books risponde spesso con un 429. In quel caso i dati arrivano solo da Open Library, che va bene ma a volte non ha la data d'uscita.
 
+## Promozioni automatiche
+
+Plaid in omaggio con tre libri, 3x2 sui gialli, segnalibri per chi preordina: le promozioni degli editori cambiano di settimana in settimana e ognuno le annuncia a modo suo. Per non doverle cercare a mano ho scritto un job che ogni notte legge le fonti e prepara le schede.
+
+```sh
+npm run promotions
+npm run promotions -- --dry-run
+```
+
+Per ogni fonte (la tabella `sources` con `purpose = 'promotions'`, oppure `scripts/sources.json` senza Supabase):
+
+1. controlla `robots.txt` e salta le pagine escluse; fa una sola richiesta, con un User-Agent che dice chi siamo;
+2. estrae il testo principale della pagina o del feed RSS e ne calcola l'impronta: se non è cambiato dall'ultima volta si ferma lì;
+3. se è cambiato, passa all'estrazione automatica dei dati (titolo, editore, tipo, premio, condizioni, date, libri citati) e scarta le promozioni che conosco già;
+4. mette le nuove nella coda di approvazione. Senza Supabase le salva in `scripts/out/promotions-AAAA-MM-GG.json`.
+
+Niente va online senza che qualcuno l'abbia guardato. Con `--dry-run` legge le fonti e aggiorna le impronte, ma non estrae e non scrive in coda: comodo per provare una fonte nuova.
+
+Il job gira su GitHub Actions alle 5 del mattino (`.github/workflows/promotions.yml`) e si può lanciare anche a mano. Prende la configurazione dai secret del repository, con gli stessi nomi del `.env.example`; finché mancano si chiude senza errori.
+
 ## Cosa manca
 
 - [x] pagine del sito: home, schede libro, calendario uscite
@@ -90,6 +112,8 @@ Una nota pratica: senza `GOOGLE_BOOKS_API_KEY` Google Books risponde spesso con 
 - [x] calendario eventi e fiere, con ricerca, filtri e il file da aggiungere al calendario
 - [x] serie TV e film tratti dai libri: stagioni o durata, dove vederli, titoli simili
 - [x] pagine autore con saghe, tropes ricorrenti, adattamenti ed eventi
+- [x] videoteca: serie e film "da vedere" e cartelle dedicate, accanto ai libri salvati
+- [x] promozioni degli editori, con lettura notturna delle fonti e approvazione prima della pubblicazione
 - [ ] rebuild automatico del sito dopo le modifiche ai contenuti
 - [ ] job notturno che legge le pagine "prossime uscite" degli editori
 - [ ] generatore di bozze per i post social

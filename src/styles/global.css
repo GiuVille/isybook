@@ -35,6 +35,12 @@
   --folder-6: #c6b2e2; /* lilla */
   --folder-ink: #2a2230;
   --label-paper: #fffdf8;
+
+  /* buoni delle promozioni: carta da volantino, inchiostro del timbro */
+  --coupon-paper: #fff8e3;
+  --coupon-ink: #2a2230;
+  --stamp: #2f5d8a;
+  --stamp-hot: #c62828;
   color-scheme: light;
 }
 
@@ -59,6 +65,10 @@
   --folder-6: #8a77a6;
   --folder-ink: #1a151d;
   --label-paper: #efe9df;
+  --coupon-paper: #2b2519;
+  --coupon-ink: #f3ead6;
+  --stamp: #8fb6e0;
+  --stamp-hot: #ff7d6e;
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .2 0 0 0 .10 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
@@ -83,6 +93,10 @@
     --folder-6: #8a77a6;
     --folder-ink: #1a151d;
     --label-paper: #efe9df;
+    --coupon-paper: #2b2519;
+    --coupon-ink: #f3ead6;
+    --stamp: #8fb6e0;
+    --stamp-hot: #ff7d6e;
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .2 0 0 0 .10 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     color-scheme: dark;
   }

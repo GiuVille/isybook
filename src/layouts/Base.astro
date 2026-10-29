@@ -20,10 +20,11 @@ const fullTitle = title.startsWith('IsyBook') ? title : `${title} · IsyBook`;
 type MobileTab = { left: number } | { right: number };
 const nav: Array<{ href: string; label: string; color: number; tab: number; mobile: MobileTab }> = [
   { href: '/uscite', label: 'Uscite', color: 5, tab: 12, mobile: { left: 4 } },
-  { href: '/eventi', label: 'Eventi', color: 1, tab: 20, mobile: { right: 6 } },
-  { href: '/libri', label: 'Libri', color: 3, tab: 18, mobile: { left: 30 } },
-  { href: '/serie-e-film', label: 'Serie e film', color: 2, tab: 14, mobile: { right: 18 } },
-  { href: '/la-mia-libreria', label: 'La mia libreria', color: 6, tab: 12, mobile: { left: 10 } },
+  { href: '/promozioni', label: 'Promozioni', color: 4, tab: 16, mobile: { right: 6 } },
+  { href: '/eventi', label: 'Eventi', color: 1, tab: 20, mobile: { left: 28 } },
+  { href: '/libri', label: 'Libri', color: 3, tab: 18, mobile: { right: 22 } },
+  { href: '/serie-e-film', label: 'Serie e film', color: 2, tab: 14, mobile: { left: 12 } },
+  { href: '/la-mia-libreria', label: 'La mia libreria', color: 6, tab: 12, mobile: { right: 10 } },
 ];
 const mobileTab = (m: MobileTab) => ('left' in m ? `--tab-ml:${m.left}%` : `--tab-mr:${m.right}%`);
 const path = Astro.url.pathname;
@@ -110,6 +111,10 @@ const path = Astro.url.pathname;
     <Onboarding />
     <footer class="container site-footer muted">
       <p>Alcuni link d'acquisto sono link affiliati: se acquisti tramite essi riceviamo una piccola commissione, senza costi aggiuntivi per te.</p>
+      <p class="credits">
+        © {new Date().getFullYear()} IsyBook. Ideato da Daisy Di Mauro, sviluppato da{' '}
+        <a href="https://giuseppevillella.it" rel="author">Giuseppe Villella</a>.
+      </p>
     </footer>
 
     <script>
@@ -272,11 +277,12 @@ const path = Astro.url.pathname;
     padding-right: 32px; /* corpo della cartellina oltre la linguetta */
     margin-right: -18px;
   }
-  .folders .folder:nth-child(1) { z-index: 5; }
-  .folders .folder:nth-child(2) { z-index: 4; }
-  .folders .folder:nth-child(3) { z-index: 3; }
-  .folders .folder:nth-child(4) { z-index: 2; }
-  .folders .folder:nth-child(5) { z-index: 1; }
+  .folders .folder:nth-child(1) { z-index: 6; }
+  .folders .folder:nth-child(2) { z-index: 5; }
+  .folders .folder:nth-child(3) { z-index: 4; }
+  .folders .folder:nth-child(4) { z-index: 3; }
+  .folders .folder:nth-child(5) { z-index: 2; }
+  .folders .folder:nth-child(6) { z-index: 1; }
   .folders .folder.is-active { z-index: 8; }
   .saved-count {
     display: inline-block;
@@ -294,6 +300,9 @@ const path = Astro.url.pathname;
 
   main { padding-top: 24px; padding-bottom: 48px; }
   .site-footer { border-top: 1px solid var(--border); font-size: 0.85rem; padding-top: 16px; padding-bottom: 32px; }
+  .site-footer { text-align: center; }
+  .site-footer p { margin: 0 auto 6px; max-width: 70ch; }
+  .site-footer a { color: var(--accent); }
 
   @media (max-width: 700px) {
     .desktop-only { display: none; }
@@ -351,6 +360,7 @@ const path = Astro.url.pathname;
     .folders .folder:nth-child(3) { z-index: 3; }
     .folders .folder:nth-child(4) { z-index: 4; }
     .folders .folder:nth-child(5) { z-index: 5; }
+    .folders .folder:nth-child(6) { z-index: 6; }
     .folders .folder:hover { transform: none; }
     .folders :global(.folder-tab) {
       position: absolute;
