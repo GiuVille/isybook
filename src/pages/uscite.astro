@@ -3,11 +3,11 @@ import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
 import ReleaseCarousel from '../components/ReleaseCarousel.astro';
 import { getEditionsWithWork } from '../lib/data';
-import { upcomingReleases } from '../lib/releases';
+import { groupEditions, upcomingReleases } from '../lib/releases';
 
 const today = new Date().toISOString().slice(0, 10);
 const all = await getEditionsWithWork();
-const editions = all.filter((e) => (e.release_date ?? '9999') >= today);
+const editions = groupEditions(all.filter((e) => (e.release_date ?? '9999') >= today));
 const releases = upcomingReleases(all, today).slice(0, 8);
 const byMonth = Map.groupBy(editions, (e) =>
   e.release_date ? new Date(e.release_date).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }) : 'Data da annunciare',

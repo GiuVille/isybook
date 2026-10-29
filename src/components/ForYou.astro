@@ -17,6 +17,7 @@
   import { loadCatalog } from '../lib/catalog';
   import { getLibrary, onLibraryChange } from '../lib/library';
   import { recommend } from '../lib/recommend';
+  import { initReveal } from '../scripts/reveal';
 
   const section = document.querySelector<HTMLElement>('.for-you')!;
   const body = section.querySelector<HTMLElement>('.body')!;
@@ -47,6 +48,12 @@
       body.innerHTML = picks.length
         ? `<div class="mini-books">${picks.map((p) => bookCard(p.book, { note: p.reason })).join('')}</div>`
         : `<p class="muted">Per ora nessun libro corrisponde ai tuoi interessi. <a href="/libri">Sfoglia tutti i libri</a> o prova ad ampliarli.</p>`;
+      // ingresso come i blocchi delle uscite: le card salgono una dopo l'altra quando arrivano nello schermo
+      body.querySelectorAll<HTMLElement>('.mini-book').forEach((card, i) => {
+        card.dataset.reveal = '';
+        card.style.setProperty('--i', String(i % 8));
+      });
+      initReveal(body);
     } catch {
       body.innerHTML = '<p class="muted">Non riesco a caricare i suggerimenti in questo momento.</p>';
     }
@@ -71,4 +78,23 @@
     border-radius: var(--radius);
   }
   .body :global(.invite p) { margin: 0; max-width: 52ch; }
+
+  /* card nello stile dei blocchi delle uscite: copertina più grande e storta, che si solleva al passaggio */
+  .body :global(.mini-book-cover) {
+    width: 62px;
+    height: 93px;
+    rotate: -2deg;
+    box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.45);
+    transition: translate 0.35s var(--ease-spring), rotate 0.35s var(--ease-spring), box-shadow 0.35s;
+  }
+  .body :global(.mini-book:hover .mini-book-cover) {
+    translate: 0 -6px;
+    rotate: 2deg;
+    box-shadow: 0 12px 18px -8px rgba(0, 0, 0, 0.5);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .body :global(.mini-book[data-reveal]) { opacity: 0; }
+    :global(.js) .body :global(.mini-book[data-reveal].is-in) { animation: rise 0.55s var(--ease-out) forwards; animation-delay: calc(var(--i) * 70ms); }
+    :global(.js) .body :global(.mini-book[data-reveal].is-in .mini-book-cover) { animation: pop 0.5s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 70ms + 180ms); }
+  }
 </style>

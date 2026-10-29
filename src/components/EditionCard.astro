@@ -7,7 +7,8 @@ import type { Edition, Work } from '../lib/types';
 import { EDITION_TYPE_LABELS, FORMAT_LABELS, formatDate } from '../lib/format';
 
 interface Props {
-  edition: Edition & { work: Work };
+  /** formats: tutti i formati dello stesso giorno (vedi groupEditions), altrimenti si mostra quello dell'edizione. */
+  edition: Edition & { work: Work; formats?: string[] };
   /** Posizione nella griglia, per sfalsare l'ingresso. */
   index?: number;
 }
@@ -40,7 +41,7 @@ const href = `/libri/${work.slug}`;
     <h3><a href={href}>{work.title}</a></h3>
     <p class="muted">{authors}</p>
     <p>
-      {FORMAT_LABELS[edition.format]}{edition.publisher && ` · ${edition.publisher.name}`}<br />
+      {edition.formats?.join(', ') ?? FORMAT_LABELS[edition.format]}{edition.publisher && ` · ${edition.publisher.name}`}<br />
       <strong>{formatDate(edition.release_date)}</strong>
     </p>
     {edition.details && <p class="muted small">{edition.details}</p>}
