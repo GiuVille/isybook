@@ -28,6 +28,9 @@ export interface PromotionPayload {
   where_note?: string | null;
   url?: string | null;
   source_url?: string | null;
+  image_url?: string | null;
+  image_credit?: string | null;
+  image_alt?: string | null;
   works?: string[]; // titoli dei libri citati: collegati solo se sono già in catalogo
 }
 
@@ -98,6 +101,9 @@ async function approvePromotion(sb: SupabaseClient, item: Row, reviewerId: strin
       where_note: p.where_note ?? null,
       url: p.url ?? null,
       source_url: p.source_url ?? null,
+      image_url: p.image_url ?? null,
+      image_credit: p.image_url ? (p.image_credit ?? null) : null,
+      image_alt: p.image_url ? (p.image_alt ?? null) : null,
       status: 'published',
     })
     .select('id')

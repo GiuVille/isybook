@@ -688,12 +688,14 @@
       "channel": "bookstores",
       "where_note": "Nelle librerie aderenti, fino a esaurimento scorte",
       "url": null,
-      "image_url": null,
+      "image_url": "/samples/promo-plaid.svg",
       "source_url": null,
       "work_slugs": [
         "la-corona-di-cenere",
         "il-patto-delle-stelle"
-      ]
+      ],
+      "image_credit": "Editrice Esempio",
+      "image_alt": "Plaid a quadri rosso e senape con la scritta: il plaid d'autunno in regalo con 3 romantasy, fino al 30 novembre."
     },
     {
       "id": "pr2",
@@ -709,12 +711,14 @@
       "channel": "everywhere",
       "where_note": "Online e in libreria",
       "url": null,
-      "image_url": null,
+      "image_url": "/samples/promo-gialli.svg",
       "source_url": null,
       "work_slugs": [
         "lultimo-ospite",
         "la-casa-sul-fiume"
-      ]
+      ],
+      "image_credit": "Editrice Esempio",
+      "image_alt": "Banner scuro con tre libri e la scritta: 3x2 sui gialli e i thriller, il terzo libro è in regalo."
     },
     {
       "id": "pr3",
@@ -734,7 +738,9 @@
       "source_url": null,
       "work_slugs": [
         "il-trono-di-brace"
-      ]
+      ],
+      "image_credit": null,
+      "image_alt": null
     },
     {
       "id": "pr4",
@@ -754,7 +760,9 @@
       "source_url": null,
       "work_slugs": [
         "la-corona-di-cenere"
-      ]
+      ],
+      "image_credit": null,
+      "image_alt": null
     },
     {
       "id": "pr5",
@@ -774,7 +782,9 @@
       "source_url": null,
       "work_slugs": [
         "il-patto-delle-stelle"
-      ]
+      ],
+      "image_credit": null,
+      "image_alt": null
     }
   ]
 }

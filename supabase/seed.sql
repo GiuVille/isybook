@@ -256,3 +256,11 @@ insert into promotion_works (promotion_id, work_id) values
   ('00000000-0000-0000-0000-0000000001a3', '00000000-0000-0000-0000-0000000000f5'),
   ('00000000-0000-0000-0000-0000000001a4', '00000000-0000-0000-0000-0000000000f1'),
   ('00000000-0000-0000-0000-0000000001a5', '00000000-0000-0000-0000-0000000000f2');
+
+-- Grafiche di esempio (finte) per due promozioni: un post quadrato e un banner largo
+update promotions set image_url = '/samples/promo-plaid.svg', image_credit = 'Editrice Esempio',
+  image_alt = 'Plaid a quadri rosso e senape con la scritta: il plaid d''autunno in regalo con 3 romantasy, fino al 30 novembre.'
+  where slug = 'plaid-d-autunno';
+update promotions set image_url = '/samples/promo-gialli.svg', image_credit = 'Editrice Esempio',
+  image_alt = 'Banner scuro con tre libri e la scritta: 3x2 sui gialli e i thriller, il terzo libro è in regalo.'
+  where slug = 'tre-per-due-gialli';

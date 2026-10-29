@@ -19,7 +19,9 @@ create table promotions (
   channel promotion_channel not null default 'everywhere',
   where_note text, -- es. "Solo nelle librerie aderenti", "Sul sito dell'editore"
   url text,
-  image_url text,
+  image_url text, -- grafica ufficiale: in build viene scaricata e ottimizzata, mai linkata dal sito d'origine
+  image_credit text, -- es. "Editrice Esempio": la grafica si usa solo con il credito
+  image_alt text,
   source_url text, -- pagina da cui è stata ricavata, per la revisione
   status content_status not null default 'draft',
   created_at timestamptz not null default now(),

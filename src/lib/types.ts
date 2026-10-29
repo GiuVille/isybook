@@ -149,5 +149,8 @@ export interface Promotion {
   where_note?: string | null;
   url?: string | null;
   image_url?: string | null;
+  image_credit?: string | null;
+  image_alt?: string | null;
+  source_url?: string | null;
   works: Array<{ slug: string; title: string }>;
 }

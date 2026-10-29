@@ -35,7 +35,12 @@ interface Source {
   content_hash: string | null;
 }
 
-type Candidate = ExtractedPromotion & { source_url: string; source_id: string | null };
+type Candidate = ExtractedPromotion & {
+  source_url: string;
+  source_id: string | null;
+  image_url: string | null; // grafica proposta: chi approva decide se usarla
+  image_credit: string | null;
+};
 
 // ---------------------------------------------------------------------------
 // Fonti e stato (impronta dell'ultima lettura)
@@ -157,20 +162,38 @@ function pageText(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, ' ');
   const main = body.match(/<(main|article)[\s\S]*?<\/\1>/i)?.[0] ?? body;
   // un blocco per riga: titoli, paragrafi, voci di elenco
+  // i tag possono andare a capo: prima segno la fine dei blocchi, poi tolgo i tag, solo alla fine divido
   return main
-    .replace(/<\/(h[1-6]|p|li|div|section|tr)>/gi, '\n')
-    .split('\n')
+    .replace(/<\/(h[1-6]|p|li|div|section|tr)>/gi, '\u0000')
+    .split('\u0000')
     .map(stripTags)
     .filter((line) => line.length > 2)
     .join('\n');
 }
 
-async function readSource(source: Source): Promise<string> {
+/** Immagine di anteprima della pagina (og:image o twitter:image): di solito è la grafica della promozione. */
+function pageImage(html: string, pageUrl: string): string | null {
+  const meta = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*>/i)?.[0];
+  const content = meta?.match(/content=["']([^"']+)["']/i)?.[1];
+  if (!content) return null;
+  try {
+    const url = new URL(decode(content), pageUrl);
+    return url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readSource(source: Source): Promise<{ text: string; image: string | null }> {
   const res = await fetch(source.url, { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.text();
   const isFeed = source.kind === 'rss' || /xml|rss|atom/.test(res.headers.get('content-type') ?? '');
-  return (isFeed ? feedText(body) : pageText(body)).slice(0, 20000);
+  return {
+    text: (isFeed ? feedText(body) : pageText(body)).slice(0, 20000),
+    // in un feed ogni voce ha la sua immagine: meglio nessuna che quella sbagliata
+    image: isFeed ? null : pageImage(body, source.url),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +244,9 @@ function toPayload(p: Candidate) {
     where_note: p.where_note,
     url: p.url,
     source_url: p.source_url,
+    image_url: p.image_url,
+    image_credit: p.image_url ? p.image_credit : null,
+    image_alt: null,
     works: p.works,
   };
 }
@@ -239,10 +265,13 @@ async function completeReports(): Promise<number> {
   if (error) throw error;
   let done = 0;
   for (const item of data ?? []) {
-    const report = item.payload as { raw_text?: string; source_url?: string; note?: string };
+    const report = item.payload as { raw_text?: string; source_url?: string; image_url?: string; note?: string };
     let text = report.raw_text ?? '';
-    if (!text && report.source_url && (await allowedByRobots(report.source_url))) {
-      text = await readSource({ id: null, name: '', url: report.source_url, kind: 'page', content_hash: null }).catch(() => '');
+    let image = report.image_url ?? null;
+    if (report.source_url && (await allowedByRobots(report.source_url))) {
+      const page = await readSource({ id: null, name: '', url: report.source_url, kind: 'page', content_hash: null }).catch(() => null);
+      text ||= page?.text ?? '';
+      image ??= page?.image ?? null;
     }
     if (!text) continue;
     const [first] = await extractPromotions(text, { sourceUrl: report.source_url ?? null, today });
@@ -250,7 +279,8 @@ async function completeReports(): Promise<number> {
       await sb.from('review_queue').update({ payload: { ...report, needs_extraction: false, extraction_note: 'Nessuna promozione trovata: compila a mano o scarta.' } }).eq('id', item.id);
       continue;
     }
-    const payload = { ...toPayload({ ...first, source_url: report.source_url ?? first.url ?? '', source_id: null }), note: report.note ?? null };
+    const candidate = { ...first, source_url: report.source_url ?? first.url ?? '', source_id: null, image_url: image, image_credit: first.publisher };
+    const payload = { ...toPayload(candidate), note: report.note ?? null };
     const updated = await sb.from('review_queue').update({ payload }).eq('id', item.id);
     if (updated.error) throw updated.error;
     done++;
@@ -285,7 +315,7 @@ for (const source of sources) {
       console.log(`- ${label}: esclusa da robots.txt, salto`);
       continue;
     }
-    const text = await readSource(source);
+    const { text, image } = await readSource(source);
     const hash = createHash('sha256').update(text).digest('hex');
     if (hash === source.content_hash) {
       unchanged++;
@@ -295,13 +325,16 @@ for (const source of sources) {
     }
     if (dryRun) {
       console.log(`- ${label}: cambiata (${text.length} caratteri, impronta ${hash.slice(0, 12)})\n  «${text.slice(0, 160).replace(/\n/g, ' · ')}…»`);
+      if (image) console.log(`  grafica trovata: ${image}`);
       await saveRead(source, hash, true);
       continue;
     }
     const extracted = await extractPromotions(text, { sourceUrl: source.url, publisher: source.name, today });
     const fresh = extracted.filter((p) => !isKnown(p, known) && !found.some((f) => similar(f.title, p.title)));
     console.log(`- ${label}: ${extracted.length} promozioni trovate, ${fresh.length} nuove`);
-    found.push(...fresh.map((p) => ({ ...p, source_url: source.url, source_id: source.id })));
+    // la grafica della pagina va solo se la pagina parla di una promozione sola: altrimenti non si sa di quale sia
+    const pageArt = extracted.length === 1 ? image : null;
+    found.push(...fresh.map((p) => ({ ...p, source_url: source.url, source_id: source.id, image_url: pageArt, image_credit: p.publisher ?? source.name })));
     // l'impronta si salva solo a lettura riuscita: se l'estrazione fallisce la pagina si rilegge domani
     await saveRead(source, hash, true);
   } catch (err) {

@@ -2,7 +2,9 @@
 // Promozione come buono da ritagliare: matrice colorata con il tipo, linea tratteggiata con le forbicine,
 // premio scritto grande e timbro con la scadenza ("Ultimi giorni!" in rosso quando sta per finire).
 // Il timbro si ricalcola nel browser, così resta giusto anche tra un rebuild e l'altro.
+// Con la grafica ufficiale: striscia in cima se è larga (banner), polaroid con lo scotch se è quadrata o verticale.
 import { normalize } from '../lib/format';
+import { promoImage } from '../lib/promo-image';
 import { PROMOTION_CHANNEL_LABELS, PROMOTION_KIND_LABELS, promotionState, stampText } from '../lib/promotions';
 import type { Promotion } from '../lib/types';
 
@@ -21,10 +23,22 @@ const searchText = normalize(
     .filter(Boolean)
     .join(' '),
 );
+const image = await promoImage(p.image_url);
+// nel buono la grafica è decorativa: il testo dice già tutto (la descrizione completa è nella pagina della promozione)
+const img = image && {
+  src: image.src,
+  srcset: image.srcset,
+  sizes: image.shape === 'wide' ? '(max-width: 700px) 90vw, 330px' : '100px',
+  width: image.width,
+  height: image.height,
+  alt: '',
+  loading: 'lazy' as const,
+  decoding: 'async' as const,
+};
 ---
 
 <article
-  class:list={['coupon', `k-${p.kind}`, `is-${state}`, { linked }]}
+  class:list={['coupon', `k-${p.kind}`, `is-${state}`, { linked }, image && `has-${image.shape === 'wide' ? 'strip' : 'polaroid'}`]}
   data-reveal
   style={`--i:${index % 8}`}
   data-publisher={p.publisher?.slug ?? ''}
@@ -41,11 +55,15 @@ const searchText = normalize(
   <div class="paper">
     <div class="stub" aria-hidden="true"><span>{PROMOTION_KIND_LABELS[p.kind]}</span></div>
     <div class="body">
+      {img && image!.shape === 'wide' && <div class="strip" aria-hidden="true"><img {...img} /></div>}
       <div class="top">
         <p class="from">{p.publisher?.name}</p>
         <span class="stamp" data-stamp>{stampText(p)}</span>
       </div>
       <p class="reward">{p.reward ?? p.title}</p>
+      {img && image!.shape !== 'wide' && (
+        <div class:list={['polaroid', image!.shape]} aria-hidden="true"><img {...img} /></div>
+      )}
       <h3>{linked ? <a href={`/promozioni/${p.slug}`}>{p.title}</a> : p.title}</h3>
       {p.conditions && <p class="conditions">{p.conditions}</p>}
       <p class="where">{p.where_note ?? PROMOTION_CHANNEL_LABELS[p.channel]}</p>
@@ -56,6 +74,9 @@ const searchText = normalize(
 
 <script>
   import { promotionState, stampText } from '../lib/promotions';
+  import { whenImagesReady } from '../scripts/image-ready';
+
+  whenImagesReady('.coupon .strip, .coupon .polaroid');
 
   // stato e timbro aggiornati alla data di chi guarda
   for (const coupon of document.querySelectorAll<HTMLElement>('.coupon')) {
@@ -160,6 +181,37 @@ const searchText = normalize(
   .where { font-family: var(--font-hand); font-size: 1.1rem; }
   .works { opacity: 0.75; }
 
+  /* grafica larga: striscia stampata in cima al buono, a filo con i bordi */
+  .strip { margin: -16px -18px 14px -22px; height: 92px; overflow: hidden; border-bottom: 2px solid color-mix(in srgb, var(--k) 55%, transparent); }
+  .strip img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+  /* grafica quadrata o verticale: polaroid attaccata con lo scotch, il testo le gira intorno */
+  .polaroid {
+    position: relative;
+    float: right;
+    width: 92px;
+    margin: 12px -4px 8px 12px;
+    padding: 6px 6px 16px;
+    background: #fff;
+    box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.45);
+    rotate: 5deg;
+  }
+  .polaroid img { display: block; width: 100%; height: 80px; object-fit: cover; }
+  .strip.is-broken, .polaroid.is-broken { display: none; }
+  .polaroid.tall img { height: 104px; }
+  .polaroid::before {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    top: -9px;
+    left: calc(50% - 22px);
+    width: 44px;
+    height: 16px;
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.25) 0 3px, transparent 3px 6px), rgba(214, 190, 140, 0.85);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    rotate: -6deg;
+  }
+
   /* timbro a inchiostro: blu, rosso negli ultimi giorni, grigio a promozione conclusa */
   .stamp {
     flex: none;
@@ -193,6 +245,14 @@ const searchText = normalize(
   }
   @keyframes stamp-pulse { 50% { scale: 1.12; } }
   @keyframes snip { to { left: calc(100% - 40px); } }
+  @keyframes stick {
+    from { opacity: 0; translate: 0 -28px; rotate: -10deg; scale: 1.12; }
+    70% { opacity: 1; translate: 0 2px; rotate: 7deg; scale: 0.98; }
+    to { opacity: 1; translate: 0 0; rotate: 5deg; scale: 1; }
+  }
+  @keyframes tape { from { opacity: 0; scale: 0.3 1; } to { opacity: 1; scale: 1; } }
+  /* solo spostamenti e opacità: li muove la scheda grafica senza ridisegnare la foto a ogni fotogramma */
+  @keyframes print-in { from { translate: 0 -100%; } to { translate: 0 0; } }
 
   /* ingresso: i buoni si staccano dal blocchetto uno dopo l'altro, poi arriva il timbro */
   @media (prefers-reduced-motion: no-preference) {
@@ -208,6 +268,14 @@ const searchText = normalize(
       animation-delay: calc(var(--i) * 90ms + 550ms), calc(var(--i) * 90ms + 1000ms);
     }
     :global(.js) .coupon.is-over[data-reveal].is-in .stamp { opacity: 1; animation: none; }
+    /* la striscia scende dall'alto; la polaroid arriva dopo il timbro e si attacca, poi lo scotch.
+       Partono solo con la foto già pronta (is-loaded), altrimenti sui telefoni scattano */
+    :global(.js) .coupon[data-reveal] .strip img { translate: 0 -100%; will-change: translate; }
+    :global(.js) .coupon[data-reveal].is-in .strip.is-loaded img { animation: print-in 0.6s var(--ease-out) forwards; animation-delay: calc(var(--i) * 90ms + 250ms); }
+    :global(.js) .coupon[data-reveal] .polaroid { opacity: 0; will-change: transform, opacity; }
+    :global(.js) .coupon[data-reveal] .polaroid::before { opacity: 0; }
+    :global(.js) .coupon[data-reveal].is-in .polaroid.is-loaded { animation: stick 0.6s var(--ease-spring) forwards; animation-delay: calc(var(--i) * 90ms + 900ms); }
+    :global(.js) .coupon[data-reveal].is-in .polaroid.is-loaded::before { animation: tape 0.25s var(--ease-out) forwards; animation-delay: calc(var(--i) * 90ms + 1400ms); }
     /* nella pagina della promozione le forbicine ritagliano il buono, una volta */
     :global(.js) .coupon:not(.linked).is-in .scissors { animation: snip 1.3s var(--ease-in-out) 0.9s forwards; }
   }

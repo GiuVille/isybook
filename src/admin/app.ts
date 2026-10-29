@@ -485,7 +485,17 @@ function promotionSummary(p: Row): string {
     ${input('ends_on', 'Fine', p.ends_on, 'date')}
     ${input('where_note', 'Dove, in dettaglio', p.where_note)}
     <label for="pr-description">Descrizione (scritta da noi)</label>
-    <textarea id="pr-description" data-field="description" rows="4">${esc(p.description)}</textarea>`;
+    <textarea id="pr-description" data-field="description" rows="4">${esc(p.description)}</textarea>
+    <fieldset class="promo-image">
+      <legend>Grafica ufficiale</legend>
+      ${p.image_url
+        ? `<img src="${esc(p.image_url)}" alt="" style="max-width: 260px; max-height: 260px; display: block; margin-bottom: 8px;">
+           <label><input type="checkbox" id="pr-use-image" checked> Usa questa immagine (solo se pubblicata dall'editore per la promozione)</label>`
+        : '<p class="muted small">Nessuna grafica trovata: puoi incollare il link qui sotto.</p>'}
+      ${input('image_url', 'Link dell\'immagine', p.image_url, 'url')}
+      ${input('image_credit', 'Credito', p.image_credit ?? p.publisher?.name)}
+      ${input('image_alt', 'Testo alternativo (cosa mostra e cosa c\'è scritto)', p.image_alt)}
+    </fieldset>`;
 }
 
 function reviewTitle(item: Row): string {
@@ -571,6 +581,10 @@ async function renderReviewItem(id: string) {
       // promozione: valgono i campi corretti a mano
       payload = { ...p, needs_extraction: false };
       document.querySelectorAll<HTMLInputElement>('[data-field]').forEach((el) => (payload[el.dataset.field!] = el.value.trim() || null));
+      // grafica scartata: non si salva nulla, neanche credito e testo alternativo
+      if ((document.getElementById('pr-use-image') as HTMLInputElement | null)?.checked === false) {
+        Object.assign(payload, { image_url: null, image_credit: null, image_alt: null });
+      }
     }
     try {
       const approved = await approveReviewItem(sb, { ...item, payload }, session!.user.id);
@@ -608,6 +622,8 @@ function renderReport() {
         <input id="rep-url" name="url" type="url" placeholder="https://…">
         <label for="rep-text">Testo</label>
         <textarea id="rep-text" name="text" rows="8" placeholder="Testo del post, della storia o della newsletter"></textarea>
+        <label for="rep-image">Link della grafica (facoltativo)</label>
+        <input id="rep-image" name="image" type="url" placeholder="https://…">
         <label for="rep-note">Nota per chi approva (facoltativa)</label>
         <input id="rep-note" name="note" type="text">
         <div class="actions"><button type="submit">Metti in coda</button></div>
@@ -633,6 +649,7 @@ function renderReport() {
           source_url: url || null,
           url: url || null,
           raw_text: text || null,
+          image_url: String(form.get('image') ?? '').trim() || null,
           note: String(form.get('note') ?? '').trim() || null,
           needs_extraction: true,
         },

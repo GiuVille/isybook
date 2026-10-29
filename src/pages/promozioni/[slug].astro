@@ -4,6 +4,7 @@ import CoverArt from '../../components/CoverArt.astro';
 import PromoCoupon from '../../components/PromoCoupon.astro';
 import { getPromotions, getWorks } from '../../lib/data';
 import { formatDate } from '../../lib/format';
+import { promoImage } from '../../lib/promo-image';
 import { PROMOTION_CHANNEL_LABELS, PROMOTION_KIND_LABELS, promotionState } from '../../lib/promotions';
 import type { Promotion } from '../../lib/types';
 
@@ -24,12 +25,33 @@ const when =
         ? `Dal ${formatDate(p.starts_on)}`
         : 'Senza scadenza indicata';
 const description = [PROMOTION_KIND_LABELS[p.kind], p.reward, p.publisher?.name].filter(Boolean).join(' · ');
+// grafica ufficiale intera, senza ritagli: spesso contiene date e condizioni scritte
+const image = await promoImage(p.image_url);
+const alt = p.image_alt ?? `Grafica ufficiale della promozione «${p.title}»`;
+const credit = p.image_credit ?? p.publisher?.name ?? null;
 ---
 
 <Base title={p.title} description={description}>
   <p class="crumbs"><a href="/promozioni">← Tutte le promozioni</a></p>
   <div class="layout">
-    <div class="coupon-slot"><PromoCoupon promotion={p} linked={false} /></div>
+    <div class="coupon-slot">
+      <PromoCoupon promotion={p} linked={false} />
+      {image && (
+        <figure class:list={['flyer', image.shape]} data-reveal>
+          <span class="pin left" aria-hidden="true"></span>
+          <span class="pin right" aria-hidden="true"></span>
+          <button type="button" class="zoom" aria-label="Ingrandisci la grafica">
+            <img src={image.src} srcset={image.srcset} sizes="(max-width: 760px) 92vw, 400px" width={image.width} height={image.height} alt={alt} loading="lazy" decoding="async" />
+          </button>
+          {credit && (
+            <figcaption>
+              Grafica: {credit}
+              {p.source_url && <> · <a href={p.source_url} target="_blank" rel="noopener">fonte</a></>}
+            </figcaption>
+          )}
+        </figure>
+      )}
+    </div>
 
     <article class="info">
       <p class="kind">{PROMOTION_KIND_LABELS[p.kind]}{isOver && ' · conclusa'}</p>
@@ -58,7 +80,7 @@ const description = [PROMOTION_KIND_LABELS[p.kind], p.reward, p.publisher?.name]
         <dt>Quando</dt>
         <dd>{when}</dd>
         <dt>Dove</dt>
-        <dd>{PROMOTION_CHANNEL_LABELS[p.channel]}{p.where_note && <><br /><span class="muted">{p.where_note}</span></>}</dd>
+        <dd>{PROMOTION_CHANNEL_LABELS[p.channel]}{p.where_note && p.where_note !== PROMOTION_CHANNEL_LABELS[p.channel] && <><br /><span class="muted">{p.where_note}</span></>}</dd>
       </dl>
 
       <div class="actions">
@@ -87,12 +109,35 @@ const description = [PROMOTION_KIND_LABELS[p.kind], p.reward, p.publisher?.name]
       </ul>
     </section>
   )}
+
+  {image && (
+    <dialog class="viewer" aria-label="Grafica della promozione">
+      <img src={image.src} srcset={image.srcset} sizes="92vw" width={image.width} height={image.height} alt={alt} />
+      <form method="dialog"><button class="close" aria-label="Chiudi">×</button></form>
+    </dialog>
+  )}
 </Base>
+
+<script>
+  import { whenImagesReady } from '../../scripts/image-ready';
+
+  // il volantino si appende solo quando la grafica è pronta (su mobile spesso arriva dopo lo scorrimento)
+  whenImagesReady('.flyer');
+
+  // grafica ingrandita: si apre dal volantino, si chiude con Esc, con la × o cliccando fuori
+  const viewer = document.querySelector<HTMLDialogElement>('dialog.viewer');
+  document.querySelector('.flyer .zoom')?.addEventListener('click', () => viewer?.showModal());
+  viewer?.addEventListener('click', (e) => {
+    if (e.target === viewer) viewer.close();
+  });
+</script>
 
 <style>
   .crumbs { margin: 0 0 18px; font-size: 0.9rem; }
   .layout { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 40px; align-items: start; }
-  .coupon-slot { position: sticky; top: 24px; padding-top: 14px; }
+  .coupon-slot { padding-top: 14px; }
+  /* resta in vista scorrendo, ma solo se è basso: con il volantino sarebbe più alto dello schermo */
+  .coupon-slot:not(:has(.flyer)) { position: sticky; top: 24px; }
   .kind { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--accent); }
   h1 { margin: 4px 0 14px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
   .description { margin: 0 0 20px; font-size: 1.05rem; line-height: 1.65; max-width: 62ch; }
@@ -111,8 +156,56 @@ const description = [PROMOTION_KIND_LABELS[p.kind], p.reward, p.publisher?.name]
   .books a:hover :global(.cover) { transform: translateY(-6px) rotate(-1.5deg); }
   .books .title { margin-top: 6px; font-weight: 600; }
 
+  /* volantino appeso con due puntine, leggermente storto */
+  .flyer { position: relative; margin: 34px 6px 0; padding: 10px 10px 8px; background: #fff; box-shadow: 0 12px 24px -14px rgba(0, 0, 0, 0.5); rotate: -1.2deg; }
+  .flyer.wide { rotate: 0.8deg; }
+  .flyer.is-broken { display: none; }
+  .zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+  .zoom img { display: block; width: 100%; height: auto; transition: filter 0.2s; }
+  .zoom:hover img { filter: brightness(1.04); }
+  .zoom:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .flyer figcaption { margin-top: 6px; font-size: 0.8rem; color: #6e6474; }
+  .flyer figcaption a { color: inherit; }
+  .pin { position: absolute; z-index: 1; top: -7px; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff8a80, #c62828 60%, #7f1d1d); box-shadow: 1px 3px 4px rgba(0, 0, 0, 0.35); }
+  .pin.left { left: 14px; }
+  .pin.right { right: 14px; }
+
+  .viewer { max-width: min(92vw, 1100px); max-height: 92vh; padding: 0; border: 0; background: transparent; overflow: visible; }
+  .viewer img { display: block; max-width: 100%; max-height: 88vh; width: auto; height: auto; margin: auto; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
+  .viewer::backdrop { background: rgba(20, 14, 22, 0.75); }
+  .viewer .close {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    width: 36px;
+    height: 36px;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: #2a2230;
+    background: #fff;
+    border: 0;
+    border-radius: 50%;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+  }
+
+  @keyframes flyer-in { from { opacity: 0; translate: 0 -24px; rotate: 4deg; } to { opacity: 1; } }
+  @keyframes viewer-in { from { opacity: 0; scale: 0.9; } }
+  @keyframes backdrop-in { from { opacity: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    /* il volantino si appende quando entra nello schermo e la grafica è pronta, poi arrivano le puntine */
+    :global(.js) .flyer[data-reveal] { opacity: 0; will-change: transform, opacity; }
+    :global(.js) .flyer[data-reveal] .pin { opacity: 0; }
+    :global(.js) .flyer.is-in.is-loaded { animation: flyer-in 0.7s var(--ease-spring) 0.15s forwards; }
+    :global(.js) .flyer.is-in.is-loaded .pin { animation: pop 0.35s var(--ease-spring) forwards; }
+    :global(.js) .flyer.is-in.is-loaded .pin.left { animation-delay: 0.7s; }
+    :global(.js) .flyer.is-in.is-loaded .pin.right { animation-delay: 0.85s; }
+    .viewer[open] { animation: viewer-in 0.3s var(--ease-spring); }
+    .viewer[open]::backdrop { animation: backdrop-in 0.25s ease-out; }
+  }
+
   @media (max-width: 760px) {
     .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-    .coupon-slot { position: static; }
+    .coupon-slot:not(:has(.flyer)) { position: static; }
   }
 </style>

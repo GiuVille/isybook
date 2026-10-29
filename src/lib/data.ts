@@ -222,7 +222,7 @@ export async function getPromotions(): Promise<Promotion[]> {
   const { data, error } = await getSupabase()
     .from('promotions')
     .select(
-      'id, slug, title, kind, description, conditions, reward, starts_on, ends_on, channel, where_note, url, image_url, ' +
+      'id, slug, title, kind, description, conditions, reward, starts_on, ends_on, channel, where_note, url, image_url, image_credit, image_alt, source_url, ' +
         'publishers ( id, slug, name, kind, website ), promotion_works ( works ( slug, title, status ) )',
     )
     .eq('status', 'published');
