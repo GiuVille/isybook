@@ -15,6 +15,32 @@ const TEXT = '"Literata Variable", Georgia, serif';
 const HAND = '"Gochi Hand", cursive';
 
 type Ctx = CanvasRenderingContext2D;
+
+/** Colori dello sfondo a scelta: "auto" usa quelli del genere del primo elemento. */
+export const BACKGROUNDS: Record<string, { label: string; palette?: Omit<Palette, 'accent'> }> = {
+  auto: { label: 'Automatici (dal genere)' },
+  rosa: { label: 'Rosa romance', palette: { light: '#dcaecb', dark: '#c184a9', panel: '#ecd6e3', ink: '#1b1418' } },
+  lilla: { label: 'Lilla fantasy', palette: { light: '#c9b8e6', dark: '#a28dcf', panel: '#e7def5', ink: '#19132e' } },
+  salvia: { label: 'Salvia', palette: { light: '#bcd5b5', dark: '#9bbf92', panel: '#e3eedf', ink: '#14210f' } },
+  senape: { label: 'Senape', palette: { light: '#f1d77a', dark: '#dfb83e', panel: '#faefc6', ink: '#1d1709' } },
+  notte: { label: 'Notte', palette: { light: '#2b2335', dark: '#1d1726', panel: '#3a3046', ink: '#f3ecf7' } },
+  carta: { label: 'Carta', palette: { light: '#f4ece1', dark: '#e7dbca', panel: '#fffaf2', ink: '#2c241a' } },
+};
+
+/** Personalizzazioni del disegno. */
+export interface DrawOptions {
+  background: keyof typeof BACKGROUNDS;
+  checker: boolean;
+  grain: boolean;
+  stamps: boolean;
+  tags: boolean;
+  footer: boolean;
+}
+
+export const DEFAULT_OPTIONS: DrawOptions = { background: 'auto', checker: true, grain: true, stamps: true, tags: true, footer: true };
+
+// opzioni del disegno in corso (impostate da renderSlides)
+let opts: DrawOptions = DEFAULT_OPTIONS;
 interface Box { x: number; y: number; w: number; h: number }
 
 /** Aspetta i font del sito: senza, il canvas disegnerebbe con quelli di sistema. */
@@ -51,11 +77,15 @@ function grainPattern(ctx: Ctx): CanvasPattern {
 function background(ctx: Ctx, w: number, h: number, p: Palette) {
   ctx.fillStyle = p.light;
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = p.dark;
-  ctx.fillRect(w / 2, 0, w / 2, h / 2);
-  ctx.fillRect(0, h / 2, w / 2, h / 2);
-  ctx.fillStyle = grainPattern(ctx);
-  ctx.fillRect(0, 0, w, h);
+  if (opts.checker) {
+    ctx.fillStyle = p.dark;
+    ctx.fillRect(w / 2, 0, w / 2, h / 2);
+    ctx.fillRect(0, h / 2, w / 2, h / 2);
+  }
+  if (opts.grain) {
+    ctx.fillStyle = grainPattern(ctx);
+    ctx.fillRect(0, 0, w, h);
+  }
 }
 
 function wrap(ctx: Ctx, text: string, maxWidth: number, maxLines = 3): string[] {
@@ -124,6 +154,7 @@ function label(ctx: Ctx, value: string, x: number, y: number, size: number, rota
 
 /** Timbro a inchiostro con doppio bordo, leggermente storto. Va a capo su "·" se richiesto, e resta dentro l'immagine. */
 function stamp(ctx: Ctx, value: string, cx: number, cy: number, size: number, color: string, rotate = 7, multiline = false) {
+  if (!opts.stamps) return;
   ctx.save();
   ctx.font = `${size}px ${SERIF}`;
   const lines = multiline ? value.split(' · ') : [value];
@@ -254,6 +285,7 @@ async function art(ctx: Ctx, item: SocialItem, b: Box, rotate = 0) {
 const artRatio = (item: SocialItem) => (item.kind === 'book' ? 1.5 : item.kind === 'event' ? 1 : item.image ? item.image.height / item.image.width + 0.12 : 0.8);
 
 function footer(ctx: Ctx, w: number, y: number, p: Palette, site: string) {
+  if (!opts.footer) return;
   const host = site.replace(/^https?:\/\//, '').replace(/\/$/, '');
   ctx.fillStyle = p.ink;
   ctx.font = `46px ${SERIF}`;
@@ -346,7 +378,7 @@ async function heroSlide(f: Frame, section: SocialSection, item: SocialItem, sit
     y = text(g, item.kind === 'promo' ? item.title : item.subtitle, mid, y, { font: TEXT, size: 38, color: p.ink, maxWidth: tw, maxLines: 2, align: 'center' });
     y = text(g, dateLine(item), mid, y + 6, { font: HAND, size: 56, color: p.ink, maxWidth: tw, maxLines: 1, align: 'center' });
     for (const d of item.details.slice(0, 2)) y = text(g, d, mid, y, { font: TEXT, size: 32, color: p.ink, maxWidth: tw, maxLines: 2, align: 'center' });
-    if (item.kind === 'book' && item.tags.length) y = text(g, item.tags.join(' · '), mid, y + 8, { font: HAND, size: 40, color: p.ink, maxWidth: tw, maxLines: 1, align: 'center' });
+    if (opts.tags && item.kind === 'book' && item.tags.length) y = text(g, item.tags.join(' · '), mid, y + 8, { font: HAND, size: 40, color: p.ink, maxWidth: tw, maxLines: 1, align: 'center' });
     return y;
   };
   const [, scratch] = canvas(f.w, f.h);
@@ -408,9 +440,21 @@ function endSlide(items: SocialItem[], site: string) {
 }
 
 /** Tutte le immagini di una bozza: una per post e storia, più slide per il carosello. Telegram è solo testo. */
-export async function renderSlides(format: SocialFormat, section: SocialSection, title: string, items: SocialItem[], period: string, site: string): Promise<HTMLCanvasElement[]> {
-  if (format === 'telegram' || items.length === 0) return [];
+export async function renderSlides(
+  format: SocialFormat,
+  section: SocialSection,
+  title: string,
+  chosen: SocialItem[],
+  period: string,
+  site: string,
+  options: DrawOptions = DEFAULT_OPTIONS,
+): Promise<HTMLCanvasElement[]> {
+  if (format === 'telegram' || chosen.length === 0) return [];
   await ensureFonts();
+  opts = options;
+  // colori scelti: sfondo, riquadri e inchiostro; le copertine segnaposto tengono il colore del loro genere
+  const fixed = BACKGROUNDS[options.background]?.palette;
+  const items = fixed ? chosen.map((i) => ({ ...i, palette: { ...fixed, accent: i.palette.accent } })) : chosen;
   if (format === 'carousel') {
     const slides = [await coverSlide(section, title, items, period, site)];
     for (const [i, item] of items.entries()) slides.push(await heroSlide(POST, section, item, site, `${i + 1}/${items.length}`));

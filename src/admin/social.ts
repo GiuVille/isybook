@@ -17,7 +17,16 @@ import {
   type SocialItem,
   type SocialSection,
 } from '../lib/social';
-import { renderSlides } from './social-canvas';
+import { BACKGROUNDS, DEFAULT_OPTIONS, renderSlides, type DrawOptions } from './social-canvas';
+
+/** Cosa si può togliere dall'immagine. */
+const OPTIONS: Array<[keyof DrawOptions, string]> = [
+  ['checker', 'Scacchiera'],
+  ['grain', 'Grana della carta'],
+  ['stamps', 'Timbri'],
+  ['tags', 'Tropes'],
+  ['footer', 'isybook.it in fondo'],
+];
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -38,6 +47,12 @@ export function socialHtml(): string {
           ${(Object.entries(FORMAT_LABELS) as Array<[SocialFormat, string]>)
             .map(([v, l], i) => `<label><input type="radio" name="format" value="${v}" ${i === 0 ? 'checked' : ''}> ${esc(l)}</label>`)
             .join('')}
+        </fieldset>
+        <label for="s-bg">Colori dello sfondo</label>
+        <select id="s-bg" name="background">${Object.entries(BACKGROUNDS).map(([v, b]) => `<option value="${v}">${esc(b.label)}</option>`).join('')}</select>
+        <fieldset class="formats">
+          <legend>Nell'immagine</legend>
+          ${OPTIONS.map(([v, l]) => `<label><input type="checkbox" name="opt" value="${v}" checked> ${esc(l)}</label>`).join('')}
         </fieldset>
         <fieldset>
           <legend>Cosa mettere <span class="muted small" id="s-max"></span></legend>
@@ -74,10 +89,21 @@ export async function bindSocial(flash: (message: string, kind?: 'ok' | 'error')
 
   const state = () => {
     const f = new FormData(form);
+    const on = new Set(f.getAll('opt'));
+    const options: DrawOptions = {
+      ...DEFAULT_OPTIONS,
+      background: (f.get('background') as DrawOptions['background']) ?? 'auto',
+      checker: on.has('checker'),
+      grain: on.has('grain'),
+      stamps: on.has('stamps'),
+      tags: on.has('tags'),
+      footer: on.has('footer'),
+    };
     return {
       section: f.get('section') as SocialSection,
       range: f.get('range') as RangeKey,
       format: f.get('format') as SocialFormat,
+      options,
     };
   };
 
@@ -112,7 +138,7 @@ export async function bindSocial(flash: (message: string, kind?: 'ok' | 'error')
 
   async function draw() {
     const id = ++renderId;
-    const { section, format, range } = state();
+    const { section, format, range, options } = state();
     const { items, period } = candidates();
     const chosen = items.filter((i) => selected.has(i.id));
     const title = headline(section, range);
@@ -124,7 +150,7 @@ export async function bindSocial(flash: (message: string, kind?: 'ok' | 'error')
     }
     slidesBox.innerHTML = format === 'telegram' ? '<p class="muted">Per Telegram basta il testo qui sotto: incollalo nel canale.</p>' : '<p class="muted">Disegno…</p>';
     downloads.innerHTML = '';
-    const slides = await renderSlides(format, section, title, chosen, period, data.site);
+    const slides = await renderSlides(format, section, title, chosen, period, data.site, options);
     if (id !== renderId) return; // nel frattempo è cambiato qualcosa
     if (!slides.length) return;
     slidesBox.innerHTML = '';
@@ -176,7 +202,7 @@ export async function bindSocial(flash: (message: string, kind?: 'ok' | 'error')
 
   form.addEventListener('change', (e) => {
     const target = e.target as HTMLInputElement;
-    if (target.type === 'checkbox') {
+    if (target.type === 'checkbox' && target.name !== 'opt') {
       const max = MAX_ITEMS[state().format];
       if (target.checked && selected.size >= max) {
         target.checked = false;
@@ -184,7 +210,7 @@ export async function bindSocial(flash: (message: string, kind?: 'ok' | 'error')
       }
       if (target.checked) selected.add(target.value);
       else selected.delete(target.value);
-    } else {
+    } else if (target.name !== 'opt' && target.name !== 'background') {
       listItems(target.name !== 'format');
     }
     draw();
