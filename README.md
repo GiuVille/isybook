@@ -1,6 +1,6 @@
-# IsyBook
+# IsyBooks
 
-IsyBook nasce da un problema molto concreto: le notizie sui libri che mi interessano sono sparse ovunque. Una special edition la annunciano su Instagram, l'uscita Kindle la trovo per caso sul sito dell'editore, il firmacopie lo scopro il giorno dopo. E le edizioni limitate, se non le prendi nelle prime ore, sono andate.
+IsyBooks nasce da un problema molto concreto: le notizie sui libri che mi interessano sono sparse ovunque. Una special edition la annunciano su Instagram, l'uscita Kindle la trovo per caso sul sito dell'editore, il firmacopie lo scopro il giorno dopo. E le edizioni limitate, se non le prendi nelle prime ore, sono andate.
 
 Quindi sto costruendo un sito che raccolga tutto in un posto solo: uscite, edizioni speciali e limitate, promozioni degli editori, eventi e fiere. Per ora mi concentro su romantasy, romance e fantasy YA in Italia, il mondo dove le special edition contano di più.
 

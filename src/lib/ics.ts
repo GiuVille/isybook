@@ -28,10 +28,10 @@ export function icsResponse(entry: IcsEntry, product = 'Eventi'): Response {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    `PRODID:-//IsyBook//${product}//IT`,
+    `PRODID:-//IsyBooks//${product}//IT`,
     'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
-    `UID:${entry.uid}@isybook`,
+    `UID:${entry.uid}@isybooks`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${icsDate(entry.start)}`,
     `DTEND;VALUE=DATE:${icsDate(nextDay(entry.end ?? entry.start))}`,

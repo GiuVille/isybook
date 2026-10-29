@@ -19,7 +19,7 @@ const promotions = (await getPromotions()).filter((p) => !['over', 'upcoming'].i
 const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= today).slice(0, 3);
 ---
 
-<Base title="IsyBook – il radar delle uscite">
+<Base title="IsyBooks – il radar delle uscite">
   <div class="section-head first">
     <h1>In arrivo</h1>
     <a href="/uscite">Tutte le uscite →</a>

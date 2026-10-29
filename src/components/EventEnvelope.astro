@@ -30,7 +30,7 @@ const searchText = normalize(
 // timbro postale: "MILANO · 21 NOV 2026"
 const [y, m, d] = event.starts_on.split('-').map(Number);
 const MONTHS = ['GEN', 'FEB', 'MAR', 'APR', 'MAG', 'GIU', 'LUG', 'AGO', 'SET', 'OTT', 'NOV', 'DIC'];
-const postmark = `${(event.city ?? 'ISYBOOK').toUpperCase()} · ${d} ${MONTHS[m - 1]} ${y} · `;
+const postmark = `${(event.city ?? 'ISYBOOKS').toUpperCase()} · ${d} ${MONTHS[m - 1]} ${y} · `;
 
 // bordo irregolare della ceralacca, stabile per evento
 let h = 7;

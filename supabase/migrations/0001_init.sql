@@ -1,4 +1,4 @@
--- IsyBook: schema iniziale (MVP)
+-- IsyBooks: schema iniziale (MVP)
 -- Opera (works) ≠ edizione (editions): un'opera ha molte edizioni.
 -- Ogni contenuto pubblicabile ha uno status: il pubblico vede solo 'published'.
 

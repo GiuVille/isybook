@@ -15,7 +15,7 @@ export interface BookData {
   sources: string[];
 }
 
-const USER_AGENT = 'IsyBook/0.1 (catalogo libri)';
+const USER_AGENT = 'IsyBooks/0.1 (catalogo libri)';
 
 export function normalizeIsbn(raw: string): string {
   return raw.replace(/[^0-9Xx]/g, '').toUpperCase();

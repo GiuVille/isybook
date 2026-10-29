@@ -16,10 +16,10 @@
   "articles": [
     {
       "id": "a1",
-      "slug": "benvenuti-su-isybook",
-      "title": "Benvenuti su IsyBook",
+      "slug": "benvenuti-su-isybooks",
+      "title": "Benvenuti su IsyBooks",
       "excerpt": "Uscite, edizioni speciali ed eventi attorno ai libri che ami, in un posto solo.",
-      "body": "IsyBook raccoglie tutto quello che succede attorno ai libri: uscite, edizioni speciali e limitate, eventi e firmacopie.\n\nQuesto è un articolo di esempio.",
+      "body": "IsyBooks raccoglie tutto quello che succede attorno ai libri: uscite, edizioni speciali e limitate, eventi e firmacopie.\n\nQuesto è un articolo di esempio.",
       "section_id": "s2",
       "published_at": "2026-10-28"
     }

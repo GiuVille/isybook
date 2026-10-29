@@ -6,7 +6,7 @@ import { slugify } from '../../src/admin/resources.ts';
 
 export type SourcePurpose = 'promotions' | 'releases';
 
-export const USER_AGENT = 'IsyBookBot/1.0 (+https://isybook.it; radar delle novità sui libri)';
+export const USER_AGENT = 'IsyBooksBot/1.0 (+https://isybooks.it; radar delle novità sui libri)';
 const LOCAL_SOURCES = new URL('../sources.json', import.meta.url);
 export const OUT_DIR = new URL('../out/', import.meta.url);
 const LOCAL_STATE = new URL('../out/sources-state.json', import.meta.url);
@@ -93,7 +93,7 @@ export async function allowedByRobots(url: string): Promise<boolean> {
           const k = key.toLowerCase();
           if (k === 'user-agent') {
             const agent = value.toLowerCase();
-            const match = agent === '*' || agent.includes('isybook');
+            const match = agent === '*' || agent.includes('isybooks');
             applies = lastWasAgent ? applies || match : match;
             lastWasAgent = true;
           } else {

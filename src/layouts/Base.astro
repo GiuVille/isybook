@@ -14,7 +14,7 @@ interface Props {
 }
 
 const { title, description = 'Uscite, edizioni speciali ed eventi attorno ai libri che ami.', hideSearch = false } = Astro.props;
-const fullTitle = title.startsWith('IsyBook') ? title : `${title} · IsyBook`;
+const fullTitle = title.startsWith('IsyBooks') ? title : `${title} · IsyBooks`;
 // color: cartellina f1…f6; tab: posizione della linguetta su desktop (px);
 // mobile: linguetta ancorata a sinistra o a destra (%), così sui telefoni stretti non esce mai dalla cartellina
 type MobileTab = { left: number } | { right: number };
@@ -52,7 +52,7 @@ const path = Astro.url.pathname;
   <body>
     <header class="site-header">
       <div class="container top">
-        <a href="/" class="logo">IsyBook <span class="tagline">il radar delle uscite</span></a>
+        <a href="/" class="logo">IsyBooks <span class="tagline">il radar delle uscite</span></a>
         {!hideSearch && (
           <form class="search desktop-only" action="/libri" method="get" role="search">
             <input type="search" name="q" placeholder="Cerca un libro…" aria-label="Cerca un libro" />
@@ -112,7 +112,7 @@ const path = Astro.url.pathname;
     <footer class="container site-footer muted">
       <p>Alcuni link d'acquisto sono link affiliati: se acquisti tramite essi riceviamo una piccola commissione, senza costi aggiuntivi per te.</p>
       <p class="credits">
-        © {new Date().getFullYear()} IsyBook. Ideato da Daisy Di Mauro, sviluppato da{' '}
+        © {new Date().getFullYear()} IsyBooks. Ideato da Daisy Di Mauro, sviluppato da{' '}
         <a href="https://giuseppevillella.it" rel="author">Giuseppe Villella</a>.
       </p>
     </footer>

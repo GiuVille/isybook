@@ -25,7 +25,7 @@ const OPTIONS: Array<[keyof DrawOptions, string]> = [
   ['grain', 'Grana della carta'],
   ['stamps', 'Timbri'],
   ['tags', 'Tropes'],
-  ['footer', 'isybook.it in fondo'],
+  ['footer', 'isybooks.it in fondo'],
 ];
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -155,7 +155,7 @@ export async function bindSocial(flash: (message: string, kind?: 'ok' | 'error')
     if (!slides.length) return;
     slidesBox.innerHTML = '';
     slidesBox.dataset.format = format;
-    const name = (n: number) => `isybook-${section}-${today}-${format}${slides.length > 1 ? `-${n + 1}` : ''}.png`;
+    const name = (n: number) => `isybooks-${section}-${today}-${format}${slides.length > 1 ? `-${n + 1}` : ''}.png`;
     slides.forEach((c, n) => {
       const figure = document.createElement('figure');
       c.setAttribute('role', 'img');

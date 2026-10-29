@@ -50,9 +50,9 @@ insert into editions (work_id, isbn, format, publisher_id, release_date, price, 
   ('00000000-0000-0000-0000-0000000000f2', '9780000000002', 'paperback', '00000000-0000-0000-0000-0000000000b1', '2026-10-20', 16.00, 'special', null, 'Prima tiratura con sovraccoperta esclusiva');
 
 insert into articles (slug, title, excerpt, body, section_id, status, published_at) values
-  ('benvenuti-su-isybook', 'Benvenuti su IsyBook',
+  ('benvenuti-su-isybooks', 'Benvenuti su IsyBooks',
    'Uscite, edizioni speciali ed eventi attorno ai libri che ami, in un posto solo.',
-   E'IsyBook raccoglie tutto quello che succede attorno ai libri: uscite, edizioni speciali e limitate, eventi e firmacopie.\n\nQuesto è un articolo di esempio.',
+   E'IsyBooks raccoglie tutto quello che succede attorno ai libri: uscite, edizioni speciali e limitate, eventi e firmacopie.\n\nQuesto è un articolo di esempio.',
    '00000000-0000-0000-0000-0000000000a2', 'published', '2026-10-28');
 
 -- Tropi aggiuntivi e due opere di generi diversi, per provare i colori delle anteprime

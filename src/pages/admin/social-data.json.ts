@@ -34,7 +34,7 @@ async function image(url: string | null | undefined) {
 const coverOf = (work: Work) => work.editions.find((e) => e.cover_url)?.cover_url;
 
 export const GET: APIRoute = async ({ site }) => {
-  const base = (site ?? new URL('https://isybook.it')).toString().replace(/\/$/, '');
+  const base = (site ?? new URL('https://isybooks.it')).toString().replace(/\/$/, '');
   const today = new Date().toISOString().slice(0, 10);
   const [editions, promotions, events] = await Promise.all([getEditionsWithWork(), getPromotions(), getEvents()]);
 

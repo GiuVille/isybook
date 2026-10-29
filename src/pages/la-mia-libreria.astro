@@ -353,7 +353,7 @@ import '../styles/videoteca.css';
     const blob = new Blob([exportLibrary()], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `isybook-libreria-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `isybooks-libreria-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -365,7 +365,7 @@ import '../styles/videoteca.css';
     try {
       importLibrary(await file.text());
     } catch {
-      alert('Questo file non sembra un backup di IsyBook.');
+      alert('Questo file non sembra un backup di IsyBooks.');
     }
   });
 

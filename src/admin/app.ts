@@ -66,7 +66,7 @@ function shell(content: string): string {
   return `
     <div class="layout">
       <aside>
-        <a href="#/" class="brand">IsyBook <small>admin</small></a>
+        <a href="#/" class="brand">IsyBooks <small>admin</small></a>
         ${link('#/review', 'Da approvare')}
         ${link('#/segnala', 'Segnala promozione')}
         ${link('#/social', 'Post social')}
@@ -97,7 +97,7 @@ function bindShell() {
 function renderLogin(message = '') {
   render(`
     <form class="login card" id="login">
-      <h1>IsyBook</h1>
+      <h1>IsyBooks</h1>
       <p class="muted">Accesso redazione</p>
       ${message ? `<p class="error">${esc(message)}</p>` : ''}
       <label>Email <input type="email" name="email" required autocomplete="username"></label>
