@@ -136,7 +136,7 @@
 .postit .text { font-size: 0.92rem; line-height: 1.45; }
 .postit .text p { margin: 0 0 8px; }
 .postit:not(.big) .text {
-  max-height: 8.6em;
+  max-height: 7.25em; /* cinque righe intere */
   overflow: hidden;
   -webkit-mask: linear-gradient(#000 70%, transparent);
   mask: linear-gradient(#000 70%, transparent);
@@ -254,3 +254,17 @@
 
 /* spazio per la scritta "in evidenza" */
 .postit:has(.pinned-note) { padding-bottom: 34px; }
+
+/* mini bacheca della home: più compatta, oscilla quando entra nello schermo, al massimo due post-it su telefono */
+.wall.compact { margin: 0; padding: 44px 12px 24px; }
+.wall.compact .hanger { top: 8px; }
+.wall.compact .hanger .wire { height: 80px; }
+.wall.compact .board { padding: 28px 22px 30px; }
+@media (max-width: 700px) {
+  .wall.compact .notes > :nth-child(n + 3) { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .js .wall.compact .board { animation: none; }
+  .js .wall.compact .board[data-reveal] { opacity: 0; }
+  .js .wall.compact .board[data-reveal].is-in { opacity: 1; animation: board-hang 1.3s var(--ease-out) backwards; }
+}

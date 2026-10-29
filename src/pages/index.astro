@@ -3,11 +3,13 @@ import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
 import EventTicket from '../components/EventTicket.astro';
 import ForYou from '../components/ForYou.astro';
+import PostIt from '../components/PostIt.astro';
 import PromoCoupon from '../components/PromoCoupon.astro';
 import ReleaseCarousel from '../components/ReleaseCarousel.astro';
-import { getEditionsWithWork, getEvents, getPromotions } from '../lib/data';
+import { getEditionsWithWork, getEvents, getNews, getPromotions } from '../lib/data';
 import { promotionState } from '../lib/promotions';
 import { groupEditions, upcomingReleases } from '../lib/releases';
+import '../styles/bacheca.css';
 
 const today = new Date().toISOString().slice(0, 10);
 const editions = await getEditionsWithWork();
@@ -16,6 +18,7 @@ const special = editions.filter((e) => e.edition_type !== 'standard').slice(0, 6
 const releases = upcomingReleases(editions, today).slice(0, 8);
 // prima quelle che scadono presto
 const promotions = (await getPromotions()).filter((p) => !['over', 'upcoming'].includes(promotionState(p, today))).slice(0, 3);
+const news = (await getNews()).slice(0, 3);
 const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= today).slice(0, 3);
 ---
 
@@ -28,6 +31,21 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
   <p class="intro muted">Uscite, edizioni speciali, serie tratte dai libri ed eventi di romantasy, romance e fantasy YA, in un posto solo.</p>
 
   <ForYou />
+
+  {news.length > 0 && (
+    <>
+      <div class="section-head">
+        <h2>Dalla bacheca</h2>
+        <a href="/notizie">Tutte le notizie →</a>
+      </div>
+      <div class="wall compact">
+        <div class="hanger" aria-hidden="true"><span class="wire l"></span><span class="wire r"></span><span class="nail"></span></div>
+        <div class="board" data-reveal>
+          <div class="notes">{news.map((n, i) => <PostIt news={n} index={i} />)}</div>
+        </div>
+      </div>
+    </>
+  )}
 
   {promotions.length > 0 && (
     <>
