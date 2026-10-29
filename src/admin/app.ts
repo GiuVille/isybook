@@ -6,6 +6,7 @@ import { getSupabase, supabaseConfigured } from '../lib/supabase';
 import type { EditionFormat, EditionType } from '../lib/types';
 import { RESOURCES, STATUS_OPTIONS, getResource, slugify, type Field, type Resource } from './resources';
 import { approveReviewItem } from './review';
+import { bindSocial, socialHtml } from './social';
 
 const root = document.getElementById('admin')!;
 let session: Session | null = null;
@@ -68,6 +69,7 @@ function shell(content: string): string {
         <a href="#/" class="brand">IsyBook <small>admin</small></a>
         ${link('#/review', 'Da approvare')}
         ${link('#/segnala', 'Segnala promozione')}
+        ${link('#/social', 'Post social')}
         ${groups
           .map(
             (g) => `<p class="group">${g}</p>${RESOURCES.filter((r) => r.group === g)
@@ -127,6 +129,8 @@ async function renderDashboard() {
     }),
   );
   const [pending, articles, works, editions, events] = counts;
+  // stato del sito pubblico (migrazione 0007): se la tabella non c'è ancora, il riquadro non compare
+  const { data: site } = await sb.from('site_state').select('content_changed_at, rebuild_requested_at, last_rebuild_at').eq('id', 1).maybeSingle();
   render(
     shell(`
       <h1>Panoramica</h1>
@@ -142,10 +146,41 @@ async function renderDashboard() {
         <a class="button secondary" href="#/r/works/new">Nuova opera</a>
         <a class="button secondary" href="#/r/events/new">Nuovo evento</a>
         <a class="button secondary" href="#/segnala">Segnala promozione</a>
+        <a class="button secondary" href="#/social">Post social</a>
       </p>
-      <p class="muted small">Il sito pubblico è statico: le modifiche compaiono online al build successivo.</p>`),
+      ${site ? siteCard(site) : '<p class="muted small">Il sito pubblico è statico: le modifiche compaiono online al build successivo.</p>'}`),
   );
   bindShell();
+
+  document.getElementById('rebuild')?.addEventListener('click', async () => {
+    const { error } = await sb.from('site_state').update({ rebuild_requested_at: new Date().toISOString() }).eq('id', 1);
+    if (error) fail(error);
+    flash('Richiesta inviata: il sito si aggiorna entro 15 minuti');
+    await renderDashboard();
+  });
+}
+
+/** Riquadro "Sito pubblico": ultimo aggiornamento, modifiche in attesa e pulsante per aggiornarlo subito. */
+function siteCard(site: Row): string {
+  const time = (iso: string | null) => (iso ? Date.parse(iso) : 0);
+  const when = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString('it-IT', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'mai';
+  const last = time(site.last_rebuild_at);
+  const requested = time(site.rebuild_requested_at) > last;
+  const pending = time(site.content_changed_at) > last;
+  return `
+    <section class="card site-card">
+      <h2>Sito pubblico</h2>
+      <p>Ultimo aggiornamento: <strong>${esc(when(site.last_rebuild_at))}</strong></p>
+      <p>${
+        requested
+          ? 'Aggiornamento richiesto: va online entro 15 minuti.'
+          : pending
+            ? 'Ci sono modifiche non ancora online: partono da sole dopo 10 minuti senza altre modifiche.'
+            : 'Tutto online.'
+      }</p>
+      ${requested ? '' : '<button type="button" id="rebuild">Aggiorna il sito adesso</button>'}
+    </section>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -671,6 +706,15 @@ function renderReport() {
 }
 
 // ---------------------------------------------------------------------------
+// Post social: bozze per Instagram e Telegram dai contenuti pubblicati
+// ---------------------------------------------------------------------------
+async function renderSocial() {
+  render(shell(socialHtml()));
+  bindShell();
+  await bindSocial(flash);
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 async function route() {
@@ -679,6 +723,7 @@ async function route() {
   const parts = path.split('/').filter(Boolean);
   try {
     if (parts[0] === 'segnala') return renderReport();
+    if (parts[0] === 'social') return await renderSocial();
     if (parts[0] === 'review') {
       return parts[1] ? await renderReviewItem(parts[1]) : await renderReviewList();
     }
@@ -702,6 +747,12 @@ async function checkEditor(): Promise<boolean> {
 
 async function start() {
   if (!supabaseConfigured) {
+    // in locale, senza Supabase, i post social si possono provare coi dati d'esempio
+    if (import.meta.env.DEV && location.hash.startsWith('#/social')) {
+      render(`<section class="content standalone">${socialHtml()}</section>`);
+      await bindSocial(flash);
+      return;
+    }
     render(`<div class="card login"><h1>Admin non configurato</h1>
       <p>Imposta <code>PUBLIC_SUPABASE_URL</code> e <code>PUBLIC_SUPABASE_ANON_KEY</code> nel file <code>.env</code> e riavvia.</p></div>`);
     return;

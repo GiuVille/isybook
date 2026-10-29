@@ -1,5 +1,8 @@
 ---
 // Pannello admin: pagina statica, tutta la logica gira nel browser (src/admin/app.ts).
+import '@fontsource/gochi-hand';
+import '@fontsource/young-serif';
+import '@fontsource-variable/literata';
 import '../../styles/global.css';
 ---
 
@@ -65,6 +68,29 @@ import '../../styles/global.css';
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .site-card { margin-top: 20px; max-width: 520px; }
+
+  /* post social: comandi a sinistra, anteprime e testo a destra */
+  .social { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; align-items: start; }
+  .social-controls { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 16px; }
+  .social-controls select { margin-bottom: 8px; }
+  .social-controls fieldset { border: 0; padding: 0; margin: 8px 0 0; }
+  .social-controls legend { font-weight: 600; margin-bottom: 4px; }
+  .formats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+  .social-items { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+  .social-item { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+  .social-slides { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+  .social-slides figure { margin: 0; flex: none; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .social-slides canvas { width: 300px; height: auto; border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
+  .social-slides[data-format='story'] canvas { width: 240px; }
+  .social-output textarea { width: 100%; font: inherit; }
+  .standalone { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  @media (max-width: 800px) {
+    .social { grid-template-columns: 1fr; }
+    .social-controls { position: static; }
+  }
+  .site-card h2 { margin: 0 0 8px; font-size: 1.2rem; }
+  .site-card p { margin: 0 0 8px; }
   .stat { text-decoration: none; color: var(--text); }
   .stat strong { display: block; font-size: 1.8rem; color: var(--accent); }
 

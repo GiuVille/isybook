@@ -1,4 +1,4 @@
-// Grafica ufficiale di una promozione, preparata in build.
+// Grafica ufficiale di una promozione (o copertina per le bozze social), preparata in build.
 // Remota: Astro la scarica e la converte in WebP a più larghezze, così il sito non dipende dall'indirizzo dell'editore.
 // Locale (in public/, es. i dati d'esempio): servita così com'è, ne leggo solo le dimensioni.
 // Il formato decide come entra nel buono: striscia se larga, polaroid se quadrata o verticale.
@@ -35,7 +35,7 @@ async function resolve(url: string): Promise<PromoImage | null> {
     return { src: image.src, srcset: image.srcSet.attribute || undefined, width, height, shape: shapeOf(width, height) };
   } catch (err) {
     // immagine sparita o non leggibile: la promozione resta senza foto, la build continua
-    console.warn(`Grafica della promozione non disponibile (${url}): ${(err as Error).message}`);
+    console.warn(`Immagine non disponibile (${url}): ${(err as Error).message}`);
     return null;
   }
 }

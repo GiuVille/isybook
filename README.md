@@ -33,6 +33,7 @@ src/
   data/sample.json  dati finti per lavorare senza database
 scripts/
   import-isbn.ts    import dei libri per ISBN
+  rebuild-site.ts   aggiornamento del sito quando cambiano i contenuti
   check-promotions.ts  lettura notturna delle promozioni
   check-releases.ts    lettura notturna delle prossime uscite
   sources.json      fonti di prova, usate quando Supabase non è configurato
@@ -105,6 +106,19 @@ Niente va online senza che qualcuno l'abbia guardato. Con `--dry-run` leggo le f
 
 I due job girano uno dopo l'altro su GitHub Actions alle 5 del mattino (`.github/workflows/nightly.yml`) e si possono lanciare anche a mano. Prendono la configurazione dai secret del repository, con gli stessi nomi del `.env.example`; finché mancano si chiudono senza errori.
 
+## Aggiornamento del sito
+
+Il sito è statico, quindi un contenuto approvato va online solo con una nuova build su Cloudflare Pages. Far partire una build a ogni salvataggio sarebbe uno spreco: approvando dieci libri di fila ne partirebbero dieci, e il piano gratuito ne concede 500 al mese.
+
+Così ho fatto in modo che sia il database a segnare quando qualcosa cambia (un trigger su ogni tabella pubblica aggiorna `site_state`, migrazione 0007). Ogni 15 minuti un job su GitHub Actions (`.github/workflows/rebuild.yml`) guarda lo stato e chiama il deploy hook di Cloudflare solo se le modifiche si sono fermate da almeno 10 minuti, o se qualcuno ha chiesto esplicitamente di aggiornare.
+
+```sh
+npm run rebuild            # ricostruisce solo se serve
+npm run rebuild -- --force # ricostruisce comunque
+```
+
+C'è anche una build fissa ogni mattina, dopo la lettura notturna: le promozioni agli sgoccioli, le uscite "in arrivo" e gli eventi passati dipendono dalla data, quindi il sito va rigenerato anche quando i contenuti non cambiano. Senza il secret `CLOUDFLARE_DEPLOY_HOOK` il job si chiude senza errori.
+
 ## Cosa manca
 
 - [x] pagine del sito: home, schede libro, calendario uscite
@@ -121,10 +135,10 @@ I due job girano uno dopo l'altro su GitHub Actions alle 5 del mattino (`.github
 - [x] videoteca: serie e film "da vedere" e cartelle dedicate, accanto ai libri salvati
 - [x] promozioni degli editori, con lettura notturna delle fonti e approvazione prima della pubblicazione
 - [x] job notturno che legge le pagine "prossime uscite" degli editori, special e limitate comprese
-- [ ] rebuild automatico del sito dopo le modifiche ai contenuti
-- [ ] generatore di bozze per i post social
+- [x] rebuild automatico del sito dopo le modifiche ai contenuti, più una build ogni mattina
+- [x] bozze dei post social dai contenuti pubblicati: post e storie Instagram, caroselli e messaggi per Telegram, con immagini da scaricare
 - [ ] deploy su Cloudflare Pages
-- [ ] Edicola: collezioni da edicola a fumetti e fantasy, con piano dell'opera, prezzi e costo totale della collana
+- [ ] Edicola: uscite delle collane da edicola (fumetti particolari e libri), con piano dell'opera, prezzi e costo totale della collana
 - [ ] Edicola: calendario settimanale delle uscite
 - [ ] Edicola: tracker dei numeri presi nella libreria personale
 - [ ] Edicola, più avanti: uscite di fumetti in libreria e fumetteria
