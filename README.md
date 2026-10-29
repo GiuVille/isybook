@@ -132,7 +132,7 @@ C'è anche una build fissa ogni mattina, dopo la lettura notturna: le promozioni
 - [x] calendario eventi e fiere, con ricerca, filtri e il file da aggiungere al calendario
 - [x] serie TV e film tratti dai libri: stagioni o durata, dove vederli, titoli simili
 - [x] pagine autore con saghe, tropes ricorrenti, adattamenti ed eventi
-- [x] videoteca: serie e film "da vedere" e cartelle dedicate, accanto ai libri salvati
+- [x] videoteca: serie e film preferiti, "da vedere" e "visti", e cartelle dedicate, accanto ai libri salvati
 - [x] promozioni degli editori, con lettura notturna delle fonti e approvazione prima della pubblicazione
 - [x] job notturno che legge le pagine "prossime uscite" degli editori, special e limitate comprese
 - [x] rebuild automatico del sito dopo le modifiche ai contenuti, più una build ogni mattina

@@ -1,5 +1,5 @@
 ---
-// Pulsanti "Preferito" (o "Da vedere") e "Aggiungi a cartella" per un libro o per una serie/film.
+// Pulsanti "Preferito" e "Aggiungi a cartella" per un libro o per una serie/film.
 // Lo stato vive nel browser (src/lib/library.ts): i libri vanno nel cassetto, serie e film nella videoteca.
 import type { ItemKind } from '../lib/library';
 
@@ -19,7 +19,7 @@ const screen = kind === 'screen';
     type="button"
     class="fav"
     aria-pressed="false"
-    title={screen ? `Aggiungi «${title}» ai titoli da vedere` : `Aggiungi «${title}» ai preferiti`}
+    title={`Aggiungi «${title}» ai preferiti`}
   >
     {screen ? (
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -32,7 +32,7 @@ const screen = kind === 'screen';
         <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 7.9 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.6 3.4 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2Z" />
       </svg>
     )}
-    <span class="text">{screen ? 'Da vedere' : 'Preferito'}</span>
+    <span class="text">Preferito</span>
   </button>
 
   <div class="pick">
@@ -84,7 +84,7 @@ const screen = kind === 'screen';
       const favButton = block.querySelector<HTMLButtonElement>('.fav')!;
       favButton.setAttribute('aria-pressed', String(fav));
       block.querySelector('.fav .text')!.textContent =
-        kind === 'screen' ? (fav ? 'Da vedere ✓' : 'Da vedere') : fav ? 'Nei preferiti' : 'Preferito';
+        fav ? 'Nei preferiti' : 'Preferito';
 
       const inCollections = collections.filter((c) => c.slugs.includes(slug));
       const count = block.querySelector<HTMLElement>('.in-count')!;

@@ -1,5 +1,5 @@
 /* Videoteca: scaffale scuro con le custodie delle videocassette in piedi, una per raccolta di serie e film
-   ("Da vedere" e cartelle create). Disegnato nel browser da la-mia-libreria.astro, come il cassetto dei libri. */
+   (Preferiti, "Da vedere", "Visti" e cartelle create). Disegnato nel browser da la-mia-libreria.astro, come il cassetto dei libri. */
 
 :root {
   --vhs-1: #a3262a; /* rosso sipario */

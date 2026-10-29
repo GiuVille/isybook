@@ -1,5 +1,5 @@
 // Libreria personale salvata nel browser: libri (preferiti e cartelle), videoteca (serie e film
-// "da vedere" e cartelle proprie) e interessi. Niente account per ora: tutto è identificato dallo slug,
+// preferite, "Da vedere", "Visti" e cartelle proprie) e interessi. Niente account per ora: tutto è identificato dallo slug,
 // così un futuro account potrà importare questi dati senza perdite.
 
 export interface Collection {
@@ -29,6 +29,24 @@ export interface Library {
   updatedAt: string;
 }
 
+/** Cartelle sempre presenti, non rinominabili né eliminabili. La TBR è un sottoinsieme dei libri posseduti;
+ * nella videoteca un titolo è o da vedere o visto. */
+export const OWNED_ID = 'possiedo';
+export const TBR_ID = 'tbr';
+export const TO_WATCH_ID = 'da-vedere';
+export const WATCHED_ID = 'visti';
+const PRESET_COLLECTIONS: Record<ItemKind, Array<{ id: string; name: string }>> = {
+  book: [
+    { id: OWNED_ID, name: 'I miei libri' },
+    { id: TBR_ID, name: 'TBR' },
+  ],
+  screen: [
+    { id: TO_WATCH_ID, name: 'Da vedere' },
+    { id: WATCHED_ID, name: 'Visti' },
+  ],
+};
+export const isPreset = (id: string, kind: ItemKind = 'book') => PRESET_COLLECTIONS[kind].some((p) => p.id === id);
+
 export const STORAGE_KEY = 'isybook:v1';
 export const CHANGE_EVENT = 'library-change';
 
@@ -36,13 +54,27 @@ function empty(): Library {
   return {
     version: 1,
     favorites: [],
-    collections: [],
+    collections: withPresets([], 'book'),
     screenFavorites: [],
-    screenCollections: [],
+    screenCollections: withPresets([], 'screen'),
     interests: null,
     onboardingDone: false,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Le cartelle preimpostate in testa (create vuote se mancano, nome fisso), poi quelle personali. */
+function withPresets(collections: Collection[], kind: ItemKind): Collection[] {
+  const presets = PRESET_COLLECTIONS[kind].map((p) => {
+    const found = collections.find((c) => c.id === p.id);
+    return { id: p.id, name: p.name, slugs: found?.slugs ?? [], createdAt: found?.createdAt ?? '2026-10-29T00:00:00.000Z' };
+  });
+  if (kind === 'book') {
+    const tbr = presets.find((c) => c.id === TBR_ID)!.slugs;
+    const owned = presets.find((c) => c.id === OWNED_ID)!;
+    owned.slugs = [...new Set([...owned.slugs, ...tbr])];
+  }
+  return [...presets, ...collections.filter((c) => !isPreset(c.id, kind))];
 }
 
 // ripiego in memoria quando localStorage non è disponibile (navigazione privata, storage bloccato)
@@ -62,10 +94,10 @@ function sanitize(raw: unknown): Library {
   return {
     version: 1,
     favorites: [...new Set(strings(r.favorites))],
-    collections: collections(r.collections),
+    collections: withPresets(collections(r.collections), 'book'),
     // librerie salvate prima della videoteca: questi campi mancano e partono vuoti
     screenFavorites: [...new Set(strings(r.screenFavorites))],
-    screenCollections: collections(r.screenCollections),
+    screenCollections: withPresets(collections(r.screenCollections), 'screen'),
     interests: r.interests
       ? { tropes: strings(r.interests.tropes), genres: strings(r.interests.genres), settings: strings(r.interests.settings) }
       : null,
@@ -108,7 +140,7 @@ const toggle = (list: string[], value: string) =>
 const favKey = (kind: ItemKind) => (kind === 'screen' ? 'screenFavorites' : 'favorites');
 const colKey = (kind: ItemKind) => (kind === 'screen' ? 'screenCollections' : 'collections');
 
-/** Preferiti (libri) o "Da vedere" (videoteca). */
+/** Preferiti dei libri o della videoteca. */
 export const favoritesOf = (library: Library, kind: ItemKind = 'book') => library[favKey(kind)];
 export const collectionsOf = (library: Library, kind: ItemKind = 'book') => library[colKey(kind)];
 
@@ -133,22 +165,41 @@ const findCollection = (l: Library, id: string, kind: ItemKind) => l[colKey(kind
 export const renameCollection = (id: string, name: string, kind: ItemKind = 'book') =>
   update((l) => {
     const c = findCollection(l, id, kind);
-    if (c && name.trim()) c.name = name.trim();
+    if (c && name.trim() && !isPreset(c.id, kind)) c.name = name.trim();
   });
 
 export const deleteCollection = (id: string, kind: ItemKind = 'book') =>
-  update((l) => (l[colKey(kind)] = l[colKey(kind)].filter((c) => c.id !== id)));
+  update((l) => (l[colKey(kind)] = l[colKey(kind)].filter((c) => c.id !== id || isPreset(c.id, kind))));
+
+// un libro in TBR è anche posseduto; un libro che non possiedi più esce anche dalla TBR.
+// Un titolo visto esce da "Da vedere" e viceversa.
+function linkPresets(l: Library, id: string, slug: string, kind: ItemKind) {
+  if (kind === 'screen') {
+    const other = id === TO_WATCH_ID ? WATCHED_ID : id === WATCHED_ID ? TO_WATCH_ID : null;
+    const added = findCollection(l, id, kind)?.slugs.includes(slug);
+    const o = other && findCollection(l, other, kind);
+    if (o && added) o.slugs = o.slugs.filter((s) => s !== slug);
+    return;
+  }
+  const owned = findCollection(l, OWNED_ID, kind);
+  const tbr = findCollection(l, TBR_ID, kind);
+  if (!owned || !tbr) return;
+  if (id === TBR_ID && tbr.slugs.includes(slug) && !owned.slugs.includes(slug)) owned.slugs.push(slug);
+  if (id === OWNED_ID && !owned.slugs.includes(slug)) tbr.slugs = tbr.slugs.filter((s) => s !== slug);
+}
 
 export const toggleInCollection = (id: string, slug: string, kind: ItemKind = 'book') =>
   update((l) => {
     const c = findCollection(l, id, kind);
     if (c) c.slugs = toggle(c.slugs, slug);
+    linkPresets(l, id, slug, kind);
   });
 
 export const removeFromCollection = (id: string, slug: string, kind: ItemKind = 'book') =>
   update((l) => {
     const c = findCollection(l, id, kind);
     if (c) c.slugs = c.slugs.filter((s) => s !== slug);
+    linkPresets(l, id, slug, kind);
   });
 
 export const setInterests = (interests: Interests) =>

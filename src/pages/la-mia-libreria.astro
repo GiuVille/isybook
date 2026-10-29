@@ -68,9 +68,14 @@ import '../styles/videoteca.css';
     favoritesOf,
     getLibrary,
     importLibrary,
+    isPreset,
     onLibraryChange,
+    OWNED_ID,
+    TO_WATCH_ID,
+    WATCHED_ID,
     removeFromCollection,
     renameCollection,
+    TBR_ID,
     toggleFavorite,
     type ItemKind,
   } from '../lib/library';
@@ -99,6 +104,14 @@ import '../styles/videoteca.css';
   const interestsBody = document.querySelector<HTMLElement>('.interests-body')!;
   const removeButton = (attrs: string) => `<button type="button" class="remove" ${attrs}>Rimuovi</button>`;
   const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  // cartelle preimpostate dei libri: icona e testo quando sono vuote
+  const PRESET_ICONS: Record<string, string> = { [OWNED_ID]: '📚', [TBR_ID]: '🔖', [TO_WATCH_ID]: '🍿', [WATCHED_ID]: '✓' };
+  const PRESET_EMPTY: Record<string, string> = {
+    [OWNED_ID]: 'Segna i libri che hai in casa dal pulsante «Cartella» nella scheda di un libro.',
+    [TBR_ID]: 'La TBR raccoglie i libri che possiedi e non hai ancora letto: aggiungili dal pulsante «Cartella».',
+    [TO_WATCH_ID]: 'Le serie e i film che vuoi vedere: aggiungili dal pulsante «Cartella» nella loro scheda.',
+    [WATCHED_ID]: 'Le serie e i film che hai già visto: quando ne sposti uno qui, esce da «Da vedere».',
+  };
 
   const books = (slugs: string[]) =>
     slugs.flatMap((s) => {
@@ -128,7 +141,7 @@ import '../styles/videoteca.css';
           aria-selected="${isSelected}" tabindex="${isSelected ? 0 : -1}" style="--f:var(--folder-${folder.color})">
           <span class="fan" aria-hidden="true">${art.join('')}</span>
           <span class="front">
-            <span class="tab"><span class="label">${folder.id === 'preferiti' ? '❤ ' : ''}${esc(folder.name)}</span></span>
+            <span class="tab"><span class="label">${folder.id === 'preferiti' ? '❤ ' : PRESET_ICONS[folder.id] ? PRESET_ICONS[folder.id] + ' ' : ''}${esc(folder.name)}</span></span>
             <span class="count-big">${count}</span>
             <span class="count-label">${plural(count, 'libro', 'libri')}</span>
             ${count === 0 ? '<span class="empty-note">vuota</span>' : ''}
@@ -154,10 +167,10 @@ import '../styles/videoteca.css';
     tabs: document.querySelector<HTMLElement>('#videoteca .vhs-shelf')!,
     panel: document.querySelector<HTMLElement>('#videoteca .drawer-panel')!,
     hash: '#videoteca-',
-    favorites: { id: 'da-vedere', name: 'Da vedere', icon: '★', color: 1 },
+    favorites: { id: 'preferiti', name: 'Preferiti', icon: '★', color: 1 },
     folderIcon: '🎞️',
     colors: [2, 3, 4, 5, 6],
-    selected: 'da-vedere',
+    selected: 'preferiti',
     firstRender: true,
     cards: screens,
     // custodia di videocassetta in piedi: locandine che spuntano dall'alto, etichetta scritta a mano sul fronte
@@ -168,7 +181,7 @@ import '../styles/videoteca.css';
           <span class="fan" aria-hidden="true">${art.join('')}</span>
           <span class="case">
             <span class="brand" aria-hidden="true">VHS</span>
-            <span class="label">${folder.id === 'da-vedere' ? '★ ' : ''}${esc(folder.name)}</span>
+            <span class="label">${folder.id === 'preferiti' ? '★ ' : PRESET_ICONS[folder.id] ? PRESET_ICONS[folder.id] + ' ' : ''}${esc(folder.name)}</span>
             <span class="count-big">${count}</span>
             <span class="count-label">${plural(count, 'titolo', 'titoli')}</span>
             <span class="reels" aria-hidden="true"><i></i><i></i></span>
@@ -182,9 +195,9 @@ import '../styles/videoteca.css';
         </button>
       </li>`,
     texts: {
-      favEmpty: 'Ancora niente da vedere: tocca «Da vedere» su una serie o un film per salvarlo qui. <a href="/serie-e-film">Sfoglia serie e film</a>',
+      favEmpty: 'Ancora nessun preferito: tocca «Preferito» su una serie o un film per salvarlo qui. <a href="/serie-e-film">Sfoglia serie e film</a>',
       colEmpty: 'Cartella vuota: aggiungi serie e film dal pulsante «Cartella» nella loro scheda.',
-      hint: 'Crea una cartella per la videoteca: «Maratona del weekend», «Da vedere con le amiche», «Già visti»…',
+      hint: 'Crea una cartella per la videoteca: «Maratona del weekend», «Da vedere con le amiche», «Film di Natale»…',
       deleteNote: 'Serie e film restano nel sito, sparisce solo la cartella.',
     },
   };
@@ -226,15 +239,16 @@ import '../styles/videoteca.css';
 
     const current = all.find((f) => f.id === shelf.selected)!;
     const isFav = current.id === shelf.favorites.id;
+    const preset = isPreset(current.id, shelf.kind);
     const items = shelf.cards(current.slugs);
     const kindAttr = `data-kind="${shelf.kind}"`;
     shelf.panel.setAttribute('aria-labelledby', `${shelf.kind === 'screen' ? 'vtab' : 'tab'}-${current.id}`);
     shelf.panel.innerHTML = `
       <section class="shelf" ${isFav ? '' : `data-collection="${esc(current.id)}"`}>
         <div class="shelf-head">
-          <h3>${isFav ? shelf.favorites.icon : shelf.folderIcon} ${esc(current.name)} <span class="count">${items.length}</span></h3>
+          <h3>${isFav ? shelf.favorites.icon : preset ? PRESET_ICONS[current.id] : shelf.folderIcon} ${esc(current.name)} <span class="count">${items.length}</span></h3>
           ${
-            isFav
+            isFav || preset
               ? ''
               : `<span class="tools">
                   <button type="button" class="link" data-rename="${esc(current.id)}" ${kindAttr}>Rinomina</button>
@@ -253,10 +267,10 @@ import '../styles/videoteca.css';
                   ),
                 )
                 .join('')}</div>`
-            : `<p class="empty muted">${isFav ? shelf.texts.favEmpty : shelf.texts.colEmpty}</p>`
+            : `<p class="empty muted">${isFav ? shelf.texts.favEmpty : preset ? PRESET_EMPTY[current.id] : shelf.texts.colEmpty}</p>`
         }
       </section>`;
-    if (collectionsOf(getLibrary(), shelf.kind).length === 0) {
+    if (!collectionsOf(getLibrary(), shelf.kind).some((c) => !isPreset(c.id, shelf.kind))) {
       shelf.panel.insertAdjacentHTML('beforeend', `<p class="muted hint">${shelf.texts.hint}</p>`);
     }
   }

@@ -112,11 +112,17 @@ const path = Astro.url.pathname;
     <footer class="container site-footer muted">
       <p>Alcuni link d'acquisto sono link affiliati: se acquisti tramite essi riceviamo una piccola commissione, senza costi aggiuntivi per te.</p>
       <p>
-        <a class="insta" href="https://www.instagram.com/isyconsigliastorie/" target="_blank" rel="noopener">
+        <a class="insta" href="https://www.instagram.com/isyconsigliastorie/" target="_blank" rel="noopener" aria-label="Instagram @isyconsigliastorie">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="5" />
             <circle cx="12" cy="12" r="4" />
             <circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" />
+          </svg>
+          @isyconsigliastorie
+        </a>
+        <a class="insta" href="https://www.tiktok.com/@isyconsigliastorie" target="_blank" rel="noopener" aria-label="TikTok @isyconsigliastorie">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 11.5a4.25 4.25 0 1 0 4.25 4.25V3c.4 2.7 2.4 4.8 5.25 5" />
           </svg>
           @isyconsigliastorie
         </a>
@@ -313,12 +319,12 @@ const path = Astro.url.pathname;
   .site-footer { text-align: center; }
   .site-footer p { margin: 0 auto 6px; max-width: 70ch; }
   .site-footer a { color: var(--accent); }
-  /* profilo Instagram della socia: pillola con l'icona che ruota al passaggio */
+  /* profili Instagram e TikTok della socia: pillole con l'icona che ruota al passaggio */
   .site-footer .insta {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin: 6px 0 4px;
+    margin: 6px 4px 4px;
     padding: 4px 12px 4px 8px;
     border: 1px solid var(--border);
     border-radius: 999px;
