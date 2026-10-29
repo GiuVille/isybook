@@ -1,29 +1,79 @@
 ---
+// Blocco di un'edizione (pagina Uscite, home): copertina a sinistra, dati a destra.
+// Entra salendo quando arriva nello schermo, a cascata con `index`; al passaggio la copertina si solleva.
+import CoverArt from './CoverArt.astro';
+import { themeForWork } from '../lib/book-themes';
 import type { Edition, Work } from '../lib/types';
 import { EDITION_TYPE_LABELS, FORMAT_LABELS, formatDate } from '../lib/format';
 
 interface Props {
   edition: Edition & { work: Work };
+  /** Posizione nella griglia, per sfalsare l'ingresso. */
+  index?: number;
 }
 
-const { edition } = Astro.props;
+const { edition, index = 0 } = Astro.props;
+const work = edition.work;
+const authors = work.authors.map((a) => a.name).join(', ');
+const href = `/libri/${work.slug}`;
 ---
 
-<article class="card">
-  {edition.edition_type !== 'standard' && (
-    <span class={`badge ${edition.edition_type}`}>Edizione {EDITION_TYPE_LABELS[edition.edition_type].toLowerCase()}</span>
-  )}
-  <h3><a href={`/libri/${edition.work.slug}`}>{edition.work.title}</a></h3>
-  <p class="muted">{edition.work.authors.map((a) => a.name).join(', ')}</p>
-  <p>
-    {FORMAT_LABELS[edition.format]}{edition.publisher && ` · ${edition.publisher.name}`}<br />
-    <strong>{formatDate(edition.release_date)}</strong>
-  </p>
-  {edition.details && <p class="muted">{edition.details}</p>}
+<article class="card edition" data-reveal style={`--i:${index % 8}`}>
+  <a class="cover-link" href={href} tabindex="-1" aria-hidden="true">
+    <CoverArt
+      art={{
+        id: edition.id,
+        title: work.title,
+        caption: authors,
+        // la copertina di questa edizione (la special può averne una sua), altrimenti quella dell'opera
+        image: edition.cover_url ?? work.editions.find((e) => e.cover_url)?.cover_url,
+        color: themeForWork(work).cover,
+        variant: 'book',
+      }}
+      class="cover"
+    />
+  </a>
+  <div class="info">
+    {edition.edition_type !== 'standard' && (
+      <span class={`badge ${edition.edition_type}`}>Edizione {EDITION_TYPE_LABELS[edition.edition_type].toLowerCase()}</span>
+    )}
+    <h3><a href={href}>{work.title}</a></h3>
+    <p class="muted">{authors}</p>
+    <p>
+      {FORMAT_LABELS[edition.format]}{edition.publisher && ` · ${edition.publisher.name}`}<br />
+      <strong>{formatDate(edition.release_date)}</strong>
+    </p>
+    {edition.details && <p class="muted small">{edition.details}</p>}
+  </div>
 </article>
 
 <style>
-  h3 { margin: 4px 0; font-size: 1.15rem; }
+  .edition { display: flex; gap: 12px; align-items: flex-start; }
+  .cover-link { display: block; flex: none; width: 62px; }
+  .cover-link :global(.cover) {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 3px;
+    box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.45);
+    rotate: -2deg;
+    transition: translate 0.35s var(--ease-spring), rotate 0.35s var(--ease-spring), box-shadow 0.35s;
+  }
+  .edition:hover .cover-link :global(.cover) {
+    translate: 0 -6px;
+    rotate: 2deg;
+    box-shadow: 0 12px 18px -8px rgba(0, 0, 0, 0.5);
+  }
+  .info { min-width: 0; }
+  h3 { margin: 2px 0 4px; font-size: 1.05rem; line-height: 1.2; }
   h3 a { color: var(--text); text-decoration: none; }
-  p { margin: 4px 0; }
+  p { margin: 3px 0; font-size: 0.92rem; line-height: 1.4; }
+  .small { font-size: 0.82rem; }
+
+  /* ingresso: i blocchi salgono uno dopo l'altro quando arrivano nello schermo */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .edition[data-reveal] { opacity: 0; }
+    :global(.js) .edition[data-reveal].is-in { animation: rise 0.55s var(--ease-out) forwards; animation-delay: calc(var(--i) * 70ms); }
+    :global(.js) .edition[data-reveal].is-in .cover-link { animation: pop 0.5s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 70ms + 180ms); }
+  }
 </style>

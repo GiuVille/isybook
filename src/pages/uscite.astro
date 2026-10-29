@@ -15,20 +15,27 @@ const byMonth = Map.groupBy(editions, (e) =>
 ---
 
 <Base title="Calendario uscite" description="Le prossime uscite cartacee e Kindle di romantasy, romance e fantasy YA.">
-  <h1>In arrivo</h1>
-  <ReleaseCarousel releases={releases} />
-
-  <h2 class="all">Tutte le uscite</h2>
+  <h1>Calendario uscite</h1>
+  <p class="muted intro">Tutte le prossime uscite, mese per mese: cartacee, Kindle, audiolibri, edizioni speciali e limitate.</p>
   {editions.length === 0 && <p class="muted">Nessuna uscita in calendario.</p>}
   {[...byMonth].map(([month, list]) => (
     <section>
-      <h3 class="month">{month}</h3>
-      <div class="grid">{list.map((e) => <EditionCard edition={e} />)}</div>
+      <h2 class="month">{month}</h2>
+      <div class="grid">{list.map((e, i) => <EditionCard edition={e} index={i} />)}</div>
     </section>
   ))}
+
+  {/* in fondo il calendario animato: in home sta in cima, qui chiude la pagina */}
+  {releases.length > 0 && (
+    <section class="coming">
+      <h2>In arrivo</h2>
+      <ReleaseCarousel releases={releases} />
+    </section>
+  )}
 </Base>
 
 <style>
-  .all { margin-top: 48px; }
-  .month { text-transform: capitalize; margin-top: 24px; }
+  .intro { margin-top: -8px; }
+  .month { text-transform: capitalize; margin-top: 28px; font-size: 1.3rem; }
+  .coming { margin-top: 64px; }
 </style>

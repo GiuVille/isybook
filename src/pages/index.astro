@@ -43,10 +43,10 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
     <h2>Edizioni speciali e limitate</h2>
     <a href="/libri?edizioni=special,limited">Tutte le edizioni speciali →</a>
   </div>
-  <div class="grid">{special.map((e) => <EditionCard edition={e} />)}</div>
+  <div class="grid">{special.map((e, i) => <EditionCard edition={e} index={i} />)}</div>
 
   <h2>Prossime uscite</h2>
-  {upcoming.length ? <div class="grid">{upcoming.map((e) => <EditionCard edition={e} />)}</div> : <p class="muted">Nessuna uscita in calendario.</p>}
+  {upcoming.length ? <div class="grid">{upcoming.map((e, i) => <EditionCard edition={e} index={i} />)}</div> : <p class="muted">Nessuna uscita in calendario.</p>}
 
   {events.length > 0 && (
     <>

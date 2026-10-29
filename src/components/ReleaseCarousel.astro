@@ -264,6 +264,23 @@ const slides = releases.map((r, i) => {
       current = fromHash;
       dots.forEach((d, i) => (i === fromHash ? d.setAttribute('aria-current', 'true') : d.removeAttribute('aria-current')));
     }
+
+    // carosello in fondo alla pagina (Uscite): la prima slide si anima, e l'autoplay parte, quando arriva nello schermo
+    const rect = root.getBoundingClientRect();
+    if (rect.top > window.innerHeight && 'IntersectionObserver' in window && !reducedMotion()) {
+      slides[current].classList.remove('is-active');
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((e) => e.isIntersecting)) return;
+          observer.disconnect();
+          slides[current].classList.add('is-active');
+          restart();
+        },
+        { threshold: 0.3 },
+      );
+      observer.observe(root);
+      return;
+    }
     restart();
   }
 </script>
