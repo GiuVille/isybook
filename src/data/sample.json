@@ -673,6 +673,33 @@
       "work_slugs": []
     }
   ],
+  "news": [
+    {
+      "id": "n1", "slug": "benvenuti-sulla-bacheca", "title": "Benvenuti sulla bacheca!", "color": "yellow", "pinned": true,
+      "body": "Qui attacchiamo le notizie al volo: annunci, novità dal mondo dei libri, cose che ci sono piaciute e che vogliamo dirvi subito.\n\nTornate a controllare spesso: i post-it cambiano.",
+      "image_url": null, "image_alt": null, "published_at": "2026-10-28"
+    },
+    {
+      "id": "n2", "slug": "copertina-rivelata-corona-di-cenere", "title": "Svelata la copertina della special!", "color": "pink", "pinned": false,
+      "body": "La special edition de «La corona di cenere» avrà bordi decorati e una copertina alternativa. Esce il 1° dicembre: segnatevelo.",
+      "image_url": "/samples/news-copertina.svg", "image_alt": "Bozza della copertina della special edition, viola con bordi dorati", "published_at": "2026-10-27"
+    },
+    {
+      "id": "n3", "slug": "firmacopie-milano-confermato", "title": "Firmacopie a Milano confermato", "color": "blue", "pinned": false,
+      "body": "Autrice Esempio sarà a Milano il 21 novembre. Arrivate presto: i posti in fila di solito finiscono in fretta.",
+      "image_url": null, "image_alt": null, "published_at": "2026-10-25"
+    },
+    {
+      "id": "n4", "slug": "il-nostro-scaffale-di-ottobre", "title": "Il nostro scaffale di ottobre", "color": "green", "pinned": false,
+      "body": "Le letture che ci hanno tenuto sveglie questo mese, tra romantasy e qualche fumetto. Quali sono le vostre?",
+      "image_url": "/samples/news-scaffale.svg", "image_alt": "Uno scaffale con libri colorati e una tazza fumante", "published_at": "2026-10-20"
+    },
+    {
+      "id": "n5", "slug": "telegram-in-arrivo", "title": "Il canale Telegram arriva presto", "color": "orange", "pinned": false,
+      "body": "Stiamo preparando il canale con le uscite e le special edition della settimana. Vi avvisiamo qui appena è pronto.",
+      "image_url": null, "image_alt": null, "published_at": "2026-10-15"
+    }
+  ],
   "promotions": [
     {
       "id": "pr1",

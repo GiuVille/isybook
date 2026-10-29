@@ -134,6 +134,21 @@ export type PromotionKind = 'gift_with_purchase' | 'bundle' | 'discount' | 'cont
 export type PromotionChannel = 'online' | 'bookstores' | 'chain' | 'everywhere';
 
 /** Promozione di un editore o di una libreria: omaggio, 3x2, sconto, concorso, bonus preordine. */
+export type NewsColor = 'yellow' | 'pink' | 'blue' | 'green' | 'orange';
+
+/** Notizia della bacheca: un post-it scritto dalla redazione. */
+export interface NewsItem {
+  id: string;
+  slug: string;
+  title: string;
+  body: string | null;
+  image_url: string | null;
+  image_alt: string | null;
+  color: NewsColor;
+  pinned: boolean;
+  published_at: string | null;
+}
+
 export interface Promotion {
   id: string;
   slug: string;

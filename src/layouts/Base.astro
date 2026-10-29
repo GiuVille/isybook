@@ -15,13 +15,14 @@ interface Props {
 
 const { title, description = 'Uscite, edizioni speciali ed eventi attorno ai libri che ami.', hideSearch = false } = Astro.props;
 const fullTitle = title.startsWith('IsyBooks') ? title : `${title} · IsyBooks`;
-// color: cartellina f1…f6; tab: posizione della linguetta su desktop (px);
+// color: cartellina f1…f6 (Notizie riusa il rosa di Serie e film); tab: posizione della linguetta su desktop (px);
 // mobile: linguetta ancorata a sinistra o a destra (%), così sui telefoni stretti non esce mai dalla cartellina
 type MobileTab = { left: number } | { right: number };
 const nav: Array<{ href: string; label: string; color: number; tab: number; mobile: MobileTab }> = [
   { href: '/uscite', label: 'Uscite', color: 5, tab: 12, mobile: { left: 4 } },
   { href: '/promozioni', label: 'Promozioni', color: 4, tab: 16, mobile: { right: 6 } },
   { href: '/eventi', label: 'Eventi', color: 1, tab: 20, mobile: { left: 28 } },
+  { href: '/notizie', label: 'Notizie', color: 2, tab: 16, mobile: { right: 30 } },
   { href: '/libri', label: 'Libri', color: 3, tab: 18, mobile: { right: 22 } },
   { href: '/serie-e-film', label: 'Serie e film', color: 2, tab: 14, mobile: { left: 12 } },
   { href: '/la-mia-libreria', label: 'La mia libreria', color: 6, tab: 12, mobile: { right: 10 } },
@@ -299,6 +300,7 @@ const path = Astro.url.pathname;
   .folders .folder:nth-child(4) { z-index: 3; }
   .folders .folder:nth-child(5) { z-index: 2; }
   .folders .folder:nth-child(6) { z-index: 1; }
+  .folders .folder:nth-child(7) { z-index: 0; }
   .folders .folder.is-active { z-index: 8; }
   .saved-count {
     display: inline-block;

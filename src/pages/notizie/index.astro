@@ -1,0 +1,69 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostIt from '../../components/PostIt.astro';
+import { getNews } from '../../lib/data';
+import '../../styles/bacheca.css';
+
+const news = await getNews();
+---
+
+<Base title="Notizie" description="La bacheca di IsyBooks: annunci e novità dal mondo dei libri, attaccati al volo.">
+  <h1>Notizie</h1>
+  <p class="muted intro">Annunci e novità dal mondo dei libri, attaccati al volo sulla nostra bacheca. Tocca un post-it per leggerlo tutto.</p>
+
+  <div class="wall">
+    <div class="hanger" aria-hidden="true"><span class="wire l"></span><span class="wire r"></span><span class="nail"></span></div>
+    <div class="board">
+      {news.length ? (
+        <div class="notes">{news.map((n, i) => <PostIt news={n} index={i} />)}</div>
+      ) : (
+        <div class="board-empty">
+          <PostIt news={{ id: '0', slug: 'vuota', title: 'Nessuna notizia per ora', body: 'Torna presto: la bacheca si riempie in fretta.', image_url: null, image_alt: null, color: 'yellow', pinned: false, published_at: null }} />
+        </div>
+      )}
+    </div>
+  </div>
+
+  <dialog class="note-dialog" aria-label="Notizia">
+    <button type="button" class="button-soft close">Chiudi</button>
+    <div class="note-slot"></div>
+  </dialog>
+</Base>
+
+<script>
+  // Un clic su un post-it lo apre ingrandito in una finestra; senza JavaScript si va alla pagina della notizia.
+  const dialog = document.querySelector<HTMLDialogElement>('.note-dialog')!;
+  const slot = dialog.querySelector<HTMLElement>('.note-slot')!;
+
+  document.querySelectorAll<HTMLAnchorElement>('.notes [data-open]').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || typeof dialog.showModal !== 'function') return;
+      e.preventDefault();
+      const note = link.closest<HTMLElement>('.postit')!.cloneNode(true) as HTMLElement;
+      note.classList.add('big');
+      note.removeAttribute('data-reveal');
+      note.querySelector('.pinned-note')?.remove();
+      const title = note.querySelector('.title')!;
+      title.textContent = link.textContent;
+      note.querySelector('img')?.setAttribute('sizes', '(max-width: 700px) 80vw, 420px');
+      slot.replaceChildren(note);
+      dialog.showModal();
+      history.replaceState(null, '', `#${link.pathname.split('/').filter(Boolean).pop()}`);
+    });
+  });
+
+  dialog.querySelector('.close')!.addEventListener('click', () => dialog.close());
+  // clic fuori dal post-it: chiude
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+  dialog.addEventListener('close', () => history.replaceState(null, '', location.pathname));
+
+  // link condiviso con #slug: apre subito quel post-it
+  const fromHash = !location.hash ? null : document.querySelector<HTMLAnchorElement>(`.notes [data-open][href$="/${CSS.escape(location.hash.slice(1))}"]`);
+  fromHash?.click();
+</script>
+
+<style>
+  .intro { margin-top: -8px; }
+</style>

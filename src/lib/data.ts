@@ -3,7 +3,7 @@
 // Restituisce solo contenuti con status = 'published' (lato DB lo garantisce anche la RLS).
 import sample from '../data/sample.json';
 import { getSupabase, supabaseConfigured } from './supabase';
-import type { Adaptation, Author, BookEvent, Edition, Merch, Promotion, Publisher, Tag, Work } from './types';
+import type { Adaptation, Author, BookEvent, Edition, Merch, NewsItem, Promotion, Publisher, Tag, Work } from './types';
 
 const MERCH_FIELDS = 'id, name, kind, shop, price, url, affiliate, edition_id, status';
 
@@ -201,6 +201,19 @@ export async function getEvents(): Promise<BookEvent[]> {
       .filter((w: Row | null) => w?.status === 'published')
       .map((w: Row) => ({ slug: w.slug, title: w.title })),
   })) as BookEvent[];
+}
+
+/** Notizie pubblicate della bacheca: prima quelle fissate, poi dalla più recente. */
+export async function getNews(): Promise<NewsItem[]> {
+  const order = (a: NewsItem, b: NewsItem) =>
+    Number(b.pinned) - Number(a.pinned) || (b.published_at ?? '').localeCompare(a.published_at ?? '');
+  if (!supabaseConfigured) return (sample.news as NewsItem[]).slice().sort(order);
+  const { data, error } = await getSupabase()
+    .from('news')
+    .select('id, slug, title, body, image_url, image_alt, color, pinned, published_at')
+    .eq('status', 'published');
+  if (error) throw error;
+  return ((data ?? []) as NewsItem[]).sort(order);
 }
 
 /** Promozioni pubblicate, dalla fine più vicina; quelle senza scadenza in fondo. */

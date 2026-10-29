@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <rect width="600" height="800" fill="#5b2a4a"/>
+  <rect x="30" y="30" width="540" height="740" fill="none" stroke="#d8b26a" stroke-width="6"/>
+  <rect x="48" y="48" width="504" height="704" fill="none" stroke="#d8b26a" stroke-width="2" stroke-dasharray="4 8"/>
+  <circle cx="300" cy="330" r="120" fill="#7a3a63"/>
+  <path d="M220 360l25-80 30 45 25-70 25 70 30-45 25 80z" fill="#d8b26a"/>
+  <text x="300" y="560" font-family="Georgia, serif" font-size="52" fill="#f3e3c3" text-anchor="middle">La corona</text>
+  <text x="300" y="620" font-family="Georgia, serif" font-size="52" fill="#f3e3c3" text-anchor="middle">di cenere</text>
+  <text x="300" y="700" font-family="Georgia, serif" font-size="24" fill="#d8b26a" text-anchor="middle" letter-spacing="6">SPECIAL EDITION</text>
+</svg>

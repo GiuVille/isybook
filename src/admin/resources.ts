@@ -11,7 +11,8 @@ export type FieldType =
   | 'checkbox'
   | 'select'
   | 'relation'
-  | 'json';
+  | 'json'
+  | 'image';
 
 export interface Field {
   name: string;
@@ -24,6 +25,7 @@ export interface Field {
   slugFrom?: string; // slug: campo da cui generarlo
   optionSelect?: string; // relation: select personalizzata per le opzioni
   optionLabel?: (row: Record<string, any>) => string; // relation: etichetta costruita dalla riga
+  bucket?: string; // image: bucket dello Storage in cui caricare la foto
   help?: string;
 }
 
@@ -122,6 +124,29 @@ export const RESOURCES: Resource[] = [
     manyToMany: [
       { label: 'Autori', joinTable: 'event_authors', ownKey: 'event_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name' },
       { label: 'Libri', joinTable: 'event_works', ownKey: 'event_id', otherKey: 'work_id', table: 'works', labelColumn: 'title' },
+    ],
+  },
+  {
+    key: 'news',
+    table: 'news',
+    label: 'Notizie',
+    singular: 'notizia',
+    group: 'Contenuti',
+    listColumns: ['title', 'color', 'pinned', 'published_at', 'status'],
+    orderBy: { column: 'published_at', ascending: false },
+    fields: [
+      { name: 'title', label: 'Titolo', type: 'text', required: true, help: 'Breve: è scritto grande sul post-it.' },
+      { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'title', required: true },
+      { name: 'body', label: 'Testo', type: 'textarea', help: 'Poche righe. Paragrafi separati da una riga vuota; sulla bacheca si legge l\'inizio, il resto aprendo il post-it.' },
+      {
+        name: 'color', label: 'Colore del post-it', type: 'select', required: true,
+        options: [['yellow', 'Giallo'], ['pink', 'Rosa'], ['blue', 'Azzurro'], ['green', 'Verde'], ['orange', 'Arancione']],
+      },
+      { name: 'pinned', label: 'Fissata in cima', type: 'checkbox' },
+      { name: 'image_url', label: 'Foto', type: 'image', bucket: 'news', help: 'Facoltativa. Viene ridotta e convertita prima del caricamento; usa solo foto tue o che puoi pubblicare.' },
+      { name: 'image_alt', label: 'Testo alternativo della foto', type: 'text', help: 'Cosa mostra la foto, per chi usa un lettore di schermo.' },
+      { name: 'published_at', label: 'Data', type: 'date' },
+      status,
     ],
   },
   {

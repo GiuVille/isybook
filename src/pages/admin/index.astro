@@ -63,6 +63,9 @@ import '../../styles/global.css';
   .field input, .field select { width: 100%; }
   .field.wide, .actions.wide { grid-column: 1 / -1; }
   .field label, legend { font-weight: 600; font-size: 0.9rem; }
+  .image-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .image-field .image-preview { width: 120px; height: 90px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+  .image-field.is-uploading { opacity: 0.6; pointer-events: none; }
   fieldset.m2m { border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; }
   .check { font-weight: 400 !important; display: flex; gap: 6px; align-items: center; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

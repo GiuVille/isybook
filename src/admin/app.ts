@@ -289,6 +289,14 @@ function fieldInput(field: Field, value: unknown, options: Record<string, Array<
       return `<input type="date" ${name} ${required} value="${esc(value ? String(value).slice(0, 10) : '')}">`;
     case 'checkbox':
       return `<input type="checkbox" ${name} ${value ? 'checked' : ''}>`;
+    case 'image':
+      // il valore è l'URL pubblico nello Storage; il file scelto viene caricato subito (vedi bindImageFields)
+      return `<div class="image-field" data-bucket="${esc(field.bucket ?? '')}">
+          <input type="hidden" ${name} value="${esc(value)}">
+          <img class="image-preview" alt="" ${value ? `src="${esc(value)}"` : 'hidden'}>
+          <input type="file" accept="image/*" aria-label="${esc(field.label)}">
+          <button type="button" class="link danger image-remove" ${value ? '' : 'hidden'}>Rimuovi foto</button>
+        </div>`;
     case 'select':
     case 'relation': {
       const opts = field.type === 'select' ? field.options! : options[field.name] ?? [];
@@ -438,8 +446,11 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     });
   }
 
+  bindImageFields(form);
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (form.querySelector('.image-field.is-uploading')) return flash('Attendi la fine del caricamento della foto', 'error');
     let values: Row;
     try {
       values = Object.fromEntries(resource.fields.map((f) => [f.name, readField(f, form)]));
@@ -480,6 +491,57 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     flash('Eliminato');
     go(`#/r/${resource.key}`);
   });
+}
+
+// Foto: ridotta a 1600px e convertita in WebP nel browser (meno spazio nello Storage, niente dati EXIF
+// come la posizione), poi caricata nel bucket; nel campo resta l'URL pubblico.
+const MAX_IMAGE_SIDE = 1600;
+
+async function toWebp(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Conversione della foto non riuscita'))), 'image/webp', 0.85),
+  );
+}
+
+function bindImageFields(form: HTMLFormElement) {
+  for (const box of form.querySelectorAll<HTMLElement>('.image-field')) {
+    const value = box.querySelector<HTMLInputElement>('input[type="hidden"]')!;
+    const file = box.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const preview = box.querySelector<HTMLImageElement>('.image-preview')!;
+    const remove = box.querySelector<HTMLButtonElement>('.image-remove')!;
+    const show = (url: string) => {
+      value.value = url;
+      preview.hidden = !url;
+      remove.hidden = !url;
+      if (url) preview.src = url;
+      else preview.removeAttribute('src');
+    };
+    remove.addEventListener('click', () => show(''));
+    file.addEventListener('change', async () => {
+      const chosen = file.files?.[0];
+      if (!chosen) return;
+      box.classList.add('is-uploading');
+      try {
+        const blob = await toWebp(chosen);
+        const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.webp`;
+        const storage = getSupabase().storage.from(box.dataset.bucket!);
+        const { error } = await storage.upload(path, blob, { contentType: 'image/webp' });
+        if (error) fail(error);
+        show(storage.getPublicUrl(path).data.publicUrl);
+        flash('Foto caricata');
+      } finally {
+        box.classList.remove('is-uploading');
+        file.value = '';
+      }
+    });
+  }
 }
 
 function defaults(resource: Resource): Row {

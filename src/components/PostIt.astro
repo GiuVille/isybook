@@ -1,0 +1,54 @@
+---
+// Post-it della bacheca: titolo scritto a mano, data, testo e, se c'è, una polaroid fermata con una graffetta.
+// Rotazione e puntina stabili per notizia. Sulla bacheca il testo si legge troncato; `big` lo mostra intero
+// (pagina della notizia). Un clic sulla bacheca lo apre ingrandito (vedi src/pages/notizie/index.astro).
+import { formatDate } from '../lib/format';
+import { promoImage } from '../lib/promo-image';
+import type { NewsItem } from '../lib/types';
+
+interface Props {
+  news: NewsItem;
+  /** Posizione sulla bacheca, per sfalsare l'ingresso. */
+  index?: number;
+  big?: boolean;
+}
+
+const { news, index = 0, big = false } = Astro.props;
+let h = 11;
+for (const ch of news.slug) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+const tilt = big ? ((h % 3) - 1) * 0.8 : ((h % 9) - 4) * 0.9; // gradi
+const PINS = ['#c62828', '#1e5aa8', '#2e7d32', '#6a1b9a', '#ef6c00'];
+const pin = PINS[h % PINS.length];
+const photo = await promoImage(news.image_url);
+const Heading = big ? 'h1' : 'h2';
+const paragraphs = (news.body ?? '').split(/\n\s*\n/).filter(Boolean);
+---
+
+<article
+  class:list={['postit', `c-${news.color}`, { big, 'has-photo': photo }]}
+  style={`--tilt:${tilt}deg;--pin:${pin};--i:${index % 10}`}
+  data-reveal
+>
+  <span class="pin" aria-hidden="true"></span>
+  {photo && (
+    <figure class="polaroid">
+      <span class="clip" aria-hidden="true"></span>
+      <img
+        src={photo.src}
+        srcset={photo.srcset}
+        sizes={big ? '(max-width: 700px) 80vw, 420px' : '160px'}
+        width={photo.width}
+        height={photo.height}
+        alt={news.image_alt ?? ''}
+        loading={big ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    </figure>
+  )}
+  <Heading class="title">
+    {big ? news.title : <a href={`/notizie/${news.slug}`} data-open>{news.title}</a>}
+  </Heading>
+  {news.published_at && <p class="date">{formatDate(news.published_at)}</p>}
+  <div class="text">{paragraphs.map((p) => <p>{p}</p>)}</div>
+  {news.pinned && !big && <span class="pinned-note">in evidenza</span>}
+</article>

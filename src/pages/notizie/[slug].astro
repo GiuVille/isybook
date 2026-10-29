@@ -1,0 +1,29 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostIt from '../../components/PostIt.astro';
+import { getNews } from '../../lib/data';
+import type { NewsItem } from '../../lib/types';
+import '../../styles/bacheca.css';
+
+export async function getStaticPaths() {
+  const news = await getNews();
+  return news.map((item) => ({ params: { slug: item.slug }, props: { item } }));
+}
+
+const { item } = Astro.props as { item: NewsItem };
+const description = (item.body ?? item.title).replace(/\s+/g, ' ').slice(0, 160);
+---
+
+<Base title={item.title} description={description}>
+  <p class="crumbs"><a href="/notizie">← Tutta la bacheca</a></p>
+  <div class="wall">
+    <div class="hanger" aria-hidden="true"><span class="wire l"></span><span class="wire r"></span><span class="nail"></span></div>
+    <div class="board single">
+      <PostIt news={item} big />
+    </div>
+  </div>
+</Base>
+
+<style>
+  .board.single { padding-top: 40px; padding-bottom: 44px; }
+</style>
