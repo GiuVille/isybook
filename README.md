@@ -34,8 +34,9 @@ src/
 scripts/
   import-isbn.ts    import dei libri per ISBN
   check-promotions.ts  lettura notturna delle promozioni
+  check-releases.ts    lettura notturna delle prossime uscite
   sources.json      fonti di prova, usate quando Supabase non è configurato
-  lib/              chiamate alle API esterne
+  lib/              chiamate alle API esterne, lettura delle fonti, scheda del libro per la coda
 supabase/
   migrations/       schema del database
   seed.sql          gli stessi dati finti, versione SQL
@@ -79,25 +80,30 @@ L'import non pubblica niente: mette il libro in una coda e lo approvo io prima c
 
 Una nota pratica: senza `GOOGLE_BOOKS_API_KEY` Google Books risponde spesso con un 429. In quel caso i dati arrivano solo da Open Library, che va bene ma a volte non ha la data d'uscita.
 
-## Promozioni automatiche
+## Lettura notturna delle fonti
 
-Plaid in omaggio con tre libri, 3x2 sui gialli, segnalibri per chi preordina: le promozioni degli editori cambiano di settimana in settimana e ognuno le annuncia a modo suo. Per non doverle cercare a mano ho scritto un job che ogni notte legge le fonti e prepara le schede.
+Le novità che mi interessano arrivano da decine di pagine diverse: le "prossime uscite" degli editori, le pagine delle promozioni (plaid in omaggio con tre libri, 3x2 sui gialli, segnalibri per chi preordina), i feed RSS. Per non doverle controllare a mano ho scritto due job che ogni notte le leggono e preparano le schede.
 
 ```sh
-npm run promotions
-npm run promotions -- --dry-run
+npm run releases       # prossime uscite
+npm run promotions     # promozioni
+npm run releases -- --dry-run
 ```
 
-Per ogni fonte (la tabella `sources` con `purpose = 'promotions'`, oppure `scripts/sources.json` senza Supabase):
+Le fonti stanno nella tabella `sources`, ognuna con il suo scopo (`releases` o `promotions`); senza Supabase uso `scripts/sources.json`. Per ogni fonte:
 
-1. controlla `robots.txt` e salta le pagine escluse; fa una sola richiesta, con un User-Agent che dice chi siamo;
-2. estrae il testo principale della pagina o del feed RSS e ne calcola l'impronta: se non è cambiato dall'ultima volta si ferma lì;
-3. se è cambiato, passa all'estrazione automatica dei dati (titolo, editore, tipo, premio, condizioni, date, libri citati) e scarta le promozioni che conosco già;
-4. mette le nuove nella coda di approvazione. Senza Supabase le salva in `scripts/out/promotions-AAAA-MM-GG.json`.
+1. controllo `robots.txt` e salto le pagine escluse; faccio una sola richiesta, con un User-Agent che dice chi siamo;
+2. estraggo il testo principale della pagina o del feed e ne calcolo l'impronta: se non è cambiato dall'ultima volta mi fermo lì;
+3. se è cambiato, passo all'estrazione automatica dei dati;
+4. scarto quello che conosco già e metto il resto nella coda di approvazione. Senza Supabase salvo tutto in `scripts/out/`.
 
-Niente va online senza che qualcuno l'abbia guardato. Con `--dry-run` legge le fonti e aggiorna le impronte, ma non estrae e non scrive in coda: comodo per provare una fonte nuova.
+Per le **uscite** estraggo titolo, autori, editore, data, formato, tipo di edizione (standard, speciale o limitata), tiratura e cosa ha di speciale. Un'uscita è un doppione se ha lo stesso ISBN di un'edizione che ho già, oppure lo stesso titolo con lo stesso formato e lo stesso tipo di edizione. Se invece il libro c'è già ma l'edizione è nuova (la limitata con i bordi decorati, per dire), entra come nuova edizione di quell'opera. Quando c'è l'ISBN completo i dati con Google Books e Open Library; trama e tropi li preparo solo per le opere nuove. Per restare nei piani gratuiti preparo al massimo 20 uscite a notte: se una fonte ne ha di più, la rileggo la notte dopo.
 
-Il job gira su GitHub Actions alle 5 del mattino (`.github/workflows/promotions.yml`) e si può lanciare anche a mano. Prende la configurazione dai secret del repository, con gli stessi nomi del `.env.example`; finché mancano si chiude senza errori.
+Per le **promozioni** estraggo titolo, editore, tipo, premio, condizioni, date, libri citati e, se la pagina parla di una promozione sola, la sua grafica ufficiale.
+
+Niente va online senza che qualcuno l'abbia guardato. Con `--dry-run` leggo le fonti e aggiorno le impronte, ma non estraggo e non scrivo in coda: comodo per provare una fonte nuova.
+
+I due job girano uno dopo l'altro su GitHub Actions alle 5 del mattino (`.github/workflows/nightly.yml`) e si possono lanciare anche a mano. Prendono la configurazione dai secret del repository, con gli stessi nomi del `.env.example`; finché mancano si chiudono senza errori.
 
 ## Cosa manca
 
@@ -114,8 +120,8 @@ Il job gira su GitHub Actions alle 5 del mattino (`.github/workflows/promotions.
 - [x] pagine autore con saghe, tropes ricorrenti, adattamenti ed eventi
 - [x] videoteca: serie e film "da vedere" e cartelle dedicate, accanto ai libri salvati
 - [x] promozioni degli editori, con lettura notturna delle fonti e approvazione prima della pubblicazione
+- [x] job notturno che legge le pagine "prossime uscite" degli editori, special e limitate comprese
 - [ ] rebuild automatico del sito dopo le modifiche ai contenuti
-- [ ] job notturno che legge le pagine "prossime uscite" degli editori
 - [ ] generatore di bozze per i post social
 - [ ] deploy su Cloudflare Pages
 - [ ] Edicola: collezioni da edicola a fumetti e fantasy, con piano dell'opera, prezzi e costo totale della collana

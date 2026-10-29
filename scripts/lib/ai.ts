@@ -2,6 +2,8 @@
 // Il fornitore si cambia solo da configurazione: AI_BASE_URL, AI_API_KEY, AI_MODEL.
 // Regola: mai inviare dati degli utenti, i piani gratuiti possono usarli per l'addestramento.
 
+import { isValidIsbn, normalizeIsbn } from './books.ts';
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -171,4 +173,88 @@ export async function extractPromotions(
     }))
     // scadute: non servono
     .filter((p) => !p.ends_on || p.ends_on >= context.today);
+}
+
+export interface ExtractedRelease {
+  title: string;
+  authors: string[];
+  publisher: string | null;
+  release_date: string | null;
+  format: 'paperback' | 'hardcover' | 'kindle' | 'audio';
+  edition_type: 'standard' | 'special' | 'limited';
+  isbn: string | null;
+  series: string | null;
+  series_number: number | null;
+  details: string | null;
+  print_run: number | null;
+  price: number | null;
+  url: string | null;
+}
+
+const FORMATS = ['paperback', 'hardcover', 'kindle', 'audio'] as const;
+const EDITION_TYPES = ['standard', 'special', 'limited'] as const;
+
+/** Uscite di libri trovate in una pagina o un feed "prossime uscite". Solo quelle esplicite. */
+export async function extractReleases(
+  text: string,
+  context: { sourceUrl?: string | null; publisher?: string | null; today: string },
+): Promise<ExtractedRelease[]> {
+  const answer = await chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Estrai le uscite di libri da un testo in italiano (pagina o feed delle prossime uscite di un editore o di una libreria). ' +
+          'Includi solo libri con titolo scritto esplicitamente, mai supposizioni. title è solo il titolo dell\'opera, senza ' +
+          '"edizione speciale", "limited edition" o il formato. Date in formato AAAA-MM-GG; se manca il giorno o ' +
+          `la data non è certa usa null; se manca l'anno deducilo da oggi (${context.today}). ` +
+          'format: paperback (brossura), hardcover (copertina rigida), kindle (ebook), audio (audiolibro); se non è detto, paperback. ' +
+          'edition_type: limited se è a tiratura limitata o numerata, special se è un\'edizione speciale/da collezione (bordi decorati, ' +
+          'copertina alternativa, sovraccoperta esclusiva), altrimenti standard. details: in breve cosa ha di speciale. ' +
+          'print_run: numero di copie se indicato. price: prezzo in euro come numero. isbn solo se scritto nel testo. ' +
+          'Rispondi in JSON: {"releases": [{"title","authors","publisher","release_date","format","edition_type","isbn",' +
+          '"series","series_number","details","print_run","price","url"}]}. Se non ce ne sono: {"releases": []}.',
+      },
+      {
+        role: 'user',
+        content:
+          (context.publisher ? `Editore o negozio: ${context.publisher}\n` : '') +
+          (context.sourceUrl ? `Pagina: ${context.sourceUrl}\n` : '') +
+          `Testo:\n${text.slice(0, 12000)}`,
+      },
+    ],
+    { temperature: 0, json: true },
+  );
+  let parsed: { releases?: unknown };
+  try {
+    parsed = JSON.parse(answer);
+  } catch {
+    return [];
+  }
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  const date = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  // uscite già passate da più di una settimana: non sono più notizie
+  const oldest = new Date(Date.parse(`${context.today}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10);
+  return (Array.isArray(parsed.releases) ? parsed.releases : [])
+    .filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === 'object' && Boolean(str((r as any).title)))
+    .map((r) => {
+      const isbn = str(r.isbn);
+      return {
+        title: str(r.title)!,
+        authors: Array.isArray(r.authors) ? r.authors.map(str).filter((a): a is string => Boolean(a)) : [],
+        publisher: str(r.publisher) ?? context.publisher ?? null,
+        release_date: date(r.release_date),
+        format: FORMATS.includes(r.format as any) ? (r.format as ExtractedRelease['format']) : 'paperback',
+        edition_type: EDITION_TYPES.includes(r.edition_type as any) ? (r.edition_type as ExtractedRelease['edition_type']) : 'standard',
+        isbn: isbn && isValidIsbn(isbn) ? normalizeIsbn(isbn) : null,
+        series: str(r.series),
+        series_number: num(r.series_number),
+        details: str(r.details),
+        print_run: num(r.print_run),
+        price: num(r.price),
+        url: str(r.url) ?? context.sourceUrl ?? null,
+      };
+    })
+    .filter((r) => !r.release_date || r.release_date >= oldest);
 }

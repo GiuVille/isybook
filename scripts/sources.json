@@ -2,6 +2,7 @@
   {
     "name": "Pagina di prova",
     "url": "https://example.com/",
-    "kind": "page"
+    "kind": "page",
+    "purpose": "promotions"
   }
 ]

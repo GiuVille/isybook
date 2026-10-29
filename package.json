@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "import": "tsx --env-file-if-exists=.env scripts/import-isbn.ts",
-    "promotions": "tsx --env-file-if-exists=.env scripts/check-promotions.ts"
+    "promotions": "tsx --env-file-if-exists=.env scripts/check-promotions.ts",
+    "releases": "tsx --env-file-if-exists=.env scripts/check-releases.ts"
   },
   "dependencies": {
     "@fontsource-variable/literata": "^5.3.0",

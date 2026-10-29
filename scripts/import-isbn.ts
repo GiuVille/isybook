@@ -7,10 +7,10 @@
 // altrimenti scrive il JSON in scripts/out/. Nulla viene pubblicato direttamente.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { createClient } from '@supabase/supabase-js';
 import { rewritePlot, suggestTropes } from './lib/ai.ts';
+import { bookPayload, knownTropes } from './lib/book-payload.ts';
 import { fetchBook, type BookData } from './lib/books.ts';
-import { slugify } from '../src/admin/resources.ts';
+import { sb } from './lib/sources.ts';
 
 const { values: flags, positionals: isbns } = parseArgs({
   allowPositionals: true,
@@ -26,48 +26,26 @@ if (isbns.length === 0) {
   process.exit(1);
 }
 
-const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const sb = supabaseUrl && serviceKey ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } }) : null;
-
-async function knownTropes(): Promise<Array<{ slug: string; name: string }>> {
-  if (!sb) return [];
-  const { data, error } = await sb.from('tropes').select('slug, name');
-  if (error) throw error;
-  return data ?? [];
-}
-
 function buildPayload(book: BookData, plot: string | null, tropes: string[]) {
-  return {
-    work: {
-      title: book.title,
-      slug: slugify(book.title),
-      plot,
-      series: null,
-      series_number: null,
-      origin: 'publisher',
-    },
-    authors: book.authors.map((name) => ({ name, slug: slugify(name) })),
-    publisher: book.publisher ? { name: book.publisher, slug: slugify(book.publisher) } : null,
-    edition: {
-      isbn: book.isbn,
-      format: flags.format,
-      edition_type: flags.type,
-      release_date: book.publishedDate ?? null,
-      language: book.language ?? 'it',
-      cover_url: book.coverUrl ?? null,
-      pages: book.pageCount ?? null,
-      purchase_links: [],
-    },
-    genres: [],
+  return bookPayload({
+    title: book.title,
+    authors: book.authors,
+    publisher: book.publisher,
+    isbn: book.isbn,
+    format: flags.format!,
+    editionType: flags.type!,
+    releaseDate: book.publishedDate,
+    language: book.language,
+    coverUrl: book.coverUrl,
+    pages: book.pageCount,
+    plot,
     tropes,
-    // Solo come riferimento in revisione: la descrizione dell'editore non si pubblica.
-    original_description: book.description ?? null,
+    description: book.description,
     meta: { sources: book.sources, categories: book.categories },
-  };
+  });
 }
 
-const tropeList = flags.raw ? [] : await knownTropes();
+const tropeList = flags.raw ? [] : await knownTropes(sb);
 let failures = 0;
 
 for (const isbn of isbns) {

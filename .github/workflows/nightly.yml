@@ -1,8 +1,9 @@
-# Lettura notturna delle fonti delle promozioni: le candidate finiscono in "Da approvare", nulla viene pubblicato.
+# Lettura notturna delle fonti: promozioni e prossime uscite degli editori.
+# Le candidate finiscono in "Da approvare", nulla viene pubblicato.
 # Secret richiesti (Settings → Secrets and variables → Actions):
 #   PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_BASE_URL, AI_MODEL e, se il fornitore la chiede, AI_API_KEY.
 # Finché mancano il job si chiude senza errori.
-name: Promozioni
+name: Lettura notturna
 
 on:
   schedule:
@@ -13,13 +14,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: promotions
+  group: nightly
   cancel-in-progress: false
 
 jobs:
-  check:
+  read:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -47,9 +48,15 @@ jobs:
           cache: npm
 
       - name: Installa le dipendenze
+        id: install
         if: steps.config.outputs.ready == 'true'
         run: npm ci
 
-      - name: Leggi le fonti
+      - name: Promozioni
         if: steps.config.outputs.ready == 'true'
         run: npm run promotions
+
+      # gira anche se le promozioni sono fallite: sono fonti indipendenti
+      - name: Prossime uscite
+        if: always() && steps.config.outputs.ready == 'true' && steps.install.outcome == 'success'
+        run: npm run releases

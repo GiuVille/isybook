@@ -21,6 +21,20 @@ export function normalizeIsbn(raw: string): string {
   return raw.replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
+/** ISBN-10 o ISBN-13 con la cifra di controllo giusta (scarta quelli trascritti male o inventati). */
+export function isValidIsbn(raw: string): boolean {
+  const isbn = normalizeIsbn(raw);
+  if (/^\d{13}$/.test(isbn)) {
+    const sum = [...isbn].reduce((acc, d, i) => acc + Number(d) * (i % 2 ? 3 : 1), 0);
+    return sum % 10 === 0;
+  }
+  if (/^\d{9}[\dX]$/.test(isbn)) {
+    const sum = [...isbn].reduce((acc, d, i) => acc + (d === 'X' ? 10 : Number(d)) * (10 - i), 0);
+    return sum % 11 === 0;
+  }
+  return false;
+}
+
 /** Accetta 2026, 2026-11 o 2026-11-12 e restituisce una data ISO solo se completa. */
 function toIsoDate(value?: string): string | undefined {
   if (!value) return undefined;

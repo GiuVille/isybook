@@ -1,7 +1,9 @@
 // Pannello admin: SPA lato client su Supabase (Auth + RLS).
 // La sicurezza è nel database: solo gli utenti presenti in `editors` possono scrivere.
 import type { Session } from '@supabase/supabase-js';
+import { EDITION_TYPE_LABELS, FORMAT_LABELS } from '../lib/format';
 import { getSupabase, supabaseConfigured } from '../lib/supabase';
+import type { EditionFormat, EditionType } from '../lib/types';
 import { RESOURCES, STATUS_OPTIONS, getResource, slugify, type Field, type Resource } from './resources';
 import { approveReviewItem } from './review';
 
@@ -544,9 +546,15 @@ async function renderReviewItem(id: string) {
           <dt>Autori</dt><dd>${esc((p.authors ?? []).map((a: Row) => a.name).join(', '))}</dd>
           <dt>Editore</dt><dd>${esc(p.publisher?.name)}</dd>
           <dt>ISBN</dt><dd>${esc(p.edition?.isbn)}</dd>
-          <dt>Formato</dt><dd>${esc(p.edition?.format)}</dd>
+          <dt>Formato</dt><dd>${esc(FORMAT_LABELS[p.edition?.format as EditionFormat] ?? p.edition?.format)}</dd>
+          <dt>Edizione</dt><dd>${esc(EDITION_TYPE_LABELS[p.edition?.edition_type as EditionType] ?? p.edition?.edition_type)}${
+            p.edition?.print_run ? ` · ${esc(p.edition.print_run)} copie` : ''
+          }</dd>
+          ${p.edition?.details ? `<dt>Dettagli</dt><dd>${esc(p.edition.details)}</dd>` : ''}
           <dt>Uscita</dt><dd>${esc(p.edition?.release_date)}</dd>
           <dt>Tropes proposti</dt><dd>${esc((p.tropes ?? []).join(', '))}</dd>
+          ${p.source_url ? `<dt>Fonte</dt><dd><a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a></dd>` : ''}
+          ${p.note ? `<dt>Nota</dt><dd>${esc(p.note)}</dd>` : ''}
         </dl>
         <label for="plot">Trama (modificabile prima di approvare)</label>
         <textarea id="plot" rows="6">${esc(p.work?.plot)}</textarea>
