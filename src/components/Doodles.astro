@@ -1,0 +1,24 @@
+---
+// Scarabocchi a tema dentro un SVG (anteprime): ognuno centrato in uno slot (cx, cy) dello spazio di disegno.
+import type { Doodle } from '../lib/doodles';
+
+interface Props {
+  doodles: Doodle[];
+  slots: Array<[number, number]>;
+  size?: number; // lato in unità SVG
+}
+
+const { doodles, slots, size = 38 } = Astro.props;
+const k = size / 24;
+---
+
+<g class="doodles" aria-hidden="true">
+  {doodles.slice(0, slots.length).map((d, i) => (
+    <g
+      transform={`translate(${slots[i][0]} ${slots[i][1]}) rotate(${d.rotate}) scale(${(k * d.scale).toFixed(2)}) translate(-12 -12)`}
+      style={`--k:${i}`}
+    >
+      <path d={d.path} pathLength="1" />
+    </g>
+  ))}
+</g>

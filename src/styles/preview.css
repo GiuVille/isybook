@@ -26,6 +26,20 @@
 .preview .checks .icon { fill: var(--ink); stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
 .preview .checks text { fill: var(--ink); stroke: none; font-family: 'Gochi Hand', cursive; }
 
+.preview .doodles { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0.42; }
+.preview .plot-doodle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.42;
+  pointer-events: none;
+}
+
 .preview .save-slot { position: absolute; top: 12px; right: 14px; z-index: 2; }
 .preview .plot { position: relative; display: flex; flex-direction: column; padding: 16px 28px 28px; min-width: 0; }
 .preview .plot h3 { margin: 0 0 12px; text-align: center; font-family: inherit; font-size: 1.9rem; font-weight: 400; }

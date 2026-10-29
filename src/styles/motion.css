@@ -11,6 +11,7 @@
 
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes ink-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes doodle-in { to { opacity: 0.42; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
@@ -45,6 +46,12 @@
   /* l'icona è già spostata a destra della casella con l'attributo transform dell'SVG:
      un'animazione su transform lo sovrascriverebbe, quindi qui solo dissolvenza */
   .js .preview.is-in .checks .icon { animation: fade-in 0.35s ease-out forwards; animation-delay: calc((var(--base) + var(--i)) * 170ms + 880ms); }
+
+  /* scarabocchi: si disegnano dopo le spunte */
+  .js .preview .doodles path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .js .preview.is-in .doodles path { animation: draw 0.6s ease-out forwards; animation-delay: calc(var(--base) * 170ms + 900ms + var(--k) * 140ms); }
+  .js .preview .plot-doodle { opacity: 0; }
+  .js .preview.is-in .plot-doodle { animation: doodle-in 0.5s ease-out forwards; animation-delay: 1.2s; }
 
   /* ---- peperoncini dello spicy: si accendono uno alla volta ---- */
   .js .spice[data-reveal] svg.on { opacity: 0.25; transform: scale(0.7); }

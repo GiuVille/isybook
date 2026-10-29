@@ -2,10 +2,12 @@
 // Anteprima libro: scacchiera nel colore del genere, copertina con una freccia per tropo, trama a destra.
 import '../styles/preview.css';
 import CoverArt from './CoverArt.astro';
+import Doodles from './Doodles.astro';
 import SaveButtons from './SaveButtons.astro';
 import SpiceMeter from './SpiceMeter.astro';
 import { isRomance, themeForWork } from '../lib/book-themes';
 import { FORMAT_LABELS, availability, cheapestEdition, formatDate, formatPrice, normalize, pageCount, releaseDate } from '../lib/format';
+import { doodlesFor, plotSpots, previewSpots } from '../lib/doodles';
 import { COVER, VIEW, layoutTropeArrows } from '../lib/trope-arrows';
 import type { Work } from '../lib/types';
 
@@ -52,6 +54,10 @@ const a11y = [
 ]
   .filter(Boolean)
   .join('. ');
+// scarabocchi sparsi nei punti liberi del disegno e lungo i margini della trama
+const doodleSpots = previewSpots(arrows, checks.length, 6, work.slug);
+const doodles = doodlesFor(work, doodleSpots.length + 3, work.slug);
+const plotDoodles = doodles.slice(doodleSpots.length).map((d, i) => ({ ...d, pos: plotSpots(3, work.slug)[i] }));
 ---
 
 <article
@@ -77,6 +83,8 @@ const a11y = [
 >
   <a href={`/libri/${work.slug}`} class="visual" aria-label={work.title}>
     <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y} style={`--base:${arrows.length}`}>
+      <Doodles doodles={doodles} slots={doodleSpots} />
+
       <g class="cover">
         <CoverArt work={work} x={COVER.x} y={COVER.y} width={COVER.width} height={COVER.height} />
       </g>
@@ -127,6 +135,17 @@ const a11y = [
   </a>
 
   <div class="plot">
+    {/* altri due scarabocchi ai margini del riquadro della trama */}
+    {plotDoodles.map((d) => (
+      <svg
+        class="plot-doodle"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        style={`rotate:${d.rotate}deg;${Object.entries(d.pos).map(([k, val]) => `${k}:${val}`).join(';')}`}
+      >
+        <path d={d.path} />
+      </svg>
+    ))}
     <div class="save-slot"><SaveButtons slug={work.slug} title={work.title} compact /></div>
     <h3>Trama</h3>
     <div class="box">

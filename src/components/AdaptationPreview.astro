@@ -3,9 +3,11 @@
 // con le piattaforme dove vederlo al posto delle spunte ebook/audiolibro.
 import '../styles/preview.css';
 import CoverArt from './CoverArt.astro';
+import Doodles from './Doodles.astro';
 import { slugify } from '../admin/resources';
 import { themeForWork } from '../lib/book-themes';
 import { ADAPTATION_KIND_LABELS, adaptationFacts, adaptationWhen, normalize } from '../lib/format';
+import { doodlesFor, plotSpots, previewSpots } from '../lib/doodles';
 import { COVER, VIEW, layoutTropeArrows } from '../lib/trope-arrows';
 import type { Adaptation } from '../lib/types';
 
@@ -33,6 +35,10 @@ const a11y = [
 ]
   .filter(Boolean)
   .join('. ');
+// scarabocchi sparsi nei punti liberi del disegno e lungo i margini della trama
+const doodleSpots = previewSpots(arrows, checks.length, 6, a.slug);
+const doodles = doodlesFor(a, doodleSpots.length + 3, a.slug);
+const plotDoodles = doodles.slice(doodleSpots.length).map((d, i) => ({ ...d, pos: plotSpots(3, a.slug)[i] }));
 ---
 
 <article
@@ -49,6 +55,8 @@ const a11y = [
 >
   <a href={href} class="visual" aria-label={a.title}>
     <svg viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={a11y} style={`--base:${arrows.length}`}>
+      <Doodles doodles={doodles} slots={doodleSpots} />
+
       <g class="cover">
         <CoverArt
           art={{ id: a.id, title: a.title, caption: ADAPTATION_KIND_LABELS[a.kind], image: a.poster_url, color: theme.cover, variant: 'poster' }}
@@ -94,6 +102,17 @@ const a11y = [
   </a>
 
   <div class="plot">
+    {/* altri due scarabocchi ai margini del riquadro della trama */}
+    {plotDoodles.map((d) => (
+      <svg
+        class="plot-doodle"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        style={`rotate:${d.rotate}deg;${Object.entries(d.pos).map(([k, val]) => `${k}:${val}`).join(';')}`}
+      >
+        <path d={d.path} />
+      </svg>
+    ))}
     <h3>Trama</h3>
     <div class="box">
       <p class="meta">

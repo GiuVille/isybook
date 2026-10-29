@@ -47,13 +47,17 @@ export function isRomance(work: Pick<Work, 'genres'>): boolean {
   return work.genres.some((g) => g.theme === 'romance' || /romance|romantasy/.test(g.slug));
 }
 
-/** Tema esplicito del primo genere che lo ha, altrimenti dedotto dagli slug dei generi. */
-export function themeForWork(work: Pick<Work, 'genres'>): BookTheme {
+/** Nome del tema: esplicito del primo genere che lo ha, altrimenti dedotto dagli slug dei generi. */
+export function themeNameForWork(work: Pick<Work, 'genres'>): ThemeName {
   const explicit = work.genres.find((g) => isThemeName(g.theme))?.theme;
-  if (isThemeName(explicit)) return THEMES[explicit];
+  if (isThemeName(explicit)) return explicit;
   for (const genre of work.genres) {
     const match = SLUG_RULES.find(([re]) => re.test(genre.slug));
-    if (match) return THEMES[match[1]];
+    if (match) return match[1];
   }
-  return THEMES.default;
+  return 'default';
+}
+
+export function themeForWork(work: Pick<Work, 'genres'>): BookTheme {
+  return THEMES[themeNameForWork(work)];
 }

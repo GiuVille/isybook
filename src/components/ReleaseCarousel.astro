@@ -4,6 +4,7 @@
 // Entrata e uscita animate; senza JavaScript le slide scorrono in orizzontale.
 import CoverArt from './CoverArt.astro';
 import { themeForWork } from '../lib/book-themes';
+import { doodlesFor } from '../lib/doodles';
 import { formatDate } from '../lib/format';
 import type { Release } from '../lib/releases';
 
@@ -21,12 +22,13 @@ const short = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: 
 const WEEKDAYS = ['D', 'L', 'M', 'M', 'G', 'V', 'S']; // indice = getUTCDay()
 const DATE_ROW = 3;
 const DATE_COL = 4;
+// caselle libere per gli scarabocchi: lontane da data, mese, trope, freccia e copertina
+const DOODLE_CELLS: Array<[number, number]> = [[3, 6], [3, 7], [4, 1], [4, 6], [5, 2], [3, 1]];
 const COLS = 9;
 const ROWS = 9;
 
 const slides = releases.map((r, i) => {
   const [y, m, d] = r.date.split('-').map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + 1)).getUTCDate();
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   const header = Array.from({ length: COLS }, (_, c) => {
     const wd = (weekday + (c + 1 - DATE_COL) + 70) % 7;
@@ -35,7 +37,7 @@ const slides = releases.map((r, i) => {
   const cells: Array<{ row: number; col: number; n: number; other: boolean; sunday: boolean }> = [];
   for (let row = DATE_ROW; row <= ROWS; row++) {
     for (let col = 1; col <= COLS; col++) {
-      if (row === DATE_ROW && (col === DATE_COL || col === DATE_COL + 1)) continue; // numeri grandi
+      if (row === DATE_ROW && col === DATE_COL) continue; // la data d'uscita è scritta a pennarello
       // oltre la settima colonna la riga prosegue nella settimana dopo, come su un calendario affiancato
       const offset = (row - DATE_ROW) * 7 + (col - DATE_COL);
       const day = new Date(Date.UTC(y, m - 1, d + offset));
@@ -54,10 +56,13 @@ const slides = releases.map((r, i) => {
     id: `uscita-${r.work.slug}`,
     month: MONTHS[m - 1],
     day: d,
-    next,
     header,
     cells,
-    nextSunday: (weekday + 1) % 7 === 0,
+    doodles: doodlesFor(r.work, 5, r.work.slug).map((d, k) => {
+      // caselle in ordine diverso per ogni libro, posizione e dimensione variabili dentro la casella
+      const cells = [...DOODLE_CELLS].sort((p, q) => ((p[0] * 7 + p[1] + r.work.slug.length * 3) % 5) - ((q[0] * 7 + q[1] + r.work.slug.length * 3) % 5));
+      return { ...d, cell: cells[k], k, dx: Math.round(d.rotate * 1.1), dy: Math.round(d.scale * 40 - 34), size: Math.round(32 + d.scale * 20) };
+    }),
     trope: r.work.tropes[0]?.name ?? r.work.genres[0]?.name ?? null,
     style: `--paper:${theme.light};--paper-2:${theme.dark};--ink:${theme.ink}`,
   };
@@ -87,6 +92,11 @@ const slides = releases.map((r, i) => {
               {s.cells.filter((c) => c.row > 2).map((c) => (
                 <span class:list={['num', { other: c.other, sunday: c.sunday }]} style={`grid-area: ${c.row} / ${c.col}`}>{c.n}</span>
               ))}
+              {s.doodles.map((d) => (
+                <svg class="cal-doodle" viewBox="0 0 24 24" style={`grid-area: ${d.cell[0]} / ${d.cell[1]}; rotate: ${d.rotate}deg; translate: ${d.dx}% ${d.dy}%; width: ${d.size}%; height: ${d.size}%; --k:${d.k}`}>
+                  <path d={d.path} pathLength="1" />
+                </svg>
+              ))}
               <span class="month">
                 {s.month}
                 {/* tre trattini di enfasi, appena sopra il mese */}
@@ -103,7 +113,6 @@ const slides = releases.map((r, i) => {
                   <path pathLength="1" d="M58 9C35 4 11 18 10 47c-1 27 19 44 43 43 25-1 40-20 37-44C87 22 70 9 46 12c-8 1-15 4-20 9" />
                 </svg>
               </span>
-              <span class:list={['next-day', { sunday: s.nextSunday }]}>{s.next}</span>
               <svg class="arrow" viewBox="0 0 200 260">
                 <path class="shaft" pathLength="1" d="M18 22c58-18 112 10 118 62 6 52-34 90-76 118" />
                 <path class="tip" pathLength="1" d="M74 178 58 204 88 206" />
@@ -352,13 +361,28 @@ const slides = releases.map((r, i) => {
     opacity: 0.75;
   }
   .num.other { opacity: 0.3; }
+  /* scarabocchi a pennarello nelle caselle libere */
+  .cal-doodle {
+    position: relative;
+    z-index: 0;
+    align-self: center;
+    justify-self: center;
+    width: 46%;
+    height: 46%;
+    margin-top: 12%;
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.55;
+  }
+  .cal-doodle path { stroke-dasharray: 1; }
   .num.sunday,
-  .wd.sunday,
-  .next-day.sunday { color: color-mix(in srgb, #c0392b 75%, var(--ink)); }
+  .wd.sunday { color: color-mix(in srgb, #c0392b 75%, var(--ink)); }
 
   .month,
   .date,
-  .next-day,
   .trope,
   .cover-slot,
   .arrow { position: relative; z-index: 1; }
@@ -377,7 +401,6 @@ const slides = releases.map((r, i) => {
   .circle path { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 1; }
   .strokes { position: absolute; right: 4%; bottom: 92%; width: calc(var(--cell) * 0.4); height: calc(var(--cell) * 0.4); overflow: visible; }
   .strokes path { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 1; }
-  .next-day { grid-area: 3 / 5; align-self: start; justify-self: end; margin: 6% 8% 0 0; font-family: var(--font-hand); font-size: calc(var(--cell) * 0.393); line-height: 1; }
   .arrow { grid-area: 3 / 5 / 5 / 6; width: 100%; height: 100%; overflow: visible; }
   .arrow path { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; }
   .trope { grid-area: 4 / 2; align-self: center; justify-self: center; display: flex; flex-direction: column; align-items: center; text-align: center; font-family: var(--font-hand); line-height: 1.05; }
@@ -485,10 +508,10 @@ const slides = releases.map((r, i) => {
     :global(.js) .slide.is-active .day { animation: pop 0.45s var(--ease-spring) 0.6s backwards; }
     :global(.js) .slide.is-active .circle path { animation: draw-in 0.75s var(--ease-in-out) 0.85s backwards; }
     :global(.js) .slide.is-active .strokes path { animation: draw-in 0.2s ease-out backwards; animation-delay: calc(0.8s + var(--k) * 0.12s); }
-    :global(.js) .slide.is-active .next-day { animation: fade-in 0.4s ease-out 0.5s backwards; }
     :global(.js) .slide.is-active .arrow .shaft { animation: draw-in 0.6s var(--ease-out) 1.6s backwards; }
     :global(.js) .slide.is-active .arrow .tip { animation: draw-in 0.2s ease-out 2.15s backwards; }
     :global(.js) .slide.is-active .cover-slot { animation: cover-drop 0.85s var(--ease-spring) 1.9s backwards; }
+    :global(.js) .slide.is-active .cal-doodle path { animation: draw-in 0.55s ease-out backwards; animation-delay: calc(2.3s + var(--k) * 0.15s); }
     :global(.js) .slide.is-active .trope { animation: write-in 0.5s var(--ease-out) 2.4s backwards; }
     :global(.js) .slide.is-active .info { animation: info-in 0.6s var(--ease-out) 0.25s backwards; }
 

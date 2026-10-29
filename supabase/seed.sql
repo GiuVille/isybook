@@ -215,3 +215,28 @@ insert into authors (id, slug, name, bio) values
    'Gialli a porte chiuse e storie di case che ricordano più di chi le abita. (Autore di esempio.)');
 update work_authors set author_id = '00000000-0000-0000-0000-0000000000c2'
   where work_id in ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000f4');
+
+-- Sports romance di esempio (hockey), per gli scarabocchi a tema sport
+insert into genres (id, slug, name, theme) values
+  ('00000000-0000-0000-0000-0000000000d5', 'sports-romance', 'Sports romance', 'romance');
+insert into tropes (id, slug, name) values
+  ('00000000-0000-0000-0000-0000000000ec', 'rivals-to-lovers', 'Rivals to lovers');
+insert into settings (id, slug, name) values
+  ('00000000-0000-0000-0000-000000000106', 'pista-di-hockey', 'Pista di hockey'),
+  ('00000000-0000-0000-0000-000000000107', 'college-sportivo', 'College');
+insert into works (id, slug, title, plot, origin, spice_level, status) values
+  ('00000000-0000-0000-0000-0000000000f6', 'ghiaccio-e-scintille', 'Ghiaccio e scintille',
+   'Lei allena la squadra di pattinaggio, lui è il capitano dei rivali sul ghiaccio: per un''intera stagione dovranno dividere la stessa pista, gli stessi orari e, a quanto pare, le stesse notti insonni. (Titolo e trama di esempio.)',
+   'publisher', 2, 'published');
+insert into work_authors (work_id, author_id) values ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-0000000000c1');
+insert into work_genres (work_id, genre_id) values ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-0000000000d5');
+insert into work_tropes (work_id, trope_id) values
+  ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-0000000000ec'),
+  ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-0000000000e7'),
+  ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-0000000000e2');
+insert into work_settings (work_id, setting_id) values
+  ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-000000000106'),
+  ('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-000000000107');
+insert into editions (work_id, format, publisher_id, release_date, price, pages) values
+  ('00000000-0000-0000-0000-0000000000f6', 'paperback', '00000000-0000-0000-0000-0000000000b1', '2026-12-10', 17.90, 384),
+  ('00000000-0000-0000-0000-0000000000f6', 'kindle', '00000000-0000-0000-0000-0000000000b1', '2026-12-10', 5.99, null);
