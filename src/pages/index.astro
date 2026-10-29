@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
-import EventCard from '../components/EventCard.astro';
+import EventTicket from '../components/EventTicket.astro';
 import ForYou from '../components/ForYou.astro';
 import PromoCoupon from '../components/PromoCoupon.astro';
 import ReleaseCarousel from '../components/ReleaseCarousel.astro';
@@ -54,7 +54,7 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
         <h2>Prossimi eventi</h2>
         <a href="/eventi">Tutto il calendario →</a>
       </div>
-      <div class="events">{events.map((e) => <EventCard event={e} />)}</div>
+      <div class="events">{events.map((e, i) => <EventTicket event={e} index={i} />)}</div>
     </>
   )}
 </Base>
@@ -67,6 +67,6 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
   .section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 40px; }
   .section-head h2 { margin: 0 0 12px; }
   .coupons { display: grid; gap: 26px; padding-top: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
-  .events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .events { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   @media (max-width: 700px) { .events { grid-template-columns: minmax(0, 1fr); } }
 </style>

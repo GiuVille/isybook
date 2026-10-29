@@ -1,0 +1,141 @@
+---
+// Evento come biglietto d'ingresso (home): corpo con i dati a sinistra, matrice staccabile con la data a destra.
+// Colori per tipo dalle buste degli eventi, fissi anche nel tema scuro. Escono uno dopo l'altro come da una biglietteria;
+// al passaggio il biglietto si solleva e la matrice si piega sulla linea tratteggiata, come se si stesse staccando.
+import { ENVELOPE_THEMES } from '../lib/event-themes';
+import { EVENT_KIND_LABELS, formatDateRange } from '../lib/format';
+import type { BookEvent } from '../lib/types';
+
+interface Props {
+  event: BookEvent;
+  /** Posizione nella griglia, per sfalsare l'ingresso. */
+  index?: number;
+}
+
+const { event, index = 0 } = Astro.props;
+const t = ENVELOPE_THEMES[event.kind];
+const [, month, day] = event.starts_on.split('-').map(Number);
+const MONTHS_SHORT = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+const multiDay = Boolean(event.ends_on && event.ends_on !== event.starts_on);
+
+// numero di serie stabile per evento
+let h = 7;
+for (const ch of event.slug) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+const serial = String(h % 100000).padStart(5, '0');
+---
+
+<a
+  class="ticket"
+  href={`/eventi/${event.slug}`}
+  data-reveal
+  style={`--i:${index % 8};--paper:${t.paper};--seal:${t.seal};--seal-light:${t.sealLight};--ink:${t.ink}`}
+>
+  <div class="body">
+    <p class="kind">{EVENT_KIND_LABELS[event.kind]}</p>
+    <h3>{event.title}</h3>
+    <p class="when">{formatDateRange(event.starts_on, event.ends_on)}</p>
+    {(event.venue || event.city) && <p class="where">{[event.venue, event.city].filter(Boolean).join(', ')}</p>}
+    {event.authors.length > 0 && <p class="who">Con {event.authors.map((a) => a.name).join(', ')}</p>}
+    <span class="serial" aria-hidden="true">N° {serial}</span>
+  </div>
+  <div class="stub" aria-hidden="true">
+    <span class="stub-month">{MONTHS_SHORT[month - 1]}</span>
+    <span class="stub-day">{day}{multiDay && <small>–{Number(event.ends_on!.slice(8, 10))}</small>}</span>
+    {event.city && <span class="stub-city">{event.city}</span>}
+  </div>
+</a>
+
+<style>
+  .ticket {
+    position: relative;
+    display: flex;
+    min-height: 132px;
+    color: var(--ink);
+    text-decoration: none;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.18));
+    transition: transform 0.4s var(--ease-spring);
+  }
+  .body,
+  .stub {
+    position: relative;
+    background: var(--paper);
+    /* mezzelune intagliate sulla linea di strappo */
+    --notch: radial-gradient(circle 9px at var(--nx) 0, transparent 8.5px, #000 9px), radial-gradient(circle 9px at var(--nx) 100%, transparent 8.5px, #000 9px);
+    -webkit-mask: var(--notch);
+    -webkit-mask-composite: source-in;
+    mask: var(--notch);
+    mask-composite: intersect;
+  }
+  .body {
+    --nx: 100%;
+    flex: 1;
+    min-width: 0;
+    padding: 14px 18px 26px 16px;
+    border-radius: 10px 0 0 10px;
+    /* trama leggera della carta */
+    background-image: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(255, 255, 255, 0.18) 6px 7px);
+  }
+  .stub {
+    --nx: 0;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 86px;
+    padding: 10px 6px;
+    border-radius: 0 10px 10px 0;
+    background: var(--seal);
+    color: #fff;
+    transform-origin: 0 50%;
+    transition: transform 0.45s var(--ease-spring);
+  }
+  /* linea tratteggiata della perforazione */
+  .stub::before {
+    content: '';
+    position: absolute;
+    inset: 12px auto 12px 0;
+    border-left: 2px dashed var(--paper);
+  }
+  .kind { margin: 0; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--seal); }
+  h3 { margin: 3px 0 6px; font-size: 1.12rem; line-height: 1.2; color: var(--ink); }
+  .when, .where, .who { margin: 0; font-size: 0.88rem; line-height: 1.4; }
+  .who { opacity: 0.8; }
+  .serial {
+    position: absolute;
+    right: 14px;
+    bottom: 8px;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--seal);
+    opacity: 0.7;
+  }
+  .stub-month { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.85; }
+  .stub-day { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.1; }
+  .stub-day small { font-size: 0.9rem; }
+  .stub-city { max-width: 100%; overflow: hidden; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
+
+  .ticket:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 10px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ticket:hover,
+    .ticket:focus-visible { transform: translateY(-4px) rotate(-1deg); }
+    .ticket:hover .stub,
+    .ticket:focus-visible .stub { transform: rotate(6deg) translate(4px, 2px); }
+
+    :global(.js) .ticket[data-reveal] { opacity: 0; }
+    :global(.js) .ticket[data-reveal].is-in { opacity: 1; animation: ticket-in 0.7s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 120ms); }
+    :global(.js) .ticket[data-reveal].is-in .stub { animation: stub-in 0.6s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 120ms + 260ms); }
+    :global(.js) .ticket[data-reveal].is-in .serial { animation: pop 0.45s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 120ms + 520ms); }
+  }
+  /* esce dalla biglietteria: sale storto e si raddrizza */
+  @keyframes ticket-in {
+    from { opacity: 0; transform: translateY(36px) rotate(3deg) scale(0.96); }
+    to { opacity: 1; transform: none; }
+  }
+  /* la matrice arriva per ultima, piegata, e si attacca */
+  @keyframes stub-in {
+    from { opacity: 0; transform: translateX(-14px) rotate(-10deg); }
+    to { opacity: 1; transform: none; }
+  }
+</style>
