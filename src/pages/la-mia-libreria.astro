@@ -1,19 +1,20 @@
 ---
 import Base from '../layouts/Base.astro';
 import '../styles/drawer.css';
+import '../styles/videoteca.css';
 ---
 
-<Base title="La mia libreria" description="I tuoi libri preferiti e le tue cartelle personali.">
+<Base title="La mia libreria" description="I tuoi libri preferiti, le tue cartelle personali e la videoteca con serie e film da vedere.">
   <div class="page-head">
     <h1>La mia libreria</h1>
-    <form class="new-collection">
+    <form class="new-collection" data-kind="book">
       <input type="text" maxlength="40" placeholder="Nome della nuova cartella…" aria-label="Nome della nuova cartella" />
       <button type="submit" class="button-strong">Crea cartella</button>
     </form>
   </div>
 
   <p class="notice">
-    I tuoi libri sono salvati solo su questo browser: niente account e nessun dato inviato a noi.
+    Libri, serie e film sono salvati solo su questo browser: niente account e nessun dato inviato a noi.
     Presto potrai creare un account per ritrovarli su tutti i dispositivi. Nel frattempo puoi fare un backup qui sotto.
   </p>
 
@@ -21,6 +22,21 @@ import '../styles/drawer.css';
     <div class="lib-drawer" role="tablist" aria-label="Le tue raccolte"><p class="muted">Caricamento…</p></div>
     <div class="drawer-panel" role="tabpanel"></div>
   </div>
+
+  <section class="videoteca" aria-labelledby="videoteca-title">
+    <div class="page-head">
+      <h2 id="videoteca-title">Videoteca</h2>
+      <form class="new-collection" data-kind="screen">
+        <input type="text" maxlength="40" placeholder="Nuova cartella della videoteca…" aria-label="Nome della nuova cartella della videoteca" />
+        <button type="submit" class="button-strong">Crea cartella</button>
+      </form>
+    </div>
+    <p class="muted intro">Le serie e i film tratti dai libri che vuoi vedere, nelle tue videocassette.</p>
+    <div id="videoteca">
+      <div class="vhs-shelf" role="tablist" aria-label="Le tue raccolte di serie e film"><p class="muted">Caricamento…</p></div>
+      <div class="drawer-panel" role="tabpanel"></div>
+    </div>
+  </section>
 
   <section class="interests">
     <h2>I tuoi interessi</h2>
@@ -42,194 +58,292 @@ import '../styles/drawer.css';
 </Base>
 
 <script>
-  import { bookCard, esc, miniCover } from '../lib/book-card';
-  import { loadCatalog, type Catalog, type CatalogBook } from '../lib/catalog';
+  import { bookCard, esc, miniCover, miniPoster, screenCard } from '../lib/book-card';
+  import { loadCatalog, type Catalog } from '../lib/catalog';
   import {
+    collectionsOf,
     createCollection,
     deleteCollection,
     exportLibrary,
+    favoritesOf,
     getLibrary,
     importLibrary,
     onLibraryChange,
     removeFromCollection,
     renameCollection,
     toggleFavorite,
+    type ItemKind,
   } from '../lib/library';
-
-  const root = document.getElementById('library')!;
-  const drawer = root.querySelector<HTMLElement>('.lib-drawer')!;
-  const panel = root.querySelector<HTMLElement>('.drawer-panel')!;
-  const FAVORITES = 'preferiti';
-  // cartellina aperta: dall'URL (#cartella-<id>), altrimenti i Preferiti
-  let selected = location.hash.startsWith('#cartella-') ? decodeURIComponent(location.hash.slice('#cartella-'.length)) : FAVORITES;
-  let firstRender = true;
-  const interestsBody = document.querySelector<HTMLElement>('.interests-body')!;
-  let catalog: Catalog | null = null;
-
-  const books = (slugs: string[]) =>
-    slugs.map((s) => catalog!.books.find((b) => b.slug === s)).filter((b): b is CatalogBook => Boolean(b));
-
-  const removeButton = (attrs: string) => `<button type="button" class="remove" ${attrs}>Rimuovi</button>`;
-
-  function section(title: string, list: CatalogBook[], opts: { id?: string; empty: string; tools?: string }) {
-    return `
-      <section class="shelf" ${opts.id ? `data-collection="${esc(opts.id)}"` : ''}>
-        <div class="shelf-head">
-          <h2>${title} <span class="count">${list.length}</span></h2>
-          ${opts.tools ?? ''}
-        </div>
-        ${
-          list.length
-            ? `<div class="mini-books">${list
-                .map((b) =>
-                  bookCard(b, {
-                    action: opts.id
-                      ? removeButton(`data-remove="${esc(b.slug)}" data-from="${esc(opts.id)}"`)
-                      : removeButton(`data-unfav="${esc(b.slug)}"`),
-                  }),
-                )
-                .join('')}</div>`
-            : `<p class="empty muted">${opts.empty}</p>`
-        }
-      </section>`;
-  }
 
   type Folder = { id: string; name: string; slugs: string[]; color: number };
 
-  function folders(): Folder[] {
-    const library = getLibrary();
-    return [
-      { id: FAVORITES, name: 'Preferiti', slugs: library.favorites, color: 2 },
-      ...library.collections.map((c, i) => ({ id: c.id, name: c.name, slugs: c.slugs, color: [1, 3, 4, 5, 6][i % 5] })),
-    ];
+  // Cassetto dei libri e scaffale della videoteca condividono la logica (schede, pannello, azioni):
+  // cambiano solo l'aspetto delle raccolte e i testi.
+  interface Shelf {
+    kind: ItemKind;
+    tabs: HTMLElement;
+    panel: HTMLElement;
+    hash: string; // prefisso dell'URL: #cartella-<id> o #videoteca-<id>
+    favorites: { id: string; name: string; icon: string; color: number };
+    folderIcon: string;
+    colors: number[];
+    selected: string;
+    firstRender: boolean;
+    cards: (slugs: string[]) => Array<{ slug: string; html: (action: string) => string; art: string }>;
+    tab: (folder: Folder, art: string[], count: number, isSelected: boolean, index: number) => string;
+    newTab: (index: number) => string;
+    texts: { favEmpty: string; colEmpty: string; hint: string; deleteNote: string };
   }
 
-  function folderButton(folder: Folder, index: number) {
-    const list = books(folder.slugs);
-    const isSelected = folder.id === selected;
-    return `
+  let catalog: Catalog | null = null;
+  const interestsBody = document.querySelector<HTMLElement>('.interests-body')!;
+  const removeButton = (attrs: string) => `<button type="button" class="remove" ${attrs}>Rimuovi</button>`;
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
+  const books = (slugs: string[]) =>
+    slugs.flatMap((s) => {
+      const b = catalog!.books.find((x) => x.slug === s);
+      return b ? [{ slug: s, html: (action: string) => bookCard(b, { action }), art: miniCover(b) }] : [];
+    });
+  const screens = (slugs: string[]) =>
+    slugs.flatMap((s) => {
+      const x = catalog!.screens.find((y) => y.slug === s);
+      return x ? [{ slug: s, html: (action: string) => screenCard(x, { action }), art: miniPoster(x) }] : [];
+    });
+
+  const bookShelf: Shelf = {
+    kind: 'book',
+    tabs: document.querySelector<HTMLElement>('#library .lib-drawer')!,
+    panel: document.querySelector<HTMLElement>('#library .drawer-panel')!,
+    hash: '#cartella-',
+    favorites: { id: 'preferiti', name: 'Preferiti', icon: '❤', color: 2 },
+    folderIcon: '📁',
+    colors: [1, 3, 4, 5, 6],
+    selected: 'preferiti',
+    firstRender: true,
+    cards: books,
+    tab: (folder, art, count, isSelected, index) => `
       <li class="wk" style="--d:${index}">
         <button type="button" class="folder-btn" role="tab" id="tab-${esc(folder.id)}" data-folder="${esc(folder.id)}"
           aria-selected="${isSelected}" tabindex="${isSelected ? 0 : -1}" style="--f:var(--folder-${folder.color})">
-          <span class="fan" aria-hidden="true">${list.slice(0, 3).map(miniCover).join('')}</span>
+          <span class="fan" aria-hidden="true">${art.join('')}</span>
           <span class="front">
-            <span class="tab"><span class="label">${folder.id === FAVORITES ? '❤ ' : ''}${esc(folder.name)}</span></span>
-            <span class="count-big">${list.length}</span>
-            <span class="count-label">${list.length === 1 ? 'libro' : 'libri'}</span>
-            ${list.length === 0 ? '<span class="empty-note">vuota</span>' : ''}
+            <span class="tab"><span class="label">${folder.id === 'preferiti' ? '❤ ' : ''}${esc(folder.name)}</span></span>
+            <span class="count-big">${count}</span>
+            <span class="count-label">${plural(count, 'libro', 'libri')}</span>
+            ${count === 0 ? '<span class="empty-note">vuota</span>' : ''}
           </span>
         </button>
-      </li>`;
+      </li>`,
+    newTab: (index) => `
+      <li class="wk" style="--d:${index}">
+        <button type="button" class="folder-btn new-folder" data-new>
+          <span class="front"><span class="plus">+</span><span class="count-label">Nuova cartella</span></span>
+        </button>
+      </li>`,
+    texts: {
+      favEmpty: 'Ancora nessun preferito: tocca il cuore su un libro per salvarlo qui. <a href="/libri">Sfoglia i libri</a>',
+      colEmpty: 'Cartella vuota: aggiungi libri dal pulsante «Cartella» nella scheda di un libro.',
+      hint: 'Crea una cartella per organizzare i libri come vuoi: «Da leggere», «Regali», «Edizioni da cacciare»…',
+      deleteNote: 'I libri restano nel sito, sparisce solo la cartella.',
+    },
+  };
+
+  const screenShelf: Shelf = {
+    kind: 'screen',
+    tabs: document.querySelector<HTMLElement>('#videoteca .vhs-shelf')!,
+    panel: document.querySelector<HTMLElement>('#videoteca .drawer-panel')!,
+    hash: '#videoteca-',
+    favorites: { id: 'da-vedere', name: 'Da vedere', icon: '★', color: 1 },
+    folderIcon: '🎞️',
+    colors: [2, 3, 4, 5, 6],
+    selected: 'da-vedere',
+    firstRender: true,
+    cards: screens,
+    // custodia di videocassetta in piedi: locandine che spuntano dall'alto, etichetta scritta a mano sul fronte
+    tab: (folder, art, count, isSelected, index) => `
+      <li class="slot" style="--d:${index}">
+        <button type="button" class="case-btn" role="tab" id="vtab-${esc(folder.id)}" data-folder="${esc(folder.id)}"
+          aria-selected="${isSelected}" tabindex="${isSelected ? 0 : -1}" style="--v:var(--vhs-${folder.color})">
+          <span class="fan" aria-hidden="true">${art.join('')}</span>
+          <span class="case">
+            <span class="brand" aria-hidden="true">VHS</span>
+            <span class="label">${folder.id === 'da-vedere' ? '★ ' : ''}${esc(folder.name)}</span>
+            <span class="count-big">${count}</span>
+            <span class="count-label">${plural(count, 'titolo', 'titoli')}</span>
+            <span class="reels" aria-hidden="true"><i></i><i></i></span>
+          </span>
+        </button>
+      </li>`,
+    newTab: (index) => `
+      <li class="slot" style="--d:${index}">
+        <button type="button" class="case-btn new-case" data-new>
+          <span class="case"><span class="plus">+</span><span class="count-label">Nuova cartella</span></span>
+        </button>
+      </li>`,
+    texts: {
+      favEmpty: 'Ancora niente da vedere: tocca «Da vedere» su una serie o un film per salvarlo qui. <a href="/serie-e-film">Sfoglia serie e film</a>',
+      colEmpty: 'Cartella vuota: aggiungi serie e film dal pulsante «Cartella» nella loro scheda.',
+      hint: 'Crea una cartella per la videoteca: «Maratona del weekend», «Da vedere con le amiche», «Già visti»…',
+      deleteNote: 'Serie e film restano nel sito, sparisce solo la cartella.',
+    },
+  };
+
+  const shelves = [bookShelf, screenShelf];
+  const shelfOf = (kind: string | undefined) => (kind === 'screen' ? screenShelf : bookShelf);
+
+  // raccolta aperta dall'URL, se c'è
+  for (const shelf of shelves) {
+    if (location.hash.startsWith(shelf.hash)) shelf.selected = decodeURIComponent(location.hash.slice(shelf.hash.length));
   }
 
-  function render() {
-    if (!catalog) return;
+  function folders(shelf: Shelf): Folder[] {
     const library = getLibrary();
-    const all = folders();
-    if (!all.some((f) => f.id === selected)) selected = FAVORITES;
+    const { id, name, color } = shelf.favorites;
+    return [
+      { id, name, slugs: favoritesOf(library, shelf.kind), color },
+      ...collectionsOf(library, shelf.kind).map((c, i) => ({ id: c.id, name: c.name, slugs: c.slugs, color: shelf.colors[i % shelf.colors.length] })),
+    ];
+  }
 
-    drawer.innerHTML = `<ol class="row">
-        ${all.map(folderButton).join('')}
-        <li class="wk" style="--d:${all.length}">
-          <button type="button" class="folder-btn new-folder" data-new>
-            <span class="front"><span class="plus">+</span><span class="count-label">Nuova cartella</span></span>
-          </button>
-        </li>
-      </ol>`;
-    drawer.classList.toggle('is-first', firstRender);
-    // senza copertine da mostrare il cassetto si abbassa
-    drawer.classList.toggle('no-covers', all.every((f) => books(f.slugs).length === 0));
-    firstRender = false;
+  function renderShelf(shelf: Shelf) {
+    const all = folders(shelf);
+    if (!all.some((f) => f.id === shelf.selected)) shelf.selected = shelf.favorites.id;
 
-    const current = all.find((f) => f.id === selected)!;
-    panel.setAttribute('aria-labelledby', `tab-${current.id}`);
-    panel.innerHTML =
-      current.id === FAVORITES
-        ? section('❤ Preferiti', books(current.slugs), {
-            empty: 'Ancora nessun preferito: tocca il cuore su un libro per salvarlo qui. <a href="/libri">Sfoglia i libri</a>',
+    shelf.tabs.innerHTML = `<ol class="row">
+        ${all
+          .map((f, i) => {
+            const items = shelf.cards(f.slugs);
+            return shelf.tab(f, items.slice(0, 3).map((x) => x.art), items.length, f.id === shelf.selected, i);
           })
-        : section(`📁 ${esc(current.name)}`, books(current.slugs), {
-            id: current.id,
-            empty: 'Cartella vuota: aggiungi libri dal pulsante «Cartella» nella scheda di un libro.',
-            tools: `<span class="tools">
-              <button type="button" class="link" data-rename="${esc(current.id)}">Rinomina</button>
-              <button type="button" class="link danger" data-delete="${esc(current.id)}">Elimina</button>
-            </span>`,
-          });
-    if (library.collections.length === 0) {
-      panel.insertAdjacentHTML(
-        'beforeend',
-        '<p class="muted hint">Crea una cartella per organizzare i libri come vuoi: «Da leggere», «Regali», «Edizioni da cacciare»…</p>',
-      );
-    }
+          .join('')}
+        ${shelf.newTab(all.length)}
+      </ol>`;
+    shelf.tabs.classList.toggle('is-first', shelf.firstRender);
+    // senza copertine da mostrare il cassetto (o lo scaffale) si abbassa
+    shelf.tabs.classList.toggle('no-covers', all.every((f) => shelf.cards(f.slugs).length === 0));
+    shelf.firstRender = false;
 
-    const i = library.interests;
+    const current = all.find((f) => f.id === shelf.selected)!;
+    const isFav = current.id === shelf.favorites.id;
+    const items = shelf.cards(current.slugs);
+    const kindAttr = `data-kind="${shelf.kind}"`;
+    shelf.panel.setAttribute('aria-labelledby', `${shelf.kind === 'screen' ? 'vtab' : 'tab'}-${current.id}`);
+    shelf.panel.innerHTML = `
+      <section class="shelf" ${isFav ? '' : `data-collection="${esc(current.id)}"`}>
+        <div class="shelf-head">
+          <h3>${isFav ? shelf.favorites.icon : shelf.folderIcon} ${esc(current.name)} <span class="count">${items.length}</span></h3>
+          ${
+            isFav
+              ? ''
+              : `<span class="tools">
+                  <button type="button" class="link" data-rename="${esc(current.id)}" ${kindAttr}>Rinomina</button>
+                  <button type="button" class="link danger" data-delete="${esc(current.id)}" ${kindAttr}>Elimina</button>
+                </span>`
+          }
+        </div>
+        ${
+          items.length
+            ? `<div class="mini-books">${items
+                .map((x) =>
+                  x.html(
+                    isFav
+                      ? removeButton(`data-unfav="${esc(x.slug)}" ${kindAttr}`)
+                      : removeButton(`data-remove="${esc(x.slug)}" data-from="${esc(current.id)}" ${kindAttr}`),
+                  ),
+                )
+                .join('')}</div>`
+            : `<p class="empty muted">${isFav ? shelf.texts.favEmpty : shelf.texts.colEmpty}</p>`
+        }
+      </section>`;
+    if (collectionsOf(getLibrary(), shelf.kind).length === 0) {
+      shelf.panel.insertAdjacentHTML('beforeend', `<p class="muted hint">${shelf.texts.hint}</p>`);
+    }
+  }
+
+  function renderInterests() {
+    const i = getLibrary().interests;
     const names = (slugs: string[], list: Catalog['tropes']) =>
       slugs.map((s) => list.find((t) => t.slug === s)?.name).filter(Boolean) as string[];
     const chosen = i
-      ? [...names(i.genres, catalog.genres), ...names(i.tropes, catalog.tropes), ...names(i.settings, catalog.settings)]
+      ? [...names(i.genres, catalog!.genres), ...names(i.tropes, catalog!.tropes), ...names(i.settings, catalog!.settings)]
       : [];
     interestsBody.innerHTML = chosen.length
       ? `<p class="chips">${chosen.map((n) => `<span class="tag">${esc(n)}</span>`).join('')}</p>`
       : '<p class="muted">Non hai ancora indicato i tuoi interessi.</p>';
   }
 
-  function select(id: string, focus = false) {
-    if (id === selected) return;
-    selected = id;
-    history.replaceState(null, '', id === FAVORITES ? location.pathname : `#cartella-${encodeURIComponent(id)}`);
-    render();
-    panel.classList.remove('is-changing');
-    void panel.offsetWidth;
-    panel.classList.add('is-changing');
-    if (focus) drawer.querySelector<HTMLElement>(`[data-folder="${CSS.escape(id)}"]`)?.focus();
+  function render() {
+    if (!catalog) return;
+    shelves.forEach(renderShelf);
+    renderInterests();
   }
 
-  drawer.addEventListener('click', (e) => {
-    const button = (e.target as HTMLElement).closest<HTMLButtonElement>('.folder-btn');
-    if (!button) return;
-    if (button.dataset.new !== undefined) {
-      const input = document.querySelector<HTMLInputElement>('.new-collection input')!;
-      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      input.focus({ preventScroll: true });
-      return;
-    }
-    select(button.dataset.folder!);
-  });
-  drawer.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    const ids = folders().map((f) => f.id);
-    const i = ids.indexOf(selected);
-    const next = ids[(i + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length];
-    e.preventDefault();
-    select(next, true);
-  });
+  function select(shelf: Shelf, id: string, focus = false) {
+    if (id === shelf.selected) return;
+    shelf.selected = id;
+    history.replaceState(null, '', id === shelf.favorites.id ? location.pathname : `${shelf.hash}${encodeURIComponent(id)}`);
+    renderShelf(shelf);
+    shelf.panel.classList.remove('is-changing');
+    void shelf.panel.offsetWidth;
+    shelf.panel.classList.add('is-changing');
+    if (focus) shelf.tabs.querySelector<HTMLElement>(`[data-folder="${CSS.escape(id)}"]`)?.focus();
+  }
 
-  root.addEventListener('click', (e) => {
-    const t = e.target as HTMLElement;
-    if (t.dataset.unfav) toggleFavorite(t.dataset.unfav);
-    if (t.dataset.remove && t.dataset.from) removeFromCollection(t.dataset.from, t.dataset.remove);
-    if (t.dataset.rename) {
-      const current = getLibrary().collections.find((c) => c.id === t.dataset.rename);
-      const name = prompt('Nuovo nome della cartella', current?.name ?? '');
-      if (name) renameCollection(t.dataset.rename, name);
-    }
-    if (t.dataset.delete) {
-      const current = getLibrary().collections.find((c) => c.id === t.dataset.delete);
-      if (confirm(`Eliminare la cartella «${current?.name}»? I libri restano nel sito, sparisce solo la cartella.`)) {
-        deleteCollection(t.dataset.delete);
+  for (const shelf of shelves) {
+    shelf.tabs.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLButtonElement>('[role="tab"], [data-new]');
+      if (!button) return;
+      if (button.dataset.new !== undefined) {
+        const input = document.querySelector<HTMLInputElement>(`.new-collection[data-kind="${shelf.kind}"] input`)!;
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        input.focus({ preventScroll: true });
+        return;
       }
-    }
-  });
+      select(shelf, button.dataset.folder!);
+    });
+    shelf.tabs.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const ids = folders(shelf).map((f) => f.id);
+      const i = ids.indexOf(shelf.selected);
+      const next = ids[(i + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length];
+      e.preventDefault();
+      select(shelf, next, true);
+    });
+  }
 
-  document.querySelector('.new-collection')!.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = (e.target as HTMLFormElement).querySelector('input')!;
-    if (!input.value.trim()) return input.focus();
-    const created = createCollection(input.value);
-    input.value = '';
-    select(created.id);
-  });
+  for (const panel of document.querySelectorAll<HTMLElement>('.drawer-panel')) {
+    panel.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      const kind = shelfOf(t.dataset.kind).kind;
+      if (t.dataset.unfav) toggleFavorite(t.dataset.unfav, kind);
+      if (t.dataset.remove && t.dataset.from) removeFromCollection(t.dataset.from, t.dataset.remove, kind);
+      if (t.dataset.rename) {
+        const current = collectionsOf(getLibrary(), kind).find((c) => c.id === t.dataset.rename);
+        const name = prompt('Nuovo nome della cartella', current?.name ?? '');
+        if (name) renameCollection(t.dataset.rename, name, kind);
+      }
+      if (t.dataset.delete) {
+        const current = collectionsOf(getLibrary(), kind).find((c) => c.id === t.dataset.delete);
+        if (confirm(`Eliminare la cartella «${current?.name}»? ${shelfOf(kind).texts.deleteNote}`)) {
+          deleteCollection(t.dataset.delete, kind);
+        }
+      }
+    });
+  }
+
+  for (const form of document.querySelectorAll<HTMLFormElement>('.new-collection')) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const shelf = shelfOf(form.dataset.kind);
+      const input = form.querySelector('input')!;
+      if (!input.value.trim()) return input.focus();
+      const created = createCollection(input.value, shelf.kind);
+      input.value = '';
+      select(shelf, created.id);
+      shelf.tabs.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
 
   document.querySelector('.edit-interests')!.addEventListener('click', () =>
     window.dispatchEvent(new Event('open-onboarding')),
@@ -247,7 +361,7 @@ import '../styles/drawer.css';
   document.querySelector<HTMLInputElement>('.import input')!.addEventListener('change', async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    if (!confirm('Il backup sostituirà preferiti, cartelle e interessi salvati ora. Continuare?')) return;
+    if (!confirm('Il backup sostituirà preferiti, cartelle, videoteca e interessi salvati ora. Continuare?')) return;
     try {
       importLibrary(await file.text());
     } catch {
@@ -261,7 +375,7 @@ import '../styles/drawer.css';
       render();
     })
     .catch(() => {
-      drawer.innerHTML = '<p class="muted">Non riesco a caricare i libri in questo momento.</p>';
+      for (const shelf of shelves) shelf.tabs.innerHTML = '<p class="muted">Non riesco a caricare il catalogo in questo momento.</p>';
     });
   onLibraryChange(render);
 </script>
@@ -289,20 +403,23 @@ import '../styles/drawer.css';
   }
 
   #library { margin-top: 28px; }
+  .videoteca { margin-top: 56px; }
+  .videoteca h2 { margin: 0; font-size: 1.8rem; }
+  .videoteca .intro { margin: 8px 0 20px; }
   .drawer-panel :global(.shelf) { margin-top: 28px; }
-  #library :global(.shelf-head) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
-  #library :global(h2) { margin: 0 0 12px; font-size: 1.35rem; }
-  #library :global(.count) { font-family: var(--font-text); font-size: 0.85rem; font-weight: 400; color: var(--muted); }
-  #library :global(.tools) { display: flex; gap: 12px; }
-  #library :global(.link) { font: inherit; font-size: 0.85rem; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
-  #library :global(.link.danger) { color: var(--limited); }
-  #library :global(.empty) {
+  .drawer-panel :global(.shelf-head) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .drawer-panel :global(h3) { margin: 0 0 12px; font-size: 1.35rem; }
+  .drawer-panel :global(.count) { font-family: var(--font-text); font-size: 0.85rem; font-weight: 400; color: var(--muted); }
+  .drawer-panel :global(.tools) { display: flex; gap: 12px; }
+  .drawer-panel :global(.link) { font: inherit; font-size: 0.85rem; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  .drawer-panel :global(.link.danger) { color: var(--limited); }
+  .drawer-panel :global(.empty) {
     margin: 0;
     padding: 20px;
     border: 1px dashed var(--border);
     border-radius: var(--radius);
   }
-  #library :global(.hint) { margin-top: 24px; }
+  .drawer-panel :global(.hint) { margin-top: 24px; }
 
   .interests, .backup { margin-top: 40px; }
   .interests h2, .backup h2 { font-size: 1.35rem; margin: 0 0 8px; }

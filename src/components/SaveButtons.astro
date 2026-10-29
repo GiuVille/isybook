@@ -1,20 +1,38 @@
 ---
-// Pulsanti "Preferito" e "Aggiungi a cartella" per un libro. Lo stato vive nel browser (src/lib/library.ts).
+// Pulsanti "Preferito" (o "Da vedere") e "Aggiungi a cartella" per un libro o per una serie/film.
+// Lo stato vive nel browser (src/lib/library.ts): i libri vanno nel cassetto, serie e film nella videoteca.
+import type { ItemKind } from '../lib/library';
+
 interface Props {
   slug: string;
   title: string;
+  kind?: ItemKind;
   compact?: boolean; // solo icone (anteprime)
 }
 
-const { slug, title, compact = false } = Astro.props;
+const { slug, title, kind = 'book', compact = false } = Astro.props;
+const screen = kind === 'screen';
 ---
 
-<div class:list={['save', { compact }]} data-slug={slug}>
-  <button type="button" class="fav" aria-pressed="false" title={`Aggiungi «${title}» ai preferiti`}>
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 7.9 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.6 3.4 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2Z" />
-    </svg>
-    <span class="text">Preferito</span>
+<div class:list={['save', { compact, screen }]} data-slug={slug} data-kind={kind}>
+  <button
+    type="button"
+    class="fav"
+    aria-pressed="false"
+    title={screen ? `Aggiungi «${title}» ai titoli da vedere` : `Aggiungi «${title}» ai preferiti`}
+  >
+    {screen ? (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3.5 10h17v9a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19Z" />
+        <path d="M3.2 9.6 2.6 6.9a1.4 1.4 0 0 1 1-1.7l13.6-3.1a1.4 1.4 0 0 1 1.7 1l.6 2.7Z" />
+        <path class="stripes" d="m7 4.8 2.6 3.4M11.6 3.8l2.6 3.4M16 2.8l2.6 3.4" />
+      </svg>
+    ) : (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 7.9 3.6 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.4 0 5.6 3.4 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2Z" />
+      </svg>
+    )}
+    <span class="text">{screen ? 'Da vedere' : 'Preferito'}</span>
   </button>
 
   <div class="pick">
@@ -27,7 +45,7 @@ const { slug, title, compact = false } = Astro.props;
       <span class="in-count" hidden></span>
     </button>
     <div class="pop" hidden>
-      <p class="pop-title">Salva in una cartella</p>
+      <p class="pop-title">{screen ? 'Salva in una cartella della videoteca' : 'Salva in una cartella'}</p>
       <ul class="cols"></ul>
       <form class="new">
         <input type="text" maxlength="40" placeholder="Nuova cartella…" aria-label="Nome della nuova cartella" />
@@ -39,40 +57,49 @@ const { slug, title, compact = false } = Astro.props;
 
 <script>
   import {
+    collectionsOf,
     createCollection,
+    favoritesOf,
     getLibrary,
     onLibraryChange,
     toggleFavorite,
     toggleInCollection,
+    type ItemKind,
     type Library,
   } from '../lib/library';
   import { esc } from '../lib/book-card';
   import { flyToLibrary, heartBurst } from '../scripts/celebrate';
 
   const blocks = [...document.querySelectorAll<HTMLElement>('.save[data-slug]')];
+  const kindOf = (block: HTMLElement) => (block.dataset.kind ?? 'book') as ItemKind;
+  // colore della festa: rosa per i libri, rosso sipario per serie e film
+  const colorOf = (kind: ItemKind) => (kind === 'screen' ? '#c62828' : '#c2185b');
 
   function render(library: Library) {
     for (const block of blocks) {
       const slug = block.dataset.slug!;
-      const fav = library.favorites.includes(slug);
+      const kind = kindOf(block);
+      const collections = collectionsOf(library, kind);
+      const fav = favoritesOf(library, kind).includes(slug);
       const favButton = block.querySelector<HTMLButtonElement>('.fav')!;
       favButton.setAttribute('aria-pressed', String(fav));
-      block.querySelector('.fav .text')!.textContent = fav ? 'Nei preferiti' : 'Preferito';
+      block.querySelector('.fav .text')!.textContent =
+        kind === 'screen' ? (fav ? 'Da vedere ✓' : 'Da vedere') : fav ? 'Nei preferiti' : 'Preferito';
 
-      const inCollections = library.collections.filter((c) => c.slugs.includes(slug));
+      const inCollections = collections.filter((c) => c.slugs.includes(slug));
       const count = block.querySelector<HTMLElement>('.in-count')!;
       count.hidden = inCollections.length === 0;
       count.textContent = String(inCollections.length);
       block.querySelector('.add')!.classList.toggle('active', inCollections.length > 0);
 
-      block.querySelector('.cols')!.innerHTML = library.collections.length
-        ? library.collections
+      block.querySelector('.cols')!.innerHTML = collections.length
+        ? collections
             .map(
               (c) => `<li><label><input type="checkbox" value="${esc(c.id)}" ${c.slugs.includes(slug) ? 'checked' : ''}>
                 <span>${esc(c.name)}</span><small>${c.slugs.length}</small></label></li>`,
             )
             .join('')
-        : '<li class="none">Nessuna cartella: creane una qui sotto.</li>';
+        : `<li class="none">Nessuna cartella${kind === 'screen' ? ' nella videoteca' : ''}: creane una qui sotto.</li>`;
     }
   }
 
@@ -86,16 +113,18 @@ const { slug, title, compact = false } = Astro.props;
 
   for (const block of blocks) {
     const slug = block.dataset.slug!;
+    const kind = kindOf(block);
+    const shape = kind === 'screen' ? 'tape' : 'book';
     const pop = block.querySelector<HTMLElement>('.pop')!;
     const add = block.querySelector<HTMLButtonElement>('.add')!;
 
     const favButton = block.querySelector<HTMLButtonElement>('.fav')!;
     favButton.addEventListener('click', () => {
-      const library = toggleFavorite(slug);
+      const library = toggleFavorite(slug, kind);
       // festeggia solo quando si aggiunge, non quando si toglie
-      if (library.favorites.includes(slug)) {
-        heartBurst(favButton);
-        flyToLibrary(favButton, '#c2185b');
+      if (favoritesOf(library, kind).includes(slug)) {
+        heartBurst(favButton, kind === 'screen' ? '★' : '♥', colorOf(kind));
+        flyToLibrary(favButton, colorOf(kind), shape);
       }
     });
 
@@ -111,17 +140,17 @@ const { slug, title, compact = false } = Astro.props;
     pop.addEventListener('change', (e) => {
       const input = e.target as HTMLInputElement;
       if (input.type !== 'checkbox') return;
-      toggleInCollection(input.value, slug);
-      if (input.checked) flyToLibrary(add);
+      toggleInCollection(input.value, slug, kind);
+      if (input.checked) flyToLibrary(add, undefined, shape);
     });
 
     pop.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = pop.querySelector<HTMLInputElement>('.new input')!;
       if (!input.value.trim()) return;
-      const collection = createCollection(input.value);
-      toggleInCollection(collection.id, slug);
-      flyToLibrary(add);
+      const collection = createCollection(input.value, kind);
+      toggleInCollection(collection.id, slug, kind);
+      flyToLibrary(add, undefined, shape);
       input.value = '';
     });
   }
@@ -154,6 +183,9 @@ const { slug, title, compact = false } = Astro.props;
   svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
   .fav[aria-pressed='true'] { color: #c2185b; border-color: #c2185b; }
   .fav[aria-pressed='true'] svg { fill: #c2185b; }
+  .screen .fav[aria-pressed='true'] { color: #c62828; border-color: #c62828; }
+  .screen .fav[aria-pressed='true'] svg { fill: #c62828; }
+  .screen .fav[aria-pressed='true'] svg .stripes { stroke: #fff; }
   .add.active { color: var(--accent); border-color: var(--accent); }
   .in-count {
     min-width: 1.4em;

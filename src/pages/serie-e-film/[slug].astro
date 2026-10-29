@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import CoverArt from '../../components/CoverArt.astro';
+import SaveButtons from '../../components/SaveButtons.astro';
 import { themeForWork } from '../../lib/book-themes';
 import { getAdaptations, getWorks } from '../../lib/data';
 import {
@@ -42,6 +43,8 @@ const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movi
         <p class="kicker">{kindLabel}{a.platform && ` · ${a.platform}`}</p>
         <h1>{a.title}</h1>
         <p class="byline">Tratto da <a href={`/libri/${a.source.slug}`}>{a.source.title}</a> di {a.source.authors.map((x, i) => <>{i > 0 && ', '}<a href={`/autori/${x.slug}`}>{x.name}</a></>)}</p>
+
+        <div class="save-row"><SaveButtons slug={a.slug} title={a.title} kind="screen" /></div>
 
         <dl class="facts">
           <dt>{a.release_date ? 'Uscita' : 'Stato'}</dt>
@@ -154,6 +157,7 @@ const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movi
   .kicker { margin: 0 0 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
   h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.4rem); }
   .byline { font-size: 1.05rem; margin: 6px 0 0; }
+  .save-row { margin: 12px 0 4px; }
   .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 18px 0 0; align-items: baseline; }
   .facts dt { color: var(--muted); font-size: 0.85rem; }
   .facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

@@ -1,4 +1,4 @@
-// Piccole animazioni di conferma: cuoricini per i preferiti, mini libro che vola in "La mia libreria".
+// Piccole animazioni di conferma: cuoricini per i preferiti, mini libro (o videocassetta) che vola in "La mia libreria".
 // Elementi temporanei a posizione fissa, rimossi a fine animazione; niente se si riduce il movimento.
 import { reducedMotion } from './reveal';
 
@@ -12,8 +12,8 @@ function layer(): HTMLElement {
 
 const center = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
-/** Il pulsante pulsa e lancia sei cuoricini a raggiera. */
-export function heartBurst(button: HTMLElement) {
+/** Il pulsante pulsa e lancia sei cuoricini (o altri simboli) a raggiera. */
+export function heartBurst(button: HTMLElement, symbol = '♥', color = '#c2185b') {
   if (reducedMotion()) return;
   button.querySelector('svg')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }], {
     duration: 380,
@@ -22,8 +22,8 @@ export function heartBurst(button: HTMLElement) {
   const { x, y } = center(button.getBoundingClientRect());
   for (let i = 0; i < 6; i++) {
     const heart = layer();
-    heart.textContent = '♥';
-    heart.style.cssText += `color:#c2185b;font-size:${10 + (i % 3) * 3}px;`;
+    heart.textContent = symbol;
+    heart.style.cssText += `color:${color};font-size:${10 + (i % 3) * 3}px;`;
     const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
     const dist = 26 + (i % 2) * 10;
     heart
@@ -47,15 +47,21 @@ function libraryTarget(): HTMLElement | null {
   return visible(burger) ? burger : null;
 }
 
-/** Una mini copertina parte dal pulsante e vola, con un arco, verso "La mia libreria". */
-export function flyToLibrary(from: HTMLElement, color = 'var(--accent)') {
+/** Una mini copertina (o una videocassetta, per serie e film) parte dal pulsante e vola, con un arco, verso "La mia libreria". */
+export function flyToLibrary(from: HTMLElement, color = 'var(--accent)', shape: 'book' | 'tape' = 'book') {
   if (reducedMotion()) return;
   const target = libraryTarget();
   if (!target) return;
   const a = center(from.getBoundingClientRect());
   const b = center(target.getBoundingClientRect());
   const book = layer();
-  book.style.cssText += `width:16px;height:24px;border-radius:2px;background:${color};box-shadow:1px 2px 4px rgba(0,0,0,.3);`;
+  book.style.cssText +=
+    shape === 'tape'
+      ? // videocassetta: corpo scuro, etichetta colorata e due bobine
+        `width:26px;height:16px;border-radius:2px;box-shadow:1px 2px 4px rgba(0,0,0,.35);
+         background:radial-gradient(circle at 30% 62%,#eee 0 2px,transparent 2.5px),radial-gradient(circle at 70% 62%,#eee 0 2px,transparent 2.5px),
+         linear-gradient(${color} 0 0) 4px 2px / 18px 5px no-repeat,#231d27;`
+      : `width:16px;height:24px;border-radius:2px;background:${color};box-shadow:1px 2px 4px rgba(0,0,0,.3);`;
   const mid = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 80 };
   book
     .animate(

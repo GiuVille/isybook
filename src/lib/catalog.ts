@@ -2,7 +2,7 @@
 // Generato in build come /catalogo.json da src/pages/catalogo.json.ts.
 import { themeForWork } from './book-themes';
 import { releaseDate } from './format';
-import type { Work } from './types';
+import type { Adaptation, Work } from './types';
 
 export interface CatalogTag {
   slug: string;
@@ -22,8 +22,21 @@ export interface CatalogBook {
   color: string; // colore della copertina segnaposto
 }
 
+export interface CatalogScreen {
+  slug: string;
+  title: string;
+  kind: 'series' | 'film';
+  seasons: number | null;
+  runtime: number | null; // minuti, per i film
+  released: string | null;
+  poster: string | null;
+  color: string; // colore della locandina segnaposto
+  source: { slug: string; title: string };
+}
+
 export interface Catalog {
   books: CatalogBook[];
+  screens: CatalogScreen[];
   tropes: CatalogTag[];
   genres: CatalogTag[];
   settings: CatalogTag[];
@@ -50,8 +63,24 @@ export function buildCatalog(works: Work[]): Catalog {
       color: themeForWork(w).cover,
     }),
   );
+  const screens = works.flatMap((w) =>
+    w.adaptations.map(
+      (a: Adaptation): CatalogScreen => ({
+        slug: a.slug,
+        title: a.title,
+        kind: a.kind,
+        seasons: a.seasons ?? null,
+        runtime: a.runtime_minutes ?? null,
+        released: a.release_date ?? null,
+        poster: a.poster_url ?? null,
+        color: themeForWork(a).cover,
+        source: { slug: a.source.slug, title: a.source.title },
+      }),
+    ),
+  );
   return {
     books,
+    screens,
     tropes: uniqueTags(books.flatMap((b) => b.tropes)),
     genres: uniqueTags(books.flatMap((b) => b.genres)),
     settings: uniqueTags(books.flatMap((b) => b.settings)),
