@@ -1,6 +1,7 @@
 // Configurazione delle risorse gestite dal pannello admin.
 // Ogni risorsa è una tabella Supabase; i campi guidano lista e form.
 import { THEME_OPTIONS } from '../lib/book-themes';
+import { DOODLE_OPTIONS } from '../lib/doodles';
 
 export type FieldType =
   | 'text'
@@ -27,6 +28,7 @@ export interface Field {
   optionLabel?: (row: Record<string, any>) => string; // relation: etichetta costruita dalla riga
   bucket?: string; // image: bucket dello Storage in cui caricare la foto
   readonly?: boolean; // mostrato ma non modificabile, e mai salvato
+  creatable?: boolean; // relation: "Aggiungi" accanto alla tendina per creare una nuova voce (nome + slug)
   help?: string;
 }
 
@@ -38,6 +40,8 @@ export interface ManyToMany {
   otherKey: string; // colonna della join che punta all'altra tabella
   table: string;
   labelColumn: string;
+  /** Mostra "Aggiungi" per creare una nuova voce (nome + slug) senza uscire dal form. */
+  creatable?: boolean;
 }
 
 export interface Resource {
@@ -125,7 +129,7 @@ export const RESOURCES: Resource[] = [
       status,
     ],
     manyToMany: [
-      { label: 'Autori', joinTable: 'event_authors', ownKey: 'event_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name' },
+      { label: 'Autori', joinTable: 'event_authors', ownKey: 'event_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true },
       { label: 'Libri', joinTable: 'event_works', ownKey: 'event_id', otherKey: 'work_id', table: 'works', labelColumn: 'title' },
     ],
   },
@@ -185,7 +189,7 @@ export const RESOURCES: Resource[] = [
     fields: [
       { name: 'title', label: 'Titolo', type: 'text', required: true },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'title', required: true },
-      { name: 'publisher_id', label: 'Editore', type: 'relation', table: 'publishers', labelColumn: 'name' },
+      { name: 'publisher_id', label: 'Editore', type: 'relation', table: 'publishers', labelColumn: 'name', creatable: true },
       {
         name: 'kind', label: 'Tipo', type: 'select', required: true,
         options: [
@@ -250,10 +254,10 @@ export const RESOURCES: Resource[] = [
       status,
     ],
     manyToMany: [
-      { label: 'Autori', joinTable: 'work_authors', ownKey: 'work_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name' },
-      { label: 'Generi', joinTable: 'work_genres', ownKey: 'work_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name' },
-      { label: 'Tropes', joinTable: 'work_tropes', ownKey: 'work_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name' },
-      { label: 'Ambientazione', joinTable: 'work_settings', ownKey: 'work_id', otherKey: 'setting_id', table: 'settings', labelColumn: 'name' },
+      { label: 'Autori', joinTable: 'work_authors', ownKey: 'work_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true },
+      { label: 'Generi', joinTable: 'work_genres', ownKey: 'work_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name', creatable: true },
+      { label: 'Tropes', joinTable: 'work_tropes', ownKey: 'work_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name', creatable: true },
+      { label: 'Ambientazione', joinTable: 'work_settings', ownKey: 'work_id', otherKey: 'setting_id', table: 'settings', labelColumn: 'name', creatable: true },
     ],
     children: [
       { resource: 'editions', foreignKey: 'work_id', label: 'Edizioni' },
@@ -278,7 +282,7 @@ export const RESOURCES: Resource[] = [
         name: 'edition_type', label: 'Tipo', type: 'select', required: true,
         options: [['standard', 'Standard'], ['special', 'Speciale'], ['limited', 'Limitata']],
       },
-      { name: 'publisher_id', label: 'Editore', type: 'relation', table: 'publishers', labelColumn: 'name' },
+      { name: 'publisher_id', label: 'Editore', type: 'relation', table: 'publishers', labelColumn: 'name', creatable: true },
       { name: 'first_print', label: 'Prima edizione / prima tiratura', type: 'checkbox' },
       { name: 'pages', label: 'Pagine', type: 'number' },
       { name: 'isbn', label: 'ISBN', type: 'text' },
@@ -323,8 +327,8 @@ export const RESOURCES: Resource[] = [
       status,
     ],
     manyToMany: [
-      { label: 'Generi (se vuoto: quelli del libro)', joinTable: 'adaptation_genres', ownKey: 'adaptation_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name' },
-      { label: 'Tropes (se vuoto: quelli del libro)', joinTable: 'adaptation_tropes', ownKey: 'adaptation_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name' },
+      { label: 'Generi (se vuoto: quelli del libro)', joinTable: 'adaptation_genres', ownKey: 'adaptation_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name', creatable: true },
+      { label: 'Tropes (se vuoto: quelli del libro)', joinTable: 'adaptation_tropes', ownKey: 'adaptation_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name', creatable: true },
     ],
   },
   {
@@ -358,7 +362,7 @@ export const RESOURCES: Resource[] = [
     ],
     manyToMany: [
       { label: 'Libri', joinTable: 'merch_works', ownKey: 'merch_id', otherKey: 'work_id', table: 'works', labelColumn: 'title' },
-      { label: 'Autori', joinTable: 'merch_authors', ownKey: 'merch_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name' },
+      { label: 'Autori', joinTable: 'merch_authors', ownKey: 'merch_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true },
     ],
   },
   {
@@ -418,11 +422,12 @@ export const RESOURCES: Resource[] = [
     label: 'Tropes',
     singular: 'trope',
     group: 'Anagrafiche',
-    listColumns: ['name', 'slug'],
+    listColumns: ['name', 'slug', 'doodle'],
     orderBy: { column: 'name', ascending: true },
     fields: [
       { name: 'name', label: 'Nome', type: 'text', required: true },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'name', required: true },
+      { name: 'doodle', label: 'Decorazione', type: 'select', options: DOODLE_OPTIONS, help: 'Scarabocchio disegnato sugli sfondi dei libri con questo trope. Se vuoto viene scelto in automatico.' },
       { name: 'description', label: 'Descrizione', type: 'textarea' },
     ],
   },
@@ -432,11 +437,12 @@ export const RESOURCES: Resource[] = [
     label: 'Ambientazioni',
     singular: 'ambientazione',
     group: 'Anagrafiche',
-    listColumns: ['name', 'slug'],
+    listColumns: ['name', 'slug', 'doodle'],
     orderBy: { column: 'name', ascending: true },
     fields: [
       { name: 'name', label: 'Nome', type: 'text', required: true, help: 'College, scuola, lavoro, corte reale…' },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'name', required: true },
+      { name: 'doodle', label: 'Decorazione', type: 'select', options: DOODLE_OPTIONS, help: 'Scarabocchio disegnato sugli sfondi dei libri ambientati qui. Se vuoto viene scelto in automatico.' },
       { name: 'description', label: 'Descrizione', type: 'textarea' },
     ],
   },

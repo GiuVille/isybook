@@ -25,6 +25,7 @@ export interface Tag {
   slug: string;
   name: string;
   theme?: string | null; // solo generi: palette dell'anteprima
+  doodle?: string | null; // tropes e ambientazioni: decorazione scelta dal pannello (src/lib/doodles.ts)
 }
 
 export interface PurchaseLink {

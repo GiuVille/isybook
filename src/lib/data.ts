@@ -11,8 +11,8 @@ const WORK_SELECT = `
   id, slug, title, plot, series, series_number, origin, spice_level,
   work_authors ( authors ( id, slug, name, bio, social_links ) ),
   work_genres ( genres ( id, slug, name, theme ) ),
-  work_tropes ( tropes ( id, slug, name ) ),
-  work_settings ( settings ( id, slug, name ) ),
+  work_tropes ( tropes ( id, slug, name, doodle ) ),
+  work_settings ( settings ( id, slug, name, doodle ) ),
   editions (
     id, isbn, format, release_date, price, language, edition_type, first_print, pages, print_run, details, cover_url, purchase_links,
     publishers ( id, slug, name, kind, website ),
@@ -23,7 +23,7 @@ const WORK_SELECT = `
     id, slug, title, kind, platform, release_date, production_status, tmdb_id, status,
     plot, poster_url, seasons, episodes, runtime_minutes, watch_providers,
     adaptation_genres ( genres ( id, slug, name, theme ) ),
-    adaptation_tropes ( tropes ( id, slug, name ) )
+    adaptation_tropes ( tropes ( id, slug, name, doodle ) )
   )
 `;
 

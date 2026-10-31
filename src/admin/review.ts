@@ -1,5 +1,5 @@
 // Approvazione di un elemento della coda: trasforma il payload proposto in righe reali.
-// Libri: editore, autori, opera, edizione, generi, tropi. Promozioni: editore, promozione, libri coinvolti.
+// Libri: editore, autori, opera, edizione, generi, tropi, ambientazioni (solo le voci approvate da chi rivede). Promozioni: editore, promozione, libri coinvolti.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { slugify } from './resources';
 
@@ -12,6 +12,11 @@ export interface BookPayload {
   edition: Row;
   genres?: string[]; // slug
   tropes?: string[]; // slug
+  settings?: string[]; // slug
+  /** Voci nuove approvate da chi rivede: vengono create prima del collegamento. */
+  new_genres?: Array<{ name: string; slug: string }>;
+  new_tropes?: Array<{ name: string; slug: string }>;
+  new_settings?: Array<{ name: string; slug: string }>;
 }
 
 export interface PromotionPayload {
@@ -127,8 +132,12 @@ export async function approveReviewItem(sb: SupabaseClient, item: Row, reviewerI
   const workId = await ensureBySlug(sb, 'works', { ...p.work, status: 'published' });
 
   await link(sb, 'work_authors', authorIds.map((author_id) => ({ work_id: workId, author_id })));
+  for (const g of p.new_genres ?? []) await ensureBySlug(sb, 'genres', g);
+  for (const t of p.new_tropes ?? []) await ensureBySlug(sb, 'tropes', t);
+  for (const s of p.new_settings ?? []) await ensureBySlug(sb, 'settings', s);
   await link(sb, 'work_genres', (await idsBySlug(sb, 'genres', p.genres)).map((genre_id) => ({ work_id: workId, genre_id })));
   await link(sb, 'work_tropes', (await idsBySlug(sb, 'tropes', p.tropes)).map((trope_id) => ({ work_id: workId, trope_id })));
+  await link(sb, 'work_settings', (await idsBySlug(sb, 'settings', p.settings)).map((setting_id) => ({ work_id: workId, setting_id })));
 
   const edition: Row = { ...p.edition, work_id: workId, publisher_id: publisherId };
   const saved = edition.isbn

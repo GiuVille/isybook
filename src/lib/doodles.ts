@@ -63,6 +63,21 @@ const ICONS = {
 
 export type DoodleName = keyof typeof ICONS;
 
+/** Decorazioni assegnabili a tropes e ambientazioni dal pannello. Per aggiungerne una: icona in ICONS + etichetta qui. */
+export const DOODLE_LABELS: Record<DoodleName, string> = {
+  heart: 'Cuore', heartArrow: 'Cuore con freccia', loveLetter: "Lettera d'amore", rose: 'Rosa',
+  web: 'Ragnatela', spider: 'Ragno', bat: 'Pipistrello', candle: 'Candela', moon: 'Luna',
+  magnifier: 'Lente', fingerprint: 'Impronta digitale', footprints: 'Impronte', question: 'Punto di domanda',
+  star: 'Stella', sparkle: 'Scintilla', sword: 'Spada', crystal: 'Cristallo', plane: 'Aeroplano', bolt: 'Fulmine',
+  bookmark: 'Segnalibro', mug: 'Tazza', hockey: 'Hockey', soccer: 'Pallone da calcio', basket: 'Pallone da basket',
+  oval: 'Pallone ovale', volley: 'Pallone da pallavolo', tennis: 'Pallina da tennis', skate: 'Pattino', flag: 'Bandiera a scacchi',
+  glove: 'Guantone', ballet: 'Scarpetta da danza', swim: 'Nuoto', whistle: 'Fischietto', trophy: 'Coppa',
+  crown: 'Corona', pencil: 'Matita', book: 'Libro', gradCap: 'Tocco di laurea', pennant: 'Gagliardetto', key: 'Chiave',
+  lantern: 'Lanterna', house: 'Casa', belltower: 'Campanile', wave: 'Onda', city: 'Città', briefcase: 'Valigetta',
+};
+export const DOODLE_OPTIONS = (Object.entries(DOODLE_LABELS) as Array<[DoodleName, string]>).sort((a, b) => a[1].localeCompare(b[1], 'it'));
+const isDoodle = (name: string | null | undefined): name is DoodleName => Boolean(name && name in ICONS);
+
 const GENRE: Record<ThemeName, DoodleName[]> = {
   romance: ['heart', 'heartArrow', 'loveLetter', 'rose'],
   horror: ['web', 'spider', 'bat', 'candle', 'moon'],
@@ -135,7 +150,9 @@ export function doodlesFor(
   const slugs = [...work.genres, ...(work.tropes ?? []), ...(work.settings ?? [])].map((t) => t.slug);
   const sport = matchAll(SPORTS, slugs);
   const setting = matchAll(SETTINGS, (work.settings ?? []).map((t) => t.slug));
-  const extras = shuffle([...sport, ...sport, ...setting]).filter((v, i, a) => a.indexOf(v) === i); // lo sport pesa di più
+  // prima le decorazioni scelte dalla redazione su tropes e ambientazioni, poi quelle riconosciute dallo slug
+  const chosen = [...(work.tropes ?? []), ...(work.settings ?? [])].map((t) => t.doodle).filter(isDoodle);
+  const extras = [...chosen, ...shuffle([...sport, ...sport, ...setting])].filter((v, i, a) => a.indexOf(v) === i); // lo sport pesa di più
   const genre = shuffle(GENRE[themeNameForWork(work)]);
   const fromExtras = Math.min(extras.length, Math.floor(count / 2));
   const picked = [...genre.slice(0, count - fromExtras), ...extras.slice(0, fromExtras)];

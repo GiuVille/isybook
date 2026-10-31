@@ -306,9 +306,10 @@ function fieldInput(field: Field, value: unknown, options: Record<string, Array<
     case 'relation': {
       const opts = field.type === 'select' ? field.options! : options[field.name] ?? [];
       const empty = field.required ? '' : '<option value="">—</option>';
-      return `<select ${name} ${required}>${empty}${opts
+      const select = `<select ${name} ${required}>${empty}${opts
         .map(([v, l]) => `<option value="${esc(v)}" ${String(value ?? '') === v ? 'selected' : ''}>${esc(l)}</option>`)
         .join('')}</select>`;
+      return field.type === 'relation' && field.creatable && !field.readonly ? select + newItemBox(field.table!, field.label) : select;
     }
     default:
       return `<input type="text" ${name} ${required} value="${esc(value)}">`;
@@ -426,6 +427,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
                     `<label class="check"><input type="checkbox" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''}> ${esc(l)}</label>`,
                 )
                 .join('')}
+              ${rel.creatable ? newItemBox(rel.table, rel.label) : ''}
             </fieldset>`,
           )
           .join('')}
@@ -452,6 +454,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   }
 
   bindImageFields(form);
+  bindCreatable(form);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -495,6 +498,53 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     if (error) fail(error);
     flash('Eliminato');
     go(`#/r/${resource.key}`);
+  });
+}
+
+// "Aggiungi" nelle relazioni (tropes, generi, ambientazioni, autori) e accanto alle tendine (editore):
+// crea la voce e la spunta o la seleziona subito. Se lo slug esiste già usa quella esistente, senza doppioni.
+const newItemBox = (table: string, label: string) =>
+  `<span class="m2m-new"><input type="text" maxlength="80" placeholder="Nuova voce…" aria-label="Nuova voce in ${esc(label)}"><button type="button" class="secondary" data-create="${esc(table)}">Aggiungi</button></span>`;
+
+async function findOrCreate(table: string, name: string): Promise<{ row: Row; existed: boolean }> {
+  const sb = getSupabase();
+  const slug = slugify(name);
+  const found = await sb.from(table).select('id, name').eq('slug', slug).maybeSingle();
+  if (found.error) fail(found.error);
+  if (found.data) return { row: found.data, existed: true };
+  const inserted = await sb.from(table).insert({ name, slug }).select('id, name').single();
+  if (inserted.error) fail(inserted.error);
+  return { row: inserted.data, existed: false };
+}
+
+function bindCreatable(form: HTMLFormElement) {
+  form.querySelectorAll<HTMLButtonElement>('[data-create]').forEach((button) => {
+    const box = button.closest<HTMLElement>('.m2m-new')!;
+    const input = box.querySelector('input')!;
+    const create = async () => {
+      const name = input.value.trim();
+      if (!name) return input.focus();
+      const { row, existed } = await findOrCreate(button.dataset.create!, name);
+      const fieldset = box.closest('fieldset');
+      if (fieldset) {
+        const existing = fieldset.querySelector<HTMLInputElement>(`input[type="checkbox"][value="${CSS.escape(row.id)}"]`);
+        if (existing) existing.checked = true;
+        else box.insertAdjacentHTML('beforebegin', `<label class="check"><input type="checkbox" value="${esc(row.id)}" checked> ${esc(row.name)}</label>`);
+      } else {
+        const select = box.parentElement!.querySelector('select')!;
+        if (![...select.options].some((o) => o.value === row.id)) select.add(new Option(row.name, row.id));
+        select.value = row.id;
+      }
+      input.value = '';
+      flash(existed ? `«${row.name}» c'era già: l'ho scelto` : `«${row.name}» aggiunto`);
+    };
+    button.addEventListener('click', create);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault(); // non inviare tutto il form
+        create();
+      }
+    });
   });
 }
 
@@ -566,13 +616,78 @@ const CONTENT_TYPE_LABELS: Record<string, string> = { book: 'Libro', event: 'Eve
 
 const PROMOTION_KINDS = getResource('promotions')!.fields.find((f) => f.name === 'kind')!.options!;
 
+// Voci proposte per un libro o una promozione: ognuna va approvata, nulla viene scartato o creato in silenzio.
+// Quelle già in catalogo partono spuntate; le nuove hanno il nome correggibile e partono spuntate solo
+// se arrivano dai dati (autori, editore), non se sono un'interpretazione dell'estrazione (generi, tropes, ambientazioni).
+type TagTable = 'genres' | 'tropes' | 'settings' | 'authors' | 'publishers';
+const TAG_KINDS: Record<TagTable, { what: string; newChecked: boolean }> = {
+  genres: { what: 'genere', newChecked: false },
+  tropes: { what: 'trope', newChecked: false },
+  settings: { what: 'ambientazione', newChecked: false },
+  authors: { what: 'autore', newChecked: true },
+  publishers: { what: 'editore', newChecked: true },
+};
+const humanize = (slug: string) => {
+  const words = slug.replace(/-/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+/** Proposti come slug (generi, tropes, ambientazioni) o come nomi (autori, editore). */
+const fromSlugs = (slugs: string[] = []) => slugs.map((slug) => ({ slug, name: humanize(slug) }));
+const fromNames = (items: Array<{ name: string; slug?: string } | null | undefined> = []) =>
+  items.flatMap((x) => (x?.name ? [{ slug: x.slug || slugify(x.name), name: x.name }] : []));
+
+async function proposedTags(
+  sb: ReturnType<typeof getSupabase>,
+  table: TagTable,
+  label: string,
+  items: Array<{ slug: string; name: string }>,
+): Promise<string> {
+  if (items.length === 0) return '';
+  const { data, error } = await sb.from(table).select('slug, name').in('slug', items.map((x) => x.slug));
+  if (error) fail(error);
+  const known = new Map((data ?? []).map((r: Row) => [r.slug, r.name]));
+  const { what, newChecked } = TAG_KINDS[table];
+  return `<dt>${label}</dt><dd class="proposed" data-tags="${table}">${items
+    .map((x) =>
+      known.has(x.slug)
+        ? `<label class="check"><input type="checkbox" data-slug="${esc(x.slug)}" data-name="${esc(known.get(x.slug))}" checked> ${esc(known.get(x.slug))}</label>`
+        : `<label class="check"><input type="checkbox" data-slug="${esc(x.slug)}" data-new ${newChecked ? 'checked' : ''}> <input type="text" class="new-name" value="${esc(x.name)}" aria-label="Nome del nuovo ${what}"> <small>nuovo ${what}</small></label>`,
+    )
+    .join('')}</dd>`;
+}
+
+/** Voci spuntate, con il nome eventualmente corretto; isNew = da creare. */
+function approvedTags(table: TagTable): Array<{ slug: string; name: string; isNew: boolean }> | null {
+  const box = document.querySelector(`[data-tags="${table}"]`);
+  if (!box) return null;
+  return [...box.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')].map((c) => {
+    if (!c.hasAttribute('data-new')) return { slug: c.dataset.slug!, name: c.dataset.name!, isNew: false };
+    const name = c.parentElement!.querySelector<HTMLInputElement>('.new-name')!.value.trim() || humanize(c.dataset.slug!);
+    return { slug: slugify(name), name, isNew: true };
+  });
+}
+
+/** Generi, tropes e ambientazioni approvati nel formato del payload: slug da collegare + voci nuove da creare. */
+function approvedSlugs(table: 'genres' | 'tropes' | 'settings'): Row {
+  const items = approvedTags(table);
+  if (!items) return {};
+  return { [table]: items.map((x) => x.slug), [`new_${table}`]: items.filter((x) => x.isNew).map(({ slug, name }) => ({ slug, name })) };
+}
+
+/** Editore approvato (il primo spuntato) o null; undefined se non ce n'era uno proposto. */
+function approvedPublisher(): Row | null | undefined {
+  const items = approvedTags('publishers');
+  if (!items) return undefined;
+  return items[0] ? { name: items[0].name, slug: items[0].slug } : null;
+}
+
 /** Campi di una promozione proposta, modificabili prima di approvare. */
-function promotionSummary(p: Row): string {
+function promotionSummary(p: Row, publisherHtml: string): string {
   const input = (name: string, label: string, value: unknown, type = 'text') =>
     `<label for="pr-${name}">${label}</label><input id="pr-${name}" data-field="${name}" type="${type}" value="${esc(value ?? '')}">`;
   return `
     <dl class="summary">
-      <dt>Editore</dt><dd>${esc(p.publisher?.name ?? '—')}</dd>
+      ${publisherHtml || '<dt>Editore</dt><dd>—</dd>'}
       <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
       <dt>Fonte</dt><dd>${p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a>` : '—'}</dd>
       ${p.note ? `<dt>Nota</dt><dd>${esc(p.note)}</dd>` : ''}
@@ -640,13 +755,25 @@ async function renderReviewItem(id: string) {
   const { data: item, error } = await sb.from('review_queue').select('*').eq('id', id).single();
   if (error) fail(error);
   const p = item.payload ?? {};
+  const proposed =
+    item.content_type === 'book'
+      ? (
+          await Promise.all([
+            proposedTags(sb, 'authors', 'Autori', fromNames(p.authors)),
+            proposedTags(sb, 'publishers', 'Editore', fromNames([p.publisher])),
+            proposedTags(sb, 'genres', 'Generi proposti', fromSlugs(p.genres)),
+            proposedTags(sb, 'tropes', 'Tropes proposti', fromSlugs(p.tropes)),
+            proposedTags(sb, 'settings', 'Ambientazioni proposte', fromSlugs(p.settings)),
+          ])
+        ).join('')
+      : item.content_type === 'promotion'
+        ? await proposedTags(sb, 'publishers', 'Editore', fromNames([p.publisher]))
+        : '';
   const summary =
     item.content_type === 'book'
       ? `
         <dl class="summary">
           <dt>Titolo</dt><dd>${esc(p.work?.title)}</dd>
-          <dt>Autori</dt><dd>${esc((p.authors ?? []).map((a: Row) => a.name).join(', '))}</dd>
-          <dt>Editore</dt><dd>${esc(p.publisher?.name)}</dd>
           <dt>ISBN</dt><dd>${esc(p.edition?.isbn)}</dd>
           <dt>Formato</dt><dd>${esc(FORMAT_LABELS[p.edition?.format as EditionFormat] ?? p.edition?.format)}</dd>
           <dt>Edizione</dt><dd>${esc(EDITION_TYPE_LABELS[p.edition?.edition_type as EditionType] ?? p.edition?.edition_type)}${
@@ -654,7 +781,7 @@ async function renderReviewItem(id: string) {
           }</dd>
           ${p.edition?.details ? `<dt>Dettagli</dt><dd>${esc(p.edition.details)}</dd>` : ''}
           <dt>Uscita</dt><dd>${esc(p.edition?.release_date)}</dd>
-          <dt>Tropes proposti</dt><dd>${esc((p.tropes ?? []).join(', '))}</dd>
+          ${proposed}
           ${p.source_url ? `<dt>Fonte</dt><dd><a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a></dd>` : ''}
           ${p.note ? `<dt>Nota</dt><dd>${esc(p.note)}</dd>` : ''}
         </dl>
@@ -662,7 +789,7 @@ async function renderReviewItem(id: string) {
         <textarea id="plot" rows="6">${esc(p.work?.plot)}</textarea>
         ${p.original_description ? `<details><summary>Descrizione originale (solo riferimento, non pubblicare)</summary><p class="muted">${esc(p.original_description)}</p></details>` : ''}`
       : item.content_type === 'promotion'
-        ? promotionSummary(p)
+        ? promotionSummary(p, proposed)
         : '';
 
   render(
@@ -686,10 +813,23 @@ async function renderReviewItem(id: string) {
     let payload: Row;
     if (item.content_type === 'book') {
       const plot = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim();
-      payload = { ...p, work: { ...p.work, plot: plot || null } };
+      const authors = (approvedTags('authors') ?? []).map(({ slug, name }) => ({ slug, name }));
+      if (authors.length === 0) return flash('Un libro ha bisogno di almeno un autore: spuntane o aggiungine uno', 'error');
+      const publisher = approvedPublisher();
+      payload = {
+        ...p,
+        work: { ...p.work, plot: plot || null },
+        authors,
+        ...(publisher !== undefined ? { publisher } : {}),
+        ...approvedSlugs('genres'),
+        ...approvedSlugs('tropes'),
+        ...approvedSlugs('settings'),
+      };
     } else {
       // promozione: valgono i campi corretti a mano
       payload = { ...p, needs_extraction: false };
+      const publisher = approvedPublisher();
+      if (publisher !== undefined) payload.publisher = publisher;
       document.querySelectorAll<HTMLInputElement>('[data-field]').forEach((el) => (payload[el.dataset.field!] = el.value.trim() || null));
       // grafica scartata: non si salva nulla, neanche credito e testo alternativo
       if ((document.getElementById('pr-use-image') as HTMLInputElement | null)?.checked === false) {
