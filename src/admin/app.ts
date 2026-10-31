@@ -121,14 +121,15 @@ function renderLogin(message = '') {
 async function renderDashboard() {
   const sb = getSupabase();
   const counts = await Promise.all(
-    ['review_queue', 'articles', 'works', 'editions', 'events'].map(async (table) => {
+    ['review_queue', 'articles', 'works', 'editions', 'events', 'feedback'].map(async (table) => {
       let q = sb.from(table).select('id', { count: 'exact', head: true });
       if (table === 'review_queue') q = q.eq('status', 'pending');
+      if (table === 'feedback') q = q.eq('read', false);
       const { count } = await q;
       return count ?? 0;
     }),
   );
-  const [pending, articles, works, editions, events] = counts;
+  const [pending, articles, works, editions, events, unread] = counts;
   // stato del sito pubblico (migrazione 0007): se la tabella non c'è ancora, il riquadro non compare
   const { data: site } = await sb.from('site_state').select('content_changed_at, rebuild_requested_at, last_rebuild_at').eq('id', 1).maybeSingle();
   render(
@@ -140,6 +141,7 @@ async function renderDashboard() {
         <a class="card stat" href="#/r/works"><strong>${works}</strong> opere</a>
         <a class="card stat" href="#/r/editions"><strong>${editions}</strong> edizioni</a>
         <a class="card stat" href="#/r/events"><strong>${events}</strong> eventi</a>
+        <a class="card stat" href="#/r/feedback"><strong>${unread}</strong> ${unread === 1 ? 'messaggio' : 'messaggi'} da leggere</a>
       </div>
       <p class="actions">
         <a class="button" href="#/r/articles/new">Nuovo articolo</a>
@@ -203,6 +205,9 @@ function displayValue(field: Field | undefined, value: unknown, labels: Record<s
     return field.name === 'status' ? `<span class="pill ${esc(value)}">${esc(label)}</span>` : esc(label);
   }
   if (field.type === 'date') return esc(new Date(String(value)).toLocaleDateString('it-IT'));
+  if (field.type === 'checkbox') return value ? 'Sì' : '<strong>No</strong>';
+  // testi lunghi (es. i messaggi): in elenco solo l'inizio
+  if (field.type === 'textarea') return esc(String(value).length > 90 ? `${String(value).slice(0, 90)}…` : value);
   return esc(value);
 }
 
@@ -222,7 +227,7 @@ async function renderList(resource: Resource) {
     shell(`
       <div class="toolbar">
         <h1>${esc(resource.label)}</h1>
-        <a class="button" href="#/r/${resource.key}/new">Nuovo ${esc(resource.singular)}</a>
+        ${resource.noCreate ? '' : `<a class="button" href="#/r/${resource.key}/new">Nuovo ${esc(resource.singular)}</a>`}
       </div>
       <div class="filters">
         <input type="search" id="search" placeholder="Cerca…">
@@ -276,7 +281,7 @@ async function renderList(resource: Resource) {
 // Form
 // ---------------------------------------------------------------------------
 function fieldInput(field: Field, value: unknown, options: Record<string, Array<[string, string]>>): string {
-  const required = field.required ? 'required' : '';
+  const required = field.readonly ? 'disabled' : field.required ? 'required' : '';
   const name = `name="${field.name}" id="f-${field.name}"`;
   switch (field.type) {
     case 'textarea':
@@ -453,7 +458,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     if (form.querySelector('.image-field.is-uploading')) return flash('Attendi la fine del caricamento della foto', 'error');
     let values: Row;
     try {
-      values = Object.fromEntries(resource.fields.map((f) => [f.name, readField(f, form)]));
+      values = Object.fromEntries(resource.fields.filter((f) => !f.readonly).map((f) => [f.name, readField(f, form)]));
     } catch (err) {
       return fail(err);
     }

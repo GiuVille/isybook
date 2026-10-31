@@ -1,0 +1,289 @@
+---
+// Modulo dei feedback in fondo alla home: un foglio di quaderno a righe su cui scriverci.
+// All'invio il foglio si piega in un aeroplanino che vola via e lascia un post-it di ringraziamento.
+// I messaggi finiscono nella tabella `feedback` (migrazione 0009), che chiunque può solo riempire:
+// li legge la redazione nel pannello, sezione Messaggi. Invio con fetch all'API REST, senza librerie.
+const KINDS = [
+  { value: 'idea', label: 'Idea', icon: '💡' },
+  { value: 'bug', label: 'Errore', icon: '🐞' },
+  { value: 'book', label: 'Libro che manca', icon: '📚' },
+  { value: 'other', label: 'Altro', icon: '✉️' },
+];
+---
+
+<section class="feedback" aria-labelledby="feedback-title">
+  <div class="stage">
+    <form class="sheet" data-reveal novalidate>
+      <span class="holes" aria-hidden="true"></span>
+      <h2 id="feedback-title">Scrivici due righe</h2>
+      <p class="lead">Idee, errori trovati, un libro che manca: leggiamo tutto.</p>
+
+      <fieldset class="kinds">
+        <legend>Di cosa si tratta?</legend>
+        {KINDS.map((k, i) => (
+          <label class="stamp" style={`--s:${i}`}>
+            <input type="radio" name="kind" value={k.value} checked={k.value === 'idea'} />
+            <span><span aria-hidden="true">{k.icon}</span> {k.label}</span>
+          </label>
+        ))}
+      </fieldset>
+
+      <label class="line-label" for="fb-message">Il tuo messaggio</label>
+      <textarea id="fb-message" name="message" rows="4" minlength="5" maxlength="2000" required placeholder="Scrivi qui…"></textarea>
+
+      <div class="row">
+        <div>
+          <label class="line-label" for="fb-name">Nome <small>(facoltativo)</small></label>
+          <input id="fb-name" name="name" type="text" maxlength="80" autocomplete="given-name" />
+        </div>
+        <div>
+          <label class="line-label" for="fb-email">Email <small>(se vuoi una risposta)</small></label>
+          <input id="fb-email" name="email" type="email" maxlength="200" autocomplete="email" />
+        </div>
+      </div>
+      <p class="privacy">La tua email la usiamo solo per risponderti, poi la cancelliamo. Niente newsletter, niente cookie.</p>
+
+      <!-- trappola per i programmi che compilano tutto: le persone non la vedono -->
+      <div class="trap" aria-hidden="true">
+        <label>Sito web <input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
+      </div>
+
+      <div class="send-row">
+        <button type="submit" class="button-strong send">Invia</button>
+        <p class="status" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <svg class="plane" viewBox="0 0 64 40" aria-hidden="true">
+      <path d="M2 20 62 2 24 26Z" fill="#fff" stroke="#8aa3bf" stroke-width="1.5" stroke-linejoin="round" />
+      <path d="M24 26 62 2 34 38Z" fill="#e9f0f7" stroke="#8aa3bf" stroke-width="1.5" stroke-linejoin="round" />
+      <path d="M24 26 28 34 34 38" fill="none" stroke="#8aa3bf" stroke-width="1.5" />
+    </svg>
+
+    <div class="thanks" hidden tabindex="-1">
+      <p class="thanks-title">Grazie!</p>
+      <p>L'abbiamo ricevuto: lo leggiamo presto.</p>
+      <button type="button" class="button-soft again">Scrivi un altro messaggio</button>
+    </div>
+  </div>
+</section>
+
+<script>
+  const MIN_MS = 3000; // chi invia prima di 3 secondi dall'apertura quasi certamente non è una persona
+  const FLIGHT_MS = 1500; // durata dell'animazione dell'aeroplanino
+  const openedAt = Date.now();
+  const url = import.meta.env.PUBLIC_SUPABASE_URL as string | undefined;
+  const key = import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string | undefined;
+
+  const section = document.querySelector<HTMLElement>('.feedback');
+  if (section) {
+    const form = section.querySelector<HTMLFormElement>('.sheet')!;
+    const status = form.querySelector<HTMLElement>('.status')!;
+    const button = form.querySelector<HTMLButtonElement>('.send')!;
+    const thanks = section.querySelector<HTMLElement>('.thanks')!;
+    const stage = section.querySelector<HTMLElement>('.stage')!;
+    const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    async function send(body: Record<string, string | null>): Promise<void> {
+      if (!url || !key) {
+        // in locale senza Supabase: tutto come dal vivo, ma il messaggio resta nella console
+        console.info('[feedback] modalità prova, messaggio non inviato:', body);
+        return;
+      }
+      const res = await fetch(`${url}/rest/v1/feedback`, {
+        method: 'POST',
+        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const text = (name: string) => String(data.get(name) ?? '').trim();
+      const message = text('message');
+      const email = text('email');
+      status.textContent = '';
+      if (message.length < 5) {
+        status.textContent = 'Scrivi almeno qualche parola.';
+        form.querySelector<HTMLTextAreaElement>('textarea')!.focus();
+        return;
+      }
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        status.textContent = "L'email non sembra giusta: controllala o lasciala vuota.";
+        form.querySelector<HTMLInputElement>('#fb-email')!.focus();
+        return;
+      }
+      if (Date.now() - openedAt < MIN_MS) await wait(MIN_MS - (Date.now() - openedAt));
+
+      button.disabled = true;
+      const isBot = text('website') !== '';
+      const request = isBot
+        ? Promise.resolve()
+        : send({ kind: text('kind') || 'other', message, name: text('name') || null, email: email || null, page: location.pathname });
+
+      // il foglio si piega e l'aeroplanino parte mentre il messaggio viaggia
+      stage.classList.add('is-flying');
+      try {
+        await Promise.all([request, wait(reduced() ? 0 : FLIGHT_MS)]);
+        form.hidden = true;
+        thanks.hidden = false;
+        thanks.focus();
+        form.reset();
+      } catch {
+        status.textContent = 'Non siamo riusciti a inviarlo. Controlla la connessione e riprova: il testo è ancora qui.';
+      } finally {
+        stage.classList.remove('is-flying');
+        button.disabled = false;
+      }
+    });
+
+    section.querySelector('.again')!.addEventListener('click', () => {
+      thanks.hidden = true;
+      form.hidden = false;
+      form.querySelector<HTMLTextAreaElement>('textarea')!.focus();
+    });
+  }
+</script>
+
+<style>
+  .feedback { margin-top: 56px; overflow-x: clip; } /* l'aeroplanino non deve allargare la pagina */
+  .stage { position: relative; max-width: 640px; margin: 0 auto; }
+
+  /* foglio di quaderno a righe con il margine rosso e i buchi della spirale */
+  .sheet {
+    --line: 32px;
+    position: relative;
+    padding: 40px 28px 26px 64px;
+    color: #2b2a35;
+    background:
+      linear-gradient(90deg, transparent 50px, rgba(214, 69, 69, 0.55) 50px 52px, transparent 52px),
+      repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), #bcd3ea calc(var(--line) - 1px) var(--line)),
+      #fffdf7;
+    background-position: 0 0, 0 14px, 0 0;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 18px 30px -18px rgba(0, 0, 0, 0.45);
+    rotate: -0.8deg;
+  }
+  .holes {
+    position: absolute;
+    top: 10px;
+    left: 64px;
+    right: 28px;
+    height: 12px;
+    background: radial-gradient(circle at 6px 6px, var(--bg) 5px, rgba(0, 0, 0, 0.18) 5.5px, transparent 6.5px) 0 0 / 28px 12px repeat-x;
+  }
+  h2 { margin: 6px 0 2px; font-family: var(--font-hand); font-size: 2rem; font-weight: 400; color: #2b2a35; }
+  .lead { margin: 0 0 14px; font-size: 0.95rem; line-height: var(--line); }
+
+  .kinds { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 0 0 12px; padding: 0; border: 0; }
+  .kinds legend { padding: 0; margin-bottom: 6px; font-size: 0.9rem; font-weight: 600; }
+  .stamp { position: relative; cursor: pointer; }
+  .stamp input { position: absolute; opacity: 0; pointer-events: none; }
+  .stamp > span {
+    display: inline-block;
+    padding: 4px 12px;
+    border: 2px dashed #8aa3bf;
+    border-radius: 6px;
+    font-family: var(--font-hand);
+    font-size: 1.1rem;
+    color: #4b5d73;
+    background: rgba(255, 255, 255, 0.6);
+    rotate: calc((var(--s) - 1.5) * 1.5deg);
+    transition: transform 0.3s var(--ease-spring), color 0.2s, border-color 0.2s, background 0.2s;
+  }
+  .stamp input:checked + span { border-style: solid; border-color: var(--accent); color: var(--accent); background: #fff; }
+  .stamp input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .line-label { display: block; font-size: 0.85rem; font-weight: 600; line-height: var(--line); }
+  .line-label small { font-weight: 400; opacity: 0.7; }
+  textarea,
+  input[type='text'],
+  input[type='email'] {
+    display: block;
+    width: 100%;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-family: var(--font-hand);
+    font-size: 1.3rem;
+    line-height: var(--line);
+    color: #1f3a8a; /* inchiostro blu */
+    resize: vertical;
+  }
+  textarea { min-height: calc(var(--line) * 4); }
+  input[type='text'],
+  input[type='email'] { height: var(--line); }
+  textarea:focus-visible,
+  input:focus-visible { outline: 2px dashed var(--accent); outline-offset: 2px; }
+  textarea::placeholder { color: #8c97a8; }
+  .row { display: grid; gap: 0 20px; grid-template-columns: 1fr 1fr; }
+  .privacy { margin: 4px 0 0; font-size: 0.8rem; line-height: var(--line); opacity: 0.75; }
+  .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .send-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
+  .status { margin: 0; font-size: 0.9rem; line-height: 1.4; color: #b3261e; }
+
+  /* post-it del ringraziamento */
+  .thanks {
+    max-width: 320px;
+    margin: 20px auto;
+    padding: 26px 22px;
+    text-align: center;
+    color: #3a3320;
+    background: linear-gradient(170deg, rgba(255, 255, 255, 0.35), transparent 30%), #fdf08a;
+    box-shadow: 0 12px 14px -10px rgba(0, 0, 0, 0.45);
+    rotate: 2deg;
+  }
+  .thanks:focus { outline: none; }
+  .thanks-title { margin: 0 0 6px; font-family: var(--font-hand); font-size: 2.2rem; line-height: 1; }
+  .thanks p { margin: 0 0 12px; }
+
+  .plane { position: absolute; left: 50%; top: 40%; width: 64px; height: 40px; margin-left: -32px; opacity: 0; pointer-events: none; }
+
+  @media (max-width: 600px) {
+    .sheet { padding: 38px 16px 22px 44px; }
+    .sheet { background-position: -14px 0, 0 14px, 0 0; }
+    .holes { left: 44px; right: 16px; }
+    .row { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    /* ingresso: il foglio sale e si posa */
+    :global(.js) .sheet[data-reveal] { opacity: 0; }
+    :global(.js) .sheet[data-reveal].is-in { opacity: 1; animation: sheet-in 0.8s var(--ease-spring) backwards; }
+    :global(.js) .sheet[data-reveal].is-in .stamp > span { animation: pop 0.45s var(--ease-spring) backwards; animation-delay: calc(var(--s) * 80ms + 400ms); }
+
+    .stamp:hover > span { transform: translateY(-2px) rotate(-2deg); }
+    .stamp input:checked + span { animation: stamp-press 0.35s var(--ease-spring); }
+
+    /* invio: il foglio si piega, l'aeroplanino decolla e attraversa lo schermo */
+    .stage.is-flying .sheet { animation: sheet-fold 0.5s var(--ease-out) forwards; }
+    .stage.is-flying .plane { animation: plane-fly 1.1s 0.4s cubic-bezier(0.45, 0, 0.6, 1) forwards; }
+    .thanks:not([hidden]) { animation: thanks-in 0.6s var(--ease-spring); }
+  }
+
+  @keyframes sheet-in {
+    from { opacity: 0; transform: translateY(40px) rotate(3deg); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes stamp-press {
+    0% { transform: scale(1); }
+    40% { transform: scale(0.88); }
+    100% { transform: scale(1); }
+  }
+  @keyframes sheet-fold {
+    to { opacity: 0; transform: scale(0.15, 0.08) rotate(-20deg); }
+  }
+  @keyframes plane-fly {
+    0% { opacity: 1; transform: translate(0, 0) rotate(-10deg) scale(0.8); }
+    30% { transform: translate(-60px, 30px) rotate(-25deg) scale(1); }
+    100% { opacity: 0; transform: translate(70vw, -60vh) rotate(-30deg) scale(0.6); }
+  }
+  @keyframes thanks-in {
+    from { opacity: 0; transform: translateY(-30px) scale(1.15) rotate(-6deg); }
+    to { opacity: 1; transform: none; }
+  }
+</style>

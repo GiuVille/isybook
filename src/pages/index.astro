@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import EditionCard from '../components/EditionCard.astro';
 import EventTicket from '../components/EventTicket.astro';
+import FeedbackForm from '../components/FeedbackForm.astro';
 import ForYou from '../components/ForYou.astro';
 import PostIt from '../components/PostIt.astro';
 import PromoCoupon from '../components/PromoCoupon.astro';
@@ -75,6 +76,8 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
       <div class="events">{events.map((e, i) => <EventTicket event={e} index={i} />)}</div>
     </>
   )}
+
+  <FeedbackForm />
 </Base>
 
 <style>

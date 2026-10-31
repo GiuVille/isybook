@@ -26,6 +26,7 @@ export interface Field {
   optionSelect?: string; // relation: select personalizzata per le opzioni
   optionLabel?: (row: Record<string, any>) => string; // relation: etichetta costruita dalla riga
   bucket?: string; // image: bucket dello Storage in cui caricare la foto
+  readonly?: boolean; // mostrato ma non modificabile, e mai salvato
   help?: string;
 }
 
@@ -49,6 +50,8 @@ export interface Resource {
   orderBy: { column: string; ascending: boolean };
   fields: Field[];
   manyToMany?: ManyToMany[];
+  /** Niente pulsante "Nuovo": le righe arrivano da fuori (es. i messaggi dal modulo della home). */
+  noCreate?: boolean;
   /** Risorse figlie mostrate dentro il form (es. edizioni e adattamenti di un'opera). */
   children?: Array<{ resource: string; foreignKey: string; label: string }>;
 }
@@ -124,6 +127,28 @@ export const RESOURCES: Resource[] = [
     manyToMany: [
       { label: 'Autori', joinTable: 'event_authors', ownKey: 'event_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name' },
       { label: 'Libri', joinTable: 'event_works', ownKey: 'event_id', otherKey: 'work_id', table: 'works', labelColumn: 'title' },
+    ],
+  },
+  {
+    key: 'feedback',
+    table: 'feedback',
+    label: 'Messaggi',
+    singular: 'messaggio',
+    group: 'Contenuti',
+    noCreate: true,
+    listColumns: ['created_at', 'kind', 'message', 'email', 'read'],
+    orderBy: { column: 'created_at', ascending: false },
+    fields: [
+      { name: 'created_at', label: 'Ricevuto', type: 'date', readonly: true },
+      {
+        name: 'kind', label: 'Tipo', type: 'select', readonly: true,
+        options: [['idea', 'Idea'], ['bug', 'Errore'], ['book', 'Libro che manca'], ['other', 'Altro']],
+      },
+      { name: 'message', label: 'Messaggio', type: 'textarea', readonly: true },
+      { name: 'name', label: 'Nome', type: 'text', readonly: true },
+      { name: 'email', label: 'Email', type: 'text', readonly: true, help: 'Solo per rispondere: dopo la risposta elimina il messaggio.' },
+      { name: 'page', label: 'Inviato da', type: 'text', readonly: true },
+      { name: 'read', label: 'Letto', type: 'checkbox' },
     ],
   },
   {
