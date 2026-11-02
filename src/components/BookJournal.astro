@@ -1,0 +1,73 @@
+---
+// Book journal di La mia libreria: un'agendina che si apre, con l'indice dei libri letti o in lettura
+// e una doppia pagina per ognuno (scheda + recensione con moodboard). Disegnata nel browser da
+// src/scripts/journal.ts con i dati di src/lib/journal.ts; aspetto in src/styles/journal.css.
+import '../styles/journal.css';
+---
+
+<section class="journal-section" aria-labelledby="journal-title">
+  <div class="journal-head">
+    <h2 id="journal-title">Book journal</h2>
+    <button type="button" class="button-soft journal-customize" data-customize aria-haspopup="dialog">Personalizza l'agendina</button>
+  </div>
+  <p class="muted journal-intro">I libri che stai leggendo e quelli finiti: a che pagina sei, cosa ti è rimasto, i tuoi voti e la recensione. Restano su questo browser.</p>
+
+  <div class="journal" data-state="closed">
+    <div class="journal-book">
+      <div class="journal-pages">
+        <section class="jpage jleft" aria-live="polite"></section>
+        <section class="jpage jright"></section>
+      </div>
+      <button type="button" class="journal-cover" aria-expanded="false" aria-label="Apri il book journal">
+        <span class="cover-front">
+          <span class="cover-stitch" aria-hidden="true"></span>
+          <span class="cover-sticker" aria-hidden="true"></span>
+          <span class="cover-name"></span>
+          <span class="cover-count"></span>
+          <span class="cover-hint">Tocca per aprire</span>
+        </span>
+        <span class="cover-back" aria-hidden="true"></span>
+      </button>
+      <span class="journal-band" aria-hidden="true"><span class="journal-charm"></span></span>
+      <span class="journal-ribbon" aria-hidden="true"></span>
+    </div>
+    <nav class="journal-nav" aria-label="Pagine del journal">
+      <button type="button" class="jnav-prev" aria-label="Pagina precedente">‹</button>
+      <button type="button" class="jnav-index">Indice</button>
+      <span class="jnav-where"></span>
+      <button type="button" class="jnav-next" aria-label="Pagina successiva">›</button>
+      <button type="button" class="jnav-custom" data-customize aria-haspopup="dialog">Personalizza</button>
+      <button type="button" class="jnav-close">Chiudi</button>
+    </nav>
+    <p class="journal-saved" aria-live="polite"></p>
+  </div>
+
+  <dialog class="journal-dialog journal-custom-dialog" aria-labelledby="jcustom-title">
+    <form method="dialog" class="jcustom">
+      <h3 id="jcustom-title">Personalizza l'agendina</h3>
+      <div class="jcustom-body"></div>
+      <button class="button-strong">Fatto</button>
+    </form>
+  </dialog>
+
+  <dialog class="journal-dialog journal-share-dialog" aria-labelledby="jshare-title">
+    <form method="dialog" class="jshare">
+      <h3 id="jshare-title">Condividi la recensione</h3>
+      <div class="jshare-formats" role="radiogroup" aria-label="Formato">
+        <label><input type="radio" name="jshare-format" value="post" checked /> Post 4:5</label>
+        <label><input type="radio" name="jshare-format" value="story" /> Storia 9:16</label>
+      </div>
+      <div class="jshare-preview"></div>
+      <div class="jshare-actions">
+        <button type="button" class="button-strong jshare-download">Scarica l'immagine</button>
+        <button type="button" class="button-soft jshare-native" hidden>Condividi…</button>
+        <button class="button-soft">Chiudi</button>
+      </div>
+    </form>
+  </dialog>
+</section>
+
+<script>
+  import { initJournal } from '../scripts/journal';
+  initJournal(document.querySelector<HTMLElement>('.journal-section')!);
+</script>

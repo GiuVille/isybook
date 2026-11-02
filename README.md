@@ -132,6 +132,7 @@ C'è anche una build fissa ogni mattina, dopo la lettura notturna: le promozioni
 - [x] calendario eventi e fiere, con ricerca, filtri e il file da aggiungere al calendario
 - [x] serie TV e film tratti dai libri: stagioni o durata, dove vederli, titoli simili
 - [x] pagine autore con saghe, tropes ricorrenti, adattamenti ed eventi
+- [x] book journal in La mia libreria: un'agendina personalizzabile che si apre, con scheda di lettura, pagina a cui si è arrivati e percentuale, voti, recensione, moodboard con foto e adesivi e immagine da condividere; tutto salvato nel browser
 - [x] videoteca: serie e film preferiti, "da vedere" e "visti", e cartelle dedicate, accanto ai libri salvati
 - [x] modulo per i feedback in fondo alla home, salvato nel database senza servizi esterni, con protezioni anti-spam leggere
 - [x] bacheca delle notizie: post-it scritti dalla redazione, con foto ridotte e convertite in WebP prima del caricamento

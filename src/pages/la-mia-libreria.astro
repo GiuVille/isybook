@@ -1,10 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
+import BookJournal from '../components/BookJournal.astro';
 import '../styles/drawer.css';
 import '../styles/videoteca.css';
 ---
 
-<Base title="La mia libreria" description="I tuoi libri preferiti, le tue cartelle personali e la videoteca con serie e film da vedere.">
+<Base title="La mia libreria" description="I tuoi libri preferiti, le tue cartelle personali, il book journal e la videoteca con serie e film da vedere.">
   <div class="page-head">
     <h1>La mia libreria</h1>
     <form class="new-collection" data-kind="book">
@@ -22,6 +23,8 @@ import '../styles/videoteca.css';
     <div class="lib-drawer" role="tablist" aria-label="Le tue raccolte"><p class="muted">Caricamento…</p></div>
     <div class="drawer-panel" role="tabpanel"></div>
   </div>
+
+  <BookJournal />
 
   <section class="videoteca" aria-labelledby="videoteca-title">
     <div class="page-head">
@@ -60,6 +63,7 @@ import '../styles/videoteca.css';
 <script>
   import { bookCard, esc, miniCover, miniPoster, screenCard } from '../lib/book-card';
   import { loadCatalog, type Catalog } from '../lib/catalog';
+  import { exportJournal, importJournal } from '../lib/journal';
   import {
     collectionsOf,
     createCollection,
@@ -103,6 +107,8 @@ import '../styles/videoteca.css';
   let catalog: Catalog | null = null;
   const interestsBody = document.querySelector<HTMLElement>('.interests-body')!;
   const removeButton = (attrs: string) => `<button type="button" class="remove" ${attrs}>Rimuovi</button>`;
+  // apre il book journal su quel libro (lo crea se non c'è): utile soprattutto dalla TBR
+  const journalButton = (slug: string) => `<button type="button" class="remove" data-journal="${esc(slug)}">Nel journal</button>`;
   const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
   // cartelle preimpostate dei libri: icona e testo quando sono vuote
   const PRESET_ICONS: Record<string, string> = { [OWNED_ID]: '📚', [TBR_ID]: '🔖', [TO_WATCH_ID]: '🍿', [WATCHED_ID]: '✓' };
@@ -261,9 +267,10 @@ import '../styles/videoteca.css';
             ? `<div class="mini-books">${items
                 .map((x) =>
                   x.html(
-                    isFav
+                    (isFav
                       ? removeButton(`data-unfav="${esc(x.slug)}" ${kindAttr}`)
-                      : removeButton(`data-remove="${esc(x.slug)}" data-from="${esc(current.id)}" ${kindAttr}`),
+                      : removeButton(`data-remove="${esc(x.slug)}" data-from="${esc(current.id)}" ${kindAttr}`)) +
+                      (shelf.kind === 'book' ? journalButton(x.slug) : ''),
                   ),
                 )
                 .join('')}</div>`
@@ -330,6 +337,7 @@ import '../styles/videoteca.css';
     panel.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
       const kind = shelfOf(t.dataset.kind).kind;
+      if (t.dataset.journal) return window.dispatchEvent(new CustomEvent('journal:add', { detail: t.dataset.journal }));
       if (t.dataset.unfav) toggleFavorite(t.dataset.unfav, kind);
       if (t.dataset.remove && t.dataset.from) removeFromCollection(t.dataset.from, t.dataset.remove, kind);
       if (t.dataset.rename) {
@@ -363,8 +371,9 @@ import '../styles/videoteca.css';
     window.dispatchEvent(new Event('open-onboarding')),
   );
 
-  document.querySelector('.export')!.addEventListener('click', () => {
-    const blob = new Blob([exportLibrary()], { type: 'application/json' });
+  document.querySelector('.export')!.addEventListener('click', async () => {
+    // libreria + book journal (con le foto della moodboard) in un solo file
+    const blob = new Blob([JSON.stringify({ ...JSON.parse(exportLibrary()), ...(await exportJournal()) }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `isybooks-libreria-${new Date().toISOString().slice(0, 10)}.json`;
@@ -375,9 +384,11 @@ import '../styles/videoteca.css';
   document.querySelector<HTMLInputElement>('.import input')!.addEventListener('change', async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    if (!confirm('Il backup sostituirà preferiti, cartelle, videoteca e interessi salvati ora. Continuare?')) return;
+    if (!confirm('Il backup sostituirà preferiti, cartelle, book journal, videoteca e interessi salvati ora. Continuare?')) return;
     try {
-      importLibrary(await file.text());
+      const text = await file.text();
+      importLibrary(text);
+      await importJournal(JSON.parse(text));
     } catch {
       alert('Questo file non sembra un backup di IsyBooks.');
     }

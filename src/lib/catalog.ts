@@ -14,6 +14,9 @@ export interface CatalogBook {
   title: string;
   authors: string[];
   series: string | null;
+  seriesNumber: number | null;
+  publisher: string | null; // della prima edizione con editore (book journal)
+  pages: number | null; // della prima edizione con pagine (book journal)
   tropes: CatalogTag[];
   genres: CatalogTag[];
   settings: CatalogTag[];
@@ -55,6 +58,9 @@ export function buildCatalog(works: Work[]): Catalog {
       title: w.title,
       authors: w.authors.map((a) => a.name),
       series: w.series ?? null,
+      seriesNumber: w.series_number ?? null,
+      publisher: w.editions.find((e) => e.publisher)?.publisher?.name ?? null,
+      pages: w.editions.find((e) => e.pages)?.pages ?? null,
       tropes: w.tropes.map(tag),
       genres: w.genres.map(tag),
       settings: w.settings.map(tag),

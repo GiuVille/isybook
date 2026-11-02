@@ -59,6 +59,8 @@ const ICONS = {
   wave: 'M2 12c3-3 5-3 7 0s4 3 6 0 4-3 7 0 M2 17c3-3 5-3 7 0s4 3 6 0 4-3 7 0',
   city: 'M3 21V9h5v12 M8 21V4h7v17 M15 21v-8h6v8 M10 8h3 M10 12h3 M10 16h3',
   briefcase: 'M3 8h18v12H3Z M9 8V5h6v3 M3 13h18',
+  // fiori
+  daisy: 'M12 9.6C10.2 7.6 10.6 3.2 12 2.6C13.4 3.2 13.8 7.6 12 9.6ZM13.7 10.3C13.8 7.6 17.2 4.8 18.6 5.4C19.2 6.8 16.4 10.2 13.7 10.3ZM14.4 12C16.4 10.2 20.8 10.6 21.4 12C20.8 13.4 16.4 13.8 14.4 12ZM13.7 13.7C16.4 13.8 19.2 17.2 18.6 18.6C17.2 19.2 13.8 16.4 13.7 13.7ZM12 14.4C13.8 16.4 13.4 20.8 12 21.4C10.6 20.8 10.2 16.4 12 14.4ZM10.3 13.7C10.2 16.4 6.8 19.2 5.4 18.6C4.8 17.2 7.6 13.8 10.3 13.7ZM9.6 12C7.6 13.8 3.2 13.4 2.6 12C3.2 10.6 7.6 10.2 9.6 12ZM10.3 10.3C7.6 10.2 4.8 6.8 5.4 5.4C6.8 4.8 10.2 7.6 10.3 10.3ZM14.4 12a2.4 2.4 0 1 1-4.8 0 2.4 2.4 0 1 1 4.8 0Z',
 } as const;
 
 export type DoodleName = keyof typeof ICONS;
@@ -73,10 +75,12 @@ export const DOODLE_LABELS: Record<DoodleName, string> = {
   oval: 'Pallone ovale', volley: 'Pallone da pallavolo', tennis: 'Pallina da tennis', skate: 'Pattino', flag: 'Bandiera a scacchi',
   glove: 'Guantone', ballet: 'Scarpetta da danza', swim: 'Nuoto', whistle: 'Fischietto', trophy: 'Coppa',
   crown: 'Corona', pencil: 'Matita', book: 'Libro', gradCap: 'Tocco di laurea', pennant: 'Gagliardetto', key: 'Chiave',
-  lantern: 'Lanterna', house: 'Casa', belltower: 'Campanile', wave: 'Onda', city: 'Città', briefcase: 'Valigetta',
+  lantern: 'Lanterna', house: 'Casa', belltower: 'Campanile', wave: 'Onda', city: 'Città', briefcase: 'Valigetta', daisy: 'Margherita',
 };
 export const DOODLE_OPTIONS = (Object.entries(DOODLE_LABELS) as Array<[DoodleName, string]>).sort((a, b) => a[1].localeCompare(b[1], 'it'));
 const isDoodle = (name: string | null | undefined): name is DoodleName => Boolean(name && name in ICONS);
+/** Path 24×24 di uno scarabocchio (adesivi del book journal), o null se il nome non esiste. */
+export const doodlePath = (name: string): string | null => (isDoodle(name) ? ICONS[name] : null);
 
 const GENRE: Record<ThemeName, DoodleName[]> = {
   romance: ['heart', 'heartArrow', 'loveLetter', 'rose'],

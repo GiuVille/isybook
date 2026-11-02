@@ -1,0 +1,601 @@
+/* Book journal: agendina con copertina rigida, elastico, ciondolo e segnalibro; dentro, doppia pagina
+   di carta a righe, puntinata o a quadretti. I colori arrivano da variabili impostate dallo script
+   (--cover, --band, --ribbon, --ink, --jfont) secondo la personalizzazione salvata.
+   Animazioni solo con transform e opacity, spente con riduci movimento. */
+
+.journal-section { margin-top: 56px; overflow-x: clip; } /* l'elastico che scivola via non allarga la pagina */
+.journal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.journal-head h2 { margin: 0; font-size: 1.8rem; }
+.journal-intro { margin: 8px 0 22px; max-width: 64ch; }
+
+.journal {
+  --cover: #7a3570;
+  --band: #e9cf74;
+  --ribbon: #e9cf74;
+  --ink: #1f3a8a;
+  --jfont: var(--font-hand);
+  --paper: #fffdf7;
+  --rule: #c9d9ea;
+  --line: 30px;
+  position: relative;
+}
+
+/* ---------- libro ---------- */
+.journal-book { position: relative; max-width: 980px; margin: 0 auto; perspective: 2200px; }
+
+.journal-cover {
+  position: relative;
+  display: block;
+  width: 50%; /* chiusa è grande quanto una pagina del libro aperto */
+  height: 760px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform-origin: 0 50%;
+  transform-style: preserve-3d;
+  font: inherit;
+  color: inherit;
+}
+.cover-front,
+.cover-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px 16px 16px 6px;
+  backface-visibility: hidden;
+}
+.cover-front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+  color: #fff8ee;
+  background-color: var(--cover);
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 14px, rgba(255, 255, 255, 0.08) 14px 16px, transparent 16px),
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 55%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), 0 22px 30px -16px rgba(0, 0, 0, 0.55), 6px 6px 0 -1px #f4efe4, 7px 7px 0 -1px rgba(0, 0, 0, 0.15);
+}
+/* materiali */
+.journal[data-material='linen'] .cover-front {
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 14px, transparent 14px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px);
+}
+.journal[data-material='kraft'] .cover-front {
+  color: #3a2a18;
+  background-color: #c9a273;
+  background-image:
+    linear-gradient(90deg, var(--cover) 0 18px, transparent 18px),
+    radial-gradient(circle at 70% 80%, rgba(0, 0, 0, 0.08), transparent 50%);
+}
+.cover-back { transform: rotateY(180deg); background: color-mix(in srgb, var(--cover) 85%, #000); }
+.cover-stitch {
+  position: absolute;
+  inset: 12px 12px 12px 26px;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 4px 10px 10px 4px;
+  pointer-events: none;
+}
+.journal[data-material='kraft'] .cover-stitch { border-color: rgba(58, 42, 24, 0.35); }
+.cover-name { position: relative; max-width: 80%; font-family: var(--font-hand); font-size: 2rem; line-height: 1.1; text-align: center; }
+.cover-count { position: relative; font-size: 0.9rem; opacity: 0.85; }
+.cover-hint { position: absolute; bottom: 22px; font-family: var(--font-hand); font-size: 1.05rem; opacity: 0.7; }
+.cover-sticker { position: relative; width: 74px; height: 74px; }
+.cover-sticker svg { width: 100%; height: 100%; filter: drop-shadow(0 0 0 #fff) drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.18)); }
+.journal-cover:focus-visible { outline: 3px solid var(--accent); outline-offset: 6px; border-radius: 16px; }
+
+/* elastico e ciondolo, segnalibro che sporge */
+.journal-band {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: calc(75% - 46px); /* vicino al bordo destro della copertina */
+  width: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.2), transparent 40%, rgba(255, 255, 255, 0.25) 60%, rgba(0, 0, 0, 0.15)), var(--band);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: transform 0.45s var(--ease-out), opacity 0.35s;
+}
+.journal-charm {
+  position: absolute;
+  bottom: -44px;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  transform-origin: 50% -10px;
+}
+.journal-charm::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -12px;
+  width: 2px;
+  height: 14px;
+  background: #b9a36a;
+}
+.journal-charm svg { width: 100%; height: 100%; color: #b9922f; fill: #f2d98a; }
+.journal-ribbon {
+  position: absolute;
+  bottom: -38px;
+  left: calc(50% + 40px);
+  width: 16px;
+  height: 52px;
+  background: var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%); /* forma fissa, non animata */
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+/* ---------- pagine ---------- */
+.journal-pages {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 100%;
+  height: 760px; /* fissa: sfogliando il libro non cambia dimensione, le pagine lunghe scorrono dentro */
+  position: relative;
+  isolation: isolate; /* la cornice (::before, z-index -1) resta dentro il libro e non finisce sotto lo sfondo della pagina */
+  border-radius: 6px;
+}
+/* cornice color copertina e ombra del libro aperto: su uno pseudo-elemento così si può sfumare.
+   Mentre la copertina gira è nascosta, altrimenti a sinistra resterebbe la sagoma della pagina. */
+.journal-pages::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 6px;
+  box-shadow: 0 0 0 8px var(--cover), 0 0 0 9px rgba(0, 0, 0, 0.25), 0 30px 40px -20px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.journal[data-state='opening'] .journal-pages::before,
+.journal[data-state='closing'] .journal-pages::before { opacity: 0; transition: none; }
+.jpage {
+  position: relative;
+  padding: 26px 26px 30px;
+  color: #2b2a35;
+  background-color: var(--paper);
+  background-attachment: local; /* righe e puntini scorrono con il testo */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--cover) 45%, transparent) transparent;
+}
+.jleft { border-radius: 4px 0 0 4px; box-shadow: inset -18px 0 22px -18px rgba(0, 0, 0, 0.35); }
+.jright { border-radius: 0 4px 4px 0; box-shadow: inset 18px 0 22px -18px rgba(0, 0, 0, 0.35); }
+.journal[data-paper='lines'] .jpage { background-image: repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line)); background-position: 0 6px; }
+.journal[data-paper='dots'] .jpage { background-image: radial-gradient(circle, #b8c4d2 1.1px, transparent 1.6px); background-size: 18px 18px; }
+.journal[data-paper='grid'] .jpage {
+  background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.journal[data-state='open'] .journal-pages,
+.journal[data-state='opening'] .journal-pages,
+.journal[data-state='closing'] .journal-pages { display: grid; }
+.journal[data-state='open'] .journal-cover,
+.journal[data-state='opening'] .journal-cover,
+.journal[data-state='closing'] .journal-cover {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  aspect-ratio: auto;
+  margin: 0;
+  z-index: 3;
+}
+.journal[data-state='open'] .journal-cover { display: none; } /* tolta del tutto: con visibility restava un'ombra del testo sulla pagina destra */
+.journal:not([data-state='closed']) .journal-band,
+.journal:not([data-state='closed']) .journal-ribbon { opacity: 0; }
+.journal:not([data-state='closed']) .journal-band { transform: translateX(40px); }
+
+/* ---------- navigazione ---------- */
+.journal-nav { display: none; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 22px; }
+.journal[data-state='open'] .journal-nav { display: flex; }
+.journal-nav button {
+  min-width: 40px;
+  padding: 6px 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.journal-nav button:disabled { opacity: 0.4; cursor: default; }
+.jnav-prev,
+.jnav-next { font-size: 1.3rem; line-height: 1; }
+.jnav-where { min-width: 90px; font-family: var(--font-hand); font-size: 1.15rem; text-align: center; }
+.journal-saved {
+  position: absolute;
+  right: 8px;
+  bottom: -6px;
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: 1.1rem;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.journal-saved.is-on { opacity: 1; }
+
+/* ---------- contenuto delle pagine ---------- */
+.jpage h3 { margin: 0 0 8px; font-family: var(--font-hand); font-size: 1.9rem; font-weight: 400; line-height: 1.1; color: #2b2a35; }
+.jpage .jlabel { display: block; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em; color: #5c5a68; }
+.jpage input[type='text'],
+.jpage input[type='number'],
+.jpage input[type='date'],
+.jpage input[type='search'],
+.jpage textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 6px;
+  font-family: var(--jfont);
+  font-size: 1.15rem;
+  line-height: calc(var(--line) - 4px);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px solid #b9b4c4;
+  border-radius: 999px;
+}
+.jpage textarea {
+  border-radius: 14px;
+  resize: vertical;
+  background: transparent;
+  border-style: dashed;
+  line-height: var(--line);
+}
+.jpage input:focus-visible,
+.jpage textarea:focus-visible,
+.jpage button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.jpage input[type='date'] { font-family: var(--font-text); font-size: 0.9rem; }
+
+/* indice */
+.jindex { margin: 0; padding: 0; list-style: none; }
+.jindex li + li { margin-top: 4px; }
+.jindex button {
+  display: grid;
+  grid-template-columns: 30px 30px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 6px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.jindex button:hover { background: rgba(0, 0, 0, 0.04); }
+.jindex .n { font-family: var(--font-hand); font-size: 1.2rem; color: #8c8798; }
+.jindex .t { min-width: 0; overflow: hidden; font-family: var(--jfont); font-size: 1.15rem; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
+.jindex .t small { display: block; font-family: var(--font-text); font-size: 0.75rem; color: #6d6a78; }
+.jindex .mini { width: 30px; height: 44px; border-radius: 2px; object-fit: cover; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); }
+.jindex .mini.ph { display: block; background: var(--c); }
+.jindex .state { font-family: var(--font-hand); font-size: 1rem; white-space: nowrap; }
+.jgo-add { display: none; margin-top: 14px; }
+.jempty { font-family: var(--jfont); font-size: 1.2rem; color: var(--ink); opacity: 0.8; }
+
+/* aggiungi */
+.jadd .jresults { max-height: 300px; margin: 8px 0 0; padding: 0; overflow: auto; list-style: none; }
+.jadd .jresults button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 6px;
+  text-align: left;
+  font: inherit;
+  font-size: 0.92rem;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.jadd .jresults button:hover { background: rgba(0, 0, 0, 0.05); }
+.jadd .jresults img,
+.jadd .jresults .ph { width: 26px; height: 38px; flex: none; border-radius: 2px; object-fit: cover; background: var(--c); }
+.jadd form { display: grid; gap: 8px; margin-top: 10px; }
+.jadd .or { margin: 18px 0 6px; font-family: var(--font-hand); font-size: 1.2rem; color: #6d6a78; }
+.jbtn {
+  justify-self: start;
+  padding: 6px 16px;
+  font: inherit;
+  font-size: 0.92rem;
+  color: #fff;
+  background: var(--cover);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.jbtn.soft { color: var(--cover); background: transparent; border: 1.5px solid currentColor; }
+.jbtn.danger { color: #b3261e; background: transparent; border: 1.5px dashed currentColor; }
+
+/* scheda */
+.jsheet-top { display: grid; grid-template-columns: 96px 1fr; gap: 14px; }
+.jsheet-cover { position: relative; }
+.jsheet-cover img,
+.jsheet-cover .ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 140px;
+  padding: 6px;
+  border-radius: 3px;
+  object-fit: cover;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  text-align: center;
+  color: #fff;
+  background: var(--c);
+  box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.5);
+  rotate: -2deg;
+}
+.jsheet-n {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  padding: 1px 8px;
+  font-family: var(--font-hand);
+  font-size: 1.05rem;
+  background: #fff;
+  border: 1.5px solid #b9b4c4;
+  border-radius: 999px;
+  z-index: 1;
+}
+.jfields { display: grid; gap: 6px; }
+.jrow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.jblock { margin-top: 12px; }
+.jchoices { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0; padding: 0; border: 0; }
+.jchoices legend { padding: 0; }
+.jchoices label { display: inline-flex; align-items: center; gap: 4px; font-size: 0.9rem; cursor: pointer; }
+.jchoices input { accent-color: var(--cover); }
+.jformats label { font-size: 1.3rem; }
+.jformats label span.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* avanzamento della lettura */
+.jprogress { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 0.95rem; }
+.jprogress input[type='number'] { width: 84px; text-align: center; }
+.jbar { position: relative; flex-basis: 100%; height: 16px; margin-top: 6px; background: rgba(0, 0, 0, 0.06); border-radius: 999px; overflow: hidden; }
+.jbar span {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(-45deg, var(--ribbon) 0 8px, color-mix(in srgb, var(--ribbon) 80%, #fff) 8px 16px);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.6s var(--ease-spring);
+}
+.jpercent { font-family: var(--font-hand); font-size: 1.35rem; color: var(--ink); }
+/* segnalibro fisso in cima alla pagina (l'avanzamento lo mostra la barra) */
+.jpage-ribbon {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  width: 14px;
+  height: 40px;
+  background: var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+  pointer-events: none;
+}
+
+/* saga */
+.jsaga-title { margin: 0 0 4px; font-family: var(--font-hand); font-size: 1.25rem; color: #2b2a35; }
+.jsaga-title strong { color: var(--cover); }
+.jsaga-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.9rem; }
+.jsaga-progress .jbar { flex: 1 1 160px; margin-top: 0; }
+.jsaga-books { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.jsaga-books li { display: flex; flex-direction: column; align-items: center; gap: 2px; font-family: var(--font-hand); font-size: 0.95rem; opacity: 0.45; }
+.jsaga-books li.is-read { opacity: 1; }
+.jsaga-books li.is-current { opacity: 1; }
+.jsaga-books li.is-current img,
+.jsaga-books li.is-current .ph { outline: 2px solid var(--cover); outline-offset: 2px; }
+.jsaga-books img,
+.jsaga-books .ph,
+.jsaga-next img,
+.jsaga-next .ph { display: block; width: 30px; height: 44px; border-radius: 2px; object-fit: cover; background: var(--c); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); }
+.jsaga-books .sr,
+.jformats .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.jsaga-next { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 10px; background: rgba(255, 255, 255, 0.7); border: 1.5px dashed var(--cover); border-radius: 12px; }
+.jsaga-next a { display: block; margin: 1px 0 4px; font-family: var(--jfont); font-size: 1.1rem; color: var(--ink); }
+.jsaga-next .jbtn { padding: 3px 12px; font-size: 0.82rem; }
+.jsaga-done { margin: 10px 0 0; font-family: var(--font-hand); font-size: 1.35rem; color: var(--cover); }
+.jsaga-n { font-family: var(--font-hand); font-size: 0.95rem; font-style: normal; color: var(--cover); }
+
+/* tropes */
+.jtropes { display: flex; flex-wrap: wrap; gap: 5px; }
+.jtropes button {
+  padding: 2px 10px;
+  font-family: var(--font-hand);
+  font-size: 1rem;
+  color: #5c5a68;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1.5px dashed #b9b4c4;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.jtropes button[aria-pressed='true'] { color: #fff; background: var(--cover); border-style: solid; border-color: var(--cover); }
+.jtrope-add { display: flex; gap: 6px; margin-top: 6px; }
+
+/* voti: quattro cerchi con le stelle */
+.jratings { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+.jrating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 0;
+  border-radius: 50% / 40%;
+}
+.jrating legend { float: left; width: 100%; padding: 0; font-family: var(--font-hand); font-size: 1.15rem; text-align: center; color: #2b2a35; }
+.jstars { display: flex; gap: 1px; clear: both; }
+.jstar { position: relative; width: 24px; height: 24px; }
+.jstar svg { position: absolute; inset: 0; width: 24px; height: 24px; }
+.jstar .on { color: #e2a92b; transform-origin: 50% 50%; }
+.jstar .clip { position: absolute; inset: 0; width: var(--fill); overflow: hidden; }
+.jstar input { position: absolute; opacity: 0; }
+.jstar label { position: absolute; top: 0; bottom: 0; width: 50%; cursor: pointer; z-index: 1; }
+.jstar label.l { left: 0; }
+.jstar label.r { right: 0; }
+.jstar input:focus-visible + label { outline: 2px solid var(--accent); }
+.jrating-clear { padding: 0; font-size: 0.72rem; color: #6d6a78; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+
+/* recensione e moodboard */
+.jreview textarea { min-height: calc(var(--line) * 9); border: 0; background: transparent; }
+.jmood {
+  position: relative;
+  height: 260px;
+  margin-top: 8px;
+  border: 2px dashed #c9c3d3;
+  border-radius: 12px;
+  touch-action: none;
+  overflow: hidden;
+}
+.jmood-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-family: var(--font-hand); font-size: 1.6rem; color: #c3bdcd; pointer-events: none; }
+.jmood-item {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: grab;
+  transform: translate(-50%, -50%) rotate(var(--r)) scale(var(--s));
+  touch-action: none;
+}
+.jmood-item:active { cursor: grabbing; }
+.jmood-item.photo { width: 110px; padding: 5px 5px 16px; background: #fff; box-shadow: 0 6px 10px -4px rgba(0, 0, 0, 0.45); }
+.jmood-item.photo img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; pointer-events: none; }
+.jmood-item.photo::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 44px;
+  height: 16px;
+  margin-left: -22px;
+  background: rgba(233, 207, 116, 0.75);
+  transform: rotate(-4deg);
+}
+.jmood-item.sticker { width: 64px; height: 64px; color: var(--ink); }
+.jmood-item.sticker svg { width: 100%; height: 100%; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.25)); pointer-events: none; }
+.jmood-item.is-selected { outline: 2px dashed var(--accent); outline-offset: 4px; }
+.jmood-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.jmood-tools button,
+.jmood-tools label {
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #2b2a35;
+  background: #fff;
+  border: 1px solid #c9c3d3;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.jmood-tools [hidden] { display: none; }
+.jstickers { display: grid; grid-template-columns: repeat(auto-fill, 40px); gap: 6px; margin-top: 8px; padding: 8px; background: #fff; border: 1px solid #c9c3d3; border-radius: 12px; }
+.jstickers button { width: 40px; height: 40px; padding: 6px; color: var(--ink); background: none; border: 0; border-radius: 8px; cursor: pointer; }
+.jstickers button:hover { background: rgba(0, 0, 0, 0.06); }
+.jstickers svg { width: 100%; height: 100%; }
+.jfoot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+/* ---------- finestre ---------- */
+.journal-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 22px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.journal-dialog::backdrop { background: rgba(20, 14, 24, 0.55); }
+.journal-dialog h3 { margin: 0 0 12px; }
+.jcustom-body { display: grid; gap: 14px; margin-bottom: 16px; }
+.jcustom fieldset { margin: 0; padding: 0; border: 0; }
+.jcustom legend { margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; }
+.jswatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.jswatches label { position: relative; cursor: pointer; }
+.jswatches input { position: absolute; opacity: 0; }
+.jswatches span {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 0.82rem;
+  background: var(--sw, var(--surface));
+  border: 2px solid var(--border);
+  border-radius: 999px;
+}
+.jswatches .icon span { width: 40px; padding: 6px; color: var(--text); }
+.jswatches .icon svg { width: 100%; height: 100%; }
+.jswatches input:checked + span { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.jswatches input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.jcustom input[type='text'] { width: 100%; padding: 8px 12px; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; }
+.jshare-formats { display: flex; gap: 16px; margin-bottom: 12px; }
+.jshare-preview { display: grid; place-items: center; margin-bottom: 14px; }
+.jshare-preview canvas { max-width: 100%; max-height: 52vh; height: auto; border-radius: 8px; box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.5); }
+.jshare-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- telefono: pagine una sotto l'altra ---------- */
+@media (max-width: 760px) {
+  /* una pagina alla volta: si sfoglia con le frecce o con il dito */
+  .journal-pages { grid-template-columns: 1fr; grid-template-rows: 620px; height: 620px; }
+  .journal[data-side='left'] .jright,
+  .journal[data-side='right'] .jleft { display: none; }
+  .jgo-add { display: inline-block; }
+  .journal-cover { width: 100%; height: 620px; }
+  .journal-band { left: calc(100% - 46px); }
+  .jleft { border-radius: 4px; box-shadow: inset -10px 0 16px -12px rgba(0, 0, 0, 0.3); }
+  .jright { border-radius: 4px; box-shadow: inset 10px 0 16px -12px rgba(0, 0, 0, 0.3); }
+  .jpage { padding: 22px 16px 26px; }
+  .journal[data-state='opening'] .journal-cover,
+  .journal[data-state='closing'] .journal-cover { left: 0; width: 100%; }
+  .jsheet-top { grid-template-columns: 80px 1fr; }
+  .jsheet-cover img,
+  .jsheet-cover .ph { width: 80px; height: 118px; }
+  .jrow { grid-template-columns: 1fr; }
+  .jpage-ribbon { display: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .journal[data-state='closed'] .journal-cover:hover .cover-front { transform: rotateY(-8deg); }
+  .cover-front { transition: transform 0.4s var(--ease-spring); transform-origin: 0 50%; }
+  .journal[data-state='closed'] .journal-charm { animation: charm-swing 3.5s ease-in-out infinite; }
+  .jpage.turn-next { animation: turn-next 0.6s var(--ease-out); transform-origin: 0 50%; }
+  .jpage.turn-prev { animation: turn-prev 0.6s var(--ease-out); transform-origin: 100% 50%; }
+  .jpage.fade-in { animation: fade-in 0.5s 0.35s backwards; }
+  .jstar .on.pop { animation: pop 0.4s var(--ease-spring); }
+  .jmood-item.is-new { animation: mood-in 0.45s var(--ease-spring); }
+}
+@keyframes charm-swing {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+@keyframes turn-next {
+  from { opacity: 0.2; transform: perspective(1600px) rotateY(80deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes turn-prev {
+  from { opacity: 0.2; transform: perspective(1600px) rotateY(-80deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mood-in {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r)) scale(calc(var(--s) * 1.6)); }
+}
