@@ -70,6 +70,8 @@ export interface JournalSettings {
   hand: boolean; // scrittura a mano
   charm: string; // nome di uno scarabocchio appeso all'elastico, '' = nessuno
   sticker: string; // adesivo sulla copertina, '' = nessuno
+  label: 'paper' | 'cartouche' | 'none'; // stile del titolo: etichetta di carta, cartiglio, niente
+  ornament: 'none' | 'keyhole' | 'book'; // targhetta con serratura in alto, libro aperto in basso
   name: string; // scritto sulla copertina
   subtitle: string; // riga più piccola sotto il nome (facoltativa)
 }
@@ -147,6 +149,8 @@ const DEFAULT_SETTINGS: JournalSettings = {
   hand: true,
   charm: 'star',
   sticker: '',
+  label: 'paper',
+  ornament: 'none',
   name: 'Il mio book journal',
   subtitle: '',
   pattern: 'none',
@@ -251,6 +255,8 @@ function sanitize(raw: unknown): Journal {
       hand: typeof s.hand === 'boolean' ? s.hand : DEFAULT_SETTINGS.hand,
       charm: typeof s.charm === 'string' ? s.charm : DEFAULT_SETTINGS.charm,
       sticker: typeof s.sticker === 'string' ? s.sticker : DEFAULT_SETTINGS.sticker,
+      label: oneOf(s.label, ['paper', 'cartouche', 'none'] as const) ?? DEFAULT_SETTINGS.label,
+      ornament: oneOf(s.ornament, ['none', 'keyhole', 'book'] as const) ?? DEFAULT_SETTINGS.ornament,
       name: typeof s.name === 'string' ? s.name.slice(0, 40) : DEFAULT_SETTINGS.name,
       subtitle: typeof s.subtitle === 'string' ? s.subtitle.slice(0, 60) : DEFAULT_SETTINGS.subtitle,
     },
@@ -370,26 +376,31 @@ const COVER_W = 490;
 const COVER_H = 760;
 const SPINE = 20; // striscia colorata a sinistra (dorso)
 const BAND = 52; // elastico vicino al bordo destro
-const LABEL = { x0: 0.18, x1: 0.82, y0: 0.4, y1: 0.66 }; // zona di nome e conteggio
+const LABEL = { x0: 0.16, x1: 0.84, y0: 0.36, y1: 0.74 }; // zona di nome, sottotitolo e conteggio (anche col cartiglio)
 const stickerRadius = (s: number) => 31 * s; // adesivo 46px ruotato: il cerchio che lo contiene
+// zone occupate dagli ornamenti (frazioni della copertina)
+const ORNAMENT_ZONES: Record<JournalSettings['ornament'], Array<{ x0: number; x1: number; y0: number; y1: number }>> = {
+  none: [],
+  keyhole: [{ x0: 0.38, x1: 0.62, y0: 0.1, y1: 0.33 }],
+  book: [{ x0: 0.28, x1: 0.72, y0: 0.76, y1: 0.93 }],
+};
 
-function fits(c: { x: number; y: number; s: number }, others: CoverSticker[]): boolean {
+function fits(c: { x: number; y: number; s: number }, others: CoverSticker[], ornament: JournalSettings['ornament'] = 'none'): boolean {
   const px = (c.x / 100) * COVER_W;
   const py = (c.y / 100) * COVER_H;
   const r = stickerRadius(c.s);
   if (px - r < SPINE || px + r > COVER_W - BAND || py - r < 6 || py + r > COVER_H - 40) return false;
-  const lx0 = LABEL.x0 * COVER_W - r;
-  const lx1 = LABEL.x1 * COVER_W + r;
-  if (px > lx0 && px < lx1 && py > LABEL.y0 * COVER_H - r && py < LABEL.y1 * COVER_H + r) return false;
+  for (const z of [LABEL, ...ORNAMENT_ZONES[ornament]])
+    if (px > z.x0 * COVER_W - r && px < z.x1 * COVER_W + r && py > z.y0 * COVER_H - r && py < z.y1 * COVER_H + r) return false;
   return others.every((o) => Math.hypot(px - (o.x / 100) * COVER_W, py - (o.y / 100) * COVER_H) >= r + stickerRadius(o.s) + 6);
 }
 
 /** Adesivo in un punto a caso dove non tocca niente; null se sulla copertina non c'è più posto. */
-export function randomSticker(name: string, others: CoverSticker[] = [], color?: string): CoverSticker | null {
+export function randomSticker(name: string, others: CoverSticker[] = [], color?: string, ornament = getJournal().settings.ornament): CoverSticker | null {
   for (let i = 0; i < 250; i++) {
     const s = Math.round((0.75 + Math.random() * 0.5) * 100) / 100;
     const c = { x: Math.random() * 100, y: Math.random() * 100, s };
-    if (!fits(c, others)) continue;
+    if (!fits(c, others, ornament)) continue;
     return {
       name,
       x: Math.round(c.x * 10) / 10,
@@ -403,10 +414,21 @@ export function randomSticker(name: string, others: CoverSticker[] = [], color?:
 }
 
 /** Ridistribuisce a caso gli adesivi, senza sovrapposizioni (quelli che non trovano posto restano fuori). */
-export function shuffleStickers(stickers: CoverSticker[]): CoverSticker[] {
+export function shuffleStickers(stickers: CoverSticker[], ornament = getJournal().settings.ornament): CoverSticker[] {
   const out: CoverSticker[] = [];
   for (const x of [...stickers].sort((a, b) => b.s - a.s)) {
-    const placed = randomSticker(x.name, out, x.c);
+    const placed = randomSticker(x.name, out, x.c, ornament);
+    if (placed) out.push(placed);
+  }
+  return out;
+}
+
+/** Dopo aver cambiato ornamento: gli adesivi che ora lo toccano vengono spostati, gli altri restano dove sono. */
+export function refitStickers(stickers: CoverSticker[], ornament: JournalSettings['ornament']): CoverSticker[] {
+  const kept = stickers.filter((x, i) => fits(x, stickers.filter((_, k) => k !== i), ornament));
+  const out = [...kept];
+  for (const x of stickers.filter((s) => !kept.includes(s))) {
+    const placed = randomSticker(x.name, out, x.c, ornament);
     if (placed) out.push(placed);
   }
   return out;

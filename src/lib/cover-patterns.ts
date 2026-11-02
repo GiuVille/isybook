@@ -8,7 +8,7 @@ const T = 240; // lato della tessera in px
 export interface CoverPattern {
   id: string;
   label: string;
-  group: 'animalier' | 'fantasie';
+  group: 'animalier' | 'fantasie' | 'classiche';
   tile: (cover: string) => string; // SVG della tessera
 }
 
@@ -354,7 +354,57 @@ function gingham(cover: string): string {
   return svg(body);
 }
 
+// ---------------------------------------------------------------------------
+// Classiche
+// ---------------------------------------------------------------------------
+/** Righe verticali a gruppi, come le copertine in tela rigata: fascia larga chiara, filetti scuri e un accento. */
+function stripes(cover: string): string {
+  const base = mix(cover, '#ffffff', 0.35);
+  const wide = mix(cover, '#ffffff', 0.62);
+  const dark = mix(cover, '#000000', 0.5);
+  const accent = mix(cover, '#8b1e2d', 0.6);
+  let body = '';
+  // 4 gruppi su 240px → si ripete senza cuciture
+  for (let g = 0; g < 4; g++) {
+    const x = g * 60;
+    body += `<rect x="${x + 8}" y="0" width="14" height="${T}" fill="${wide}"/>`;
+    body += `<rect x="${x + 4}" y="0" width="2" height="${T}" fill="${accent}"/>`;
+    body += `<rect x="${x + 24}" y="0" width="2" height="${T}" fill="${accent}"/>`;
+    body += `<rect x="${x + 38}" y="0" width="3" height="${T}" fill="${dark}"/>`;
+    body += `<rect x="${x + 44}" y="0" width="1.2" height="${T}" fill="${dark}" opacity="0.7"/>`;
+  }
+  return svg(body, `<rect width="${T}" height="${T}" fill="${base}"/>`);
+}
+
+/** Losanghe da arlecchino su fondo chiaro, con una stellina a quattro punte a ogni incrocio. */
+function harlequin(cover: string): string {
+  const light = mix(cover, '#fff6ea', 0.82);
+  const diamond = mix(cover, '#ffffff', 0.12);
+  const star = mix(cover, '#8a4b1c', 0.75);
+  const w = 60; // 4 losanghe di larghezza
+  const h = 80; // 3 di altezza
+  // le losanghe colorate stanno ai nodi (i·w, k·h): quelle chiare sono gli spazi tra loro, come una scacchiera inclinata
+  let body = '';
+  for (let k = 0; k <= T / h; k++)
+    for (let i = 0; i <= T / w; i++) {
+      const cx = i * w;
+      const cy = k * h;
+      body += `<path d="M${cx} ${cy - h / 2}L${cx + w / 2} ${cy}L${cx} ${cy + h / 2}L${cx - w / 2} ${cy}Z" fill="${diamond}"/>`;
+    }
+  // stelline a ogni incrocio (vertici delle losanghe)
+  const sparkle = (x: number, y: number) =>
+    `<path d="M${x} ${y - 7}Q${x + 1} ${y - 1} ${x + 7} ${y}Q${x + 1} ${y + 1} ${x} ${y + 7}Q${x - 1} ${y + 1} ${x - 7} ${y}Q${x - 1} ${y - 1} ${x} ${y - 7}Z" fill="${star}"/>`;
+  for (let k = 0; k <= T / h; k++)
+    for (let i = 0; i <= T / w; i++) {
+      body += sparkle(i * w + w / 2, k * h);
+      body += sparkle(i * w, k * h + h / 2);
+    }
+  return svg(body, `<rect width="${T}" height="${T}" fill="${light}"/>`);
+}
+
 export const PATTERNS: CoverPattern[] = [
+  { id: 'stripes', label: 'Righe', group: 'classiche', tile: stripes },
+  { id: 'harlequin', label: 'Arlecchino', group: 'classiche', tile: harlequin },
   { id: 'leopard', label: 'Leopardato', group: 'animalier', tile: leopard },
   { id: 'zebra', label: 'Zebrato', group: 'animalier', tile: zebra },
   { id: 'tiger', label: 'Tigrato', group: 'animalier', tile: tiger },

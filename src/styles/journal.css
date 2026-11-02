@@ -699,18 +699,18 @@
   background-size: 240px 240px;
 }
 /* con una fantasia il nome sta su un'etichetta di carta, così si legge */
-.journal:not([data-pattern='none']) .cover-name,
-.journal:not([data-pattern='none']) .cover-subtitle,
-.journal:not([data-pattern='none']) .cover-count {
+.journal[data-label='paper']:not([data-pattern='none']) .cover-name,
+.journal[data-label='paper']:not([data-pattern='none']) .cover-subtitle,
+.journal[data-label='paper']:not([data-pattern='none']) .cover-count {
   padding: 4px 14px;
   color: #2b2a35;
   background: #fffdf7;
   border-radius: 6px;
   box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.5);
 }
-.journal:not([data-pattern='none']) .cover-name { padding: 8px 18px; rotate: -2deg; }
-.journal:not([data-pattern='none']) .cover-count { font-size: 0.8rem; rotate: 1deg; }
-.journal:not([data-pattern='none']) .cover-subtitle { margin-top: -8px; rotate: 1.5deg; }
+.journal[data-label='paper']:not([data-pattern='none']) .cover-name { padding: 8px 18px; rotate: -2deg; }
+.journal[data-label='paper']:not([data-pattern='none']) .cover-count { font-size: 0.8rem; rotate: 1deg; }
+.journal[data-label='paper']:not([data-pattern='none']) .cover-subtitle { margin-top: -8px; rotate: 1.5deg; }
 /* la fantasia sta sopra il colore ma sotto testo, cuciture e adesivi */
 .cover-front { isolation: isolate; }
 .cover-front::before { z-index: -1; }
@@ -767,3 +767,73 @@
 @media (prefers-reduced-motion: no-preference) {
   .jmonth { animation-delay: calc(var(--k) * 40ms); }
 }
+
+/* ---------- titolo: contenitore, cartiglio, ornamenti ---------- */
+.cover-label { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 80%; }
+.cover-rule { display: none; align-items: center; gap: 8px; font-size: 0.8rem; }
+.cover-rule i { display: block; width: 46px; height: 1px; background: currentColor; opacity: 0.7; }
+
+/* cartiglio: angoli a smerlo, cornice tratteggiata, titolo serif, filetto con stellina, sottotitolo spaziato */
+.journal[data-label='cartouche'] .cover-label {
+  --ink-c: color-mix(in srgb, var(--cover) 45%, #2a0f14);
+  gap: 6px;
+  min-width: 62%;
+  padding: 26px 30px 22px;
+  color: var(--ink-c);
+  background: color-mix(in srgb, var(--cover) 22%, #fbe9e4);
+  -webkit-mask:
+    radial-gradient(16px at 0 0, #0000 98%, #000) top left,
+    radial-gradient(16px at 100% 0, #0000 98%, #000) top right,
+    radial-gradient(16px at 0 100%, #0000 98%, #000) bottom left,
+    radial-gradient(16px at 100% 100%, #0000 98%, #000) bottom right;
+  -webkit-mask-size: 51% 51%;
+  -webkit-mask-repeat: no-repeat;
+  mask:
+    radial-gradient(16px at 0 0, #0000 98%, #000) top left,
+    radial-gradient(16px at 100% 0, #0000 98%, #000) top right,
+    radial-gradient(16px at 0 100%, #0000 98%, #000) bottom left,
+    radial-gradient(16px at 100% 100%, #0000 98%, #000) bottom right;
+  mask-size: 51% 51%;
+  mask-repeat: no-repeat;
+}
+.journal[data-label='cartouche'] .cover-label::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1.5px dashed color-mix(in srgb, var(--ink-c) 55%, transparent);
+  border-radius: 14px;
+  pointer-events: none;
+}
+.journal[data-label='cartouche'] .cover-name { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.05; }
+.journal[data-label='cartouche'] .cover-rule { display: inline-flex; }
+.journal[data-label='cartouche'] .cover-subtitle { margin: 0; font-family: var(--font-text); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; opacity: 1; }
+
+/* ornamenti */
+.cover-ornament { position: absolute !important; left: 50%; pointer-events: none; }
+.cover-ornament:empty { display: none; }
+.cover-ornament.top { top: 10%; width: 22%; transform: translateX(-50%); }
+.cover-ornament.bottom { bottom: 9%; width: 40%; transform: translateX(-50%); }
+.cover-ornament svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3)); }
+.orn-plate { fill: color-mix(in srgb, var(--cover) 45%, #3a0d16); stroke: #d8b26a; stroke-width: 3; }
+.orn-line { fill: none; stroke: #d8b26a; stroke-width: 1.2; opacity: 0.8; }
+.orn-hole { fill: #1a0a0d; }
+.orn-star { fill: #e9cf74; }
+.orn-script { fill: #f3dcc4; font-family: var(--font-hand); font-size: 17px; text-anchor: middle; }
+.orn-pages { fill: color-mix(in srgb, var(--cover) 20%, #fbe9e4); stroke: #d8b26a; stroke-width: 2; }
+.orn-ink { fill: none; stroke: color-mix(in srgb, var(--cover) 50%, #3a0d16); stroke-width: 1.4; stroke-linecap: round; }
+.orn-caps { fill: color-mix(in srgb, var(--cover) 30%, #fff3e6); font-family: var(--font-text); font-size: 7.5px; letter-spacing: 1.6px; text-anchor: middle; }
+.journal[data-ornament='book'] .cover-hint { display: none; }
+
+/* sulle fantasie il conteggio sta sempre su un'etichetta di carta, qualunque sia lo stile del titolo */
+.journal:not([data-pattern='none']) .cover-count {
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  color: #2b2a35;
+  background: #fffdf7;
+  border-radius: 6px;
+  box-shadow: 0 3px 8px -4px rgba(0, 0, 0, 0.5);
+  rotate: 1deg;
+}
+/* frase sotto il libro aperto: scura con un alone chiaro, leggibile su ogni fantasia */
+.orn-caps { fill: color-mix(in srgb, var(--cover) 45%, #2a0f14) !important; stroke: #fffdf7; stroke-width: 3px; stroke-linejoin: round; paint-order: stroke; font-weight: 600; }
+.journal[data-pattern='none'] .orn-caps { fill: color-mix(in srgb, var(--cover) 25%, #fff3e6) !important; stroke: none; }

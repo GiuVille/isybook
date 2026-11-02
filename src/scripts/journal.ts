@@ -11,6 +11,7 @@ import {
   PAPER_COLORS,
   RATING_LABELS,
   randomSticker,
+  refitStickers,
   shuffleStickers,
   createEntry,
   deleteEntry,
@@ -47,6 +48,10 @@ import { drawStatsPost, openImageDialog, openShare } from './journal-share';
 const MONTHLY = '__monthly';
 const STATS = '__stats';
 const isSpecial = (id: string | null) => id === MONTHLY || id === STATS;
+
+// ornamenti della copertina (colori dalle variabili della copertina, vedi journal.css)
+const KEYHOLE = `<svg viewBox="0 0 120 170" class="orn-keyhole"><path d="M60 4c10 0 14 8 24 8s14-6 22-2c-2 10 4 14 4 24s-8 12-8 22 6 14 6 26-6 16-6 26 8 12 8 22-6 14-4 24c-8 4-12-2-22-2s-14 8-24 8-14-8-24-8-14 6-22 2c2-10-4-14-4-24s8-12 8-22-6-14-6-26 6-16 6-26-8-12-8-22 6-14 4-24c8-4 12 2 22 2s14-8 24-8Z" class="orn-plate"/><path d="M60 14c8 0 11 6 19 6s11-4 17-1c-1 8 3 11 3 19s-6 10-6 18 5 11 5 21-5 13-5 21 6 10 6 18-4 11-3 19c-6 3-9-1-17-1s-11 6-19 6-11-6-19-6-11 4-17 1c1-8-3-11-3-19s6-10 6-18-5-11-5-21 5-13 5-21-6-10-6-18 4-11 3-19c6-3 9 1 17 1s11-6 19-6Z" class="orn-line"/><path d="M60 62a12 12 0 0 0-7 21.7L48 112h24l-5-28.3A12 12 0 0 0 60 62Z" class="orn-hole"/><path d="M60 128l2 5 5 2-5 2-2 5-2-5-5-2 5-2Z" class="orn-star"/><text x="60" y="44" class="orn-script">storie</text></svg>`;
+const OPEN_BOOK = `<svg viewBox="0 0 160 70" class="orn-book"><path d="M80 18c-12-7-28-9-44-7v34c16-2 32 0 44 7 12-7 28-9 44-7V11c-16-2-32 0-44 7Z" class="orn-pages"/><path d="M80 18v34M44 20c9 0 18 2 26 6M44 28c9 0 18 2 26 6M90 26c8-4 17-6 26-6M90 34c8-4 17-6 26-6" class="orn-ink"/><path d="M80 2l1.6 4.4L86 8l-4.4 1.6L80 14l-1.6-4.4L74 8l4.4-1.6Z" class="orn-star"/><text x="80" y="66" class="orn-caps">PER LE STORIE CHE RESTANO</text></svg>`;
 
 const STAR = 'M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8Z';
 const FORMAT_ICONS: Record<string, [string, string]> = {
@@ -103,6 +108,10 @@ export function initJournal(section: HTMLElement) {
     root.dataset.material = s.material;
     root.dataset.paper = s.paper;
     root.dataset.pattern = s.pattern;
+    root.dataset.label = s.label;
+    root.dataset.ornament = s.ornament;
+    root.querySelector('.cover-ornament.top')!.innerHTML = s.ornament === 'keyhole' ? KEYHOLE : '';
+    root.querySelector('.cover-ornament.bottom')!.innerHTML = s.ornament === 'book' ? OPEN_BOOK : '';
     root.style.setProperty('--pattern', patternImage(s.pattern, COVER_COLORS.find((c) => c.id === s.cover)!.value));
     root.style.setProperty('--paper', PAPER_COLORS.find((c) => c.id === s.paperColor)!.value);
     root.querySelector('.cover-stickers')!.innerHTML = s.coverStickers
@@ -964,6 +973,9 @@ export function initJournal(section: HTMLElement) {
       ${group('Materiale', 'material', [{ value: 'leather', label: 'Pelle' }, { value: 'linen', label: 'Tela' }, { value: 'kraft', label: 'Kraft' }], s.material)}
       ${patternGroup('Animalier', 'animalier', s)}
       ${patternGroup('Fantasie', 'fantasie', s)}
+      ${patternGroup('Classiche', 'classiche', s)}
+      ${group('Stile del titolo', 'label', [{ value: 'paper', label: 'Etichetta di carta' }, { value: 'cartouche', label: 'Cartiglio' }, { value: 'none', label: 'Solo testo' }], s.label)}
+      ${group('Ornamenti', 'ornament', [{ value: 'none', label: 'Nessuno' }, { value: 'keyhole', label: 'Serratura' }, { value: 'book', label: 'Libro aperto' }], s.ornament)}
       <fieldset class="jc-stickers"><legend>Adesivi sulla copertina (${s.coverStickers.length}/24)</legend>
         <div class="jswatches">${Object.keys(DOODLE_LABELS)
           .map((n) => `<button type="button" class="jc-add" data-add-sticker="${n}" title="Aggiungi ${esc(DOODLE_LABELS[n as keyof typeof DOODLE_LABELS])}">${svgIcon(n)}</button>`)
@@ -985,7 +997,7 @@ export function initJournal(section: HTMLElement) {
       ${group('Scrittura', 'hand', [{ value: 'true', label: 'A mano' }, { value: 'false', label: 'Stampatello' }], String(s.hand))}`;
   }
   /** Campioni delle fantasie con l'anteprima vera sul colore della copertina scelto. */
-  function patternGroup(legend: string, group: 'animalier' | 'fantasie', s: JournalSettings): string {
+  function patternGroup(legend: string, group: 'animalier' | 'fantasie' | 'classiche', s: JournalSettings): string {
     const cover = COVER_COLORS.find((c) => c.id === s.cover)!.value;
     const items = [{ id: 'none', label: 'Nessuna' }, ...PATTERNS.filter((p) => p.group === group)];
     return `<fieldset class="jc-patterns" data-group="${group}"><legend>${legend}</legend><div class="jswatches">${items
@@ -1019,10 +1031,15 @@ export function initJournal(section: HTMLElement) {
     else if (t.name?.startsWith('jc-')) {
       const key = t.name.slice(3) as keyof JournalSettings;
       updateSettings({ [key]: key === 'hand' ? t.value === 'true' : t.value } as Partial<JournalSettings>);
+      // un ornamento nuovo sposta solo gli adesivi che ora lo toccherebbero
+      if (key === 'ornament') {
+        const s = getJournal().settings;
+        updateSettings({ coverStickers: refitStickers(s.coverStickers, s.ornament) });
+      }
       // cambiando colore, le anteprime delle fantasie si ridisegnano su quello nuovo
       if (key === 'cover')
         customDialog.querySelectorAll<HTMLElement>('.jc-patterns').forEach((box) => {
-          box.outerHTML = patternGroup(box.querySelector('legend')!.textContent!, box.dataset.group as 'animalier' | 'fantasie', getJournal().settings);
+          box.outerHTML = patternGroup(box.querySelector('legend')!.textContent!, box.dataset.group as 'animalier' | 'fantasie' | 'classiche', getJournal().settings);
         });
     }
     applySettings();
