@@ -394,12 +394,10 @@ const path = Astro.url.pathname;
     .folders .folder:first-child { margin-top: 0; }
     /* su mobile l'ordine davanti/dietro resta quello del cassetto: la sezione attiva si riconosce dall'etichetta */
     .folders .folder.is-active { transform: none; }
-    .folders .folder:nth-child(1) { z-index: 1; }
-    .folders .folder:nth-child(2) { z-index: 2; }
-    .folders .folder:nth-child(3) { z-index: 3; }
-    .folders .folder:nth-child(4) { z-index: 4; }
-    .folders .folder:nth-child(5) { z-index: 5; }
-    .folders .folder:nth-child(6) { z-index: 6; }
+    /* ogni cartellina sopra la precedente, qualunque sia il numero di voci (--n = posizione) */
+    /* :nth-child(n) per avere la stessa forza delle regole desktop che altrimenti vincerebbero */
+    .folders .folder:nth-child(n),
+    .folders .folder.is-active:nth-child(n) { z-index: calc(var(--n) + 1); }
     .folders .folder:hover { transform: none; }
     .folders :global(.folder-tab) {
       position: absolute;
