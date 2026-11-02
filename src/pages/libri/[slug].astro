@@ -46,6 +46,12 @@ const { work, series, similar, events } = Astro.props as {
 };
 const authors = work.authors.map((a) => a.name).join(', ');
 const released = releaseDate(work);
+// promemoria: per la prima uscita futura (standard se c'è) e per ogni edizione futura nella tabella
+const todayIso = new Date().toISOString().slice(0, 10);
+const isUpcoming = (d: string | null | undefined) => Boolean(d && d > todayIso);
+const nextRelease = work.editions
+  .filter((e) => isUpcoming(e.release_date))
+  .sort((a, b) => Number(a.edition_type !== 'standard') - Number(b.edition_type !== 'standard') || a.release_date!.localeCompare(b.release_date!))[0];
 const pages = pageCount(work);
 const formats = availability(work);
 const digital = [formats.ebook && 'ebook', formats.audiobook && 'audiolibro'].filter(Boolean);
@@ -85,6 +91,14 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
         <div class="save-row"><SaveButtons slug={work.slug} title={work.title} /></div>
         <p class="muted">
           {released && <>Uscita: {formatDate(released)}</>}
+          {nextRelease && (
+            <>
+              {' '}
+              <a class="remind" href={`/promemoria/${nextRelease.id}.ics`} download>
+                <span aria-hidden="true">📅</span> Ricordamelo
+              </a>
+            </>
+          )}
           {ORIGIN_LABELS[work.origin] && <> · {ORIGIN_LABELS[work.origin]}</>}
         </p>
         {(pages || digital.length > 0) && (
@@ -190,7 +204,12 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
                   </td>
                   <td>{FORMAT_LABELS[e.format]}{e.language !== 'it' && ` (${e.language})`}</td>
                   <td>{e.publisher?.name ?? '—'}</td>
-                  <td>{formatDate(e.release_date)}</td>
+                  <td>
+                    {formatDate(e.release_date)}
+                    {isUpcoming(e.release_date) && (
+                      <a class="remind-mini" href={`/promemoria/${e.id}.ics`} download aria-label={`Promemoria per l'uscita del ${formatDate(e.release_date)}`} title="Aggiungi al calendario">📅</a>
+                    )}
+                  </td>
                   <td>{formatPrice(e.price)}</td>
                   <td>
                     {e.details}
@@ -347,5 +366,26 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
     .head :global(.cover) { width: 160px; }
     .step.next { text-align: left; }
     .events { grid-template-columns: minmax(0, 1fr); }
+  }
+  .remind {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    padding: 1px 10px;
+    font-size: 0.85rem;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .remind:hover,
+  .remind:focus-visible { border-color: var(--accent); }
+  .remind span,
+  .remind-mini { display: inline-block; transition: transform 0.3s var(--ease-spring); }
+  .remind-mini { margin-left: 6px; text-decoration: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .remind:hover span,
+    .remind-mini:hover { transform: rotate(-12deg) scale(1.2); }
   }
 </style>
