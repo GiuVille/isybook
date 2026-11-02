@@ -2,6 +2,8 @@
 // moodboard e l'aspetto dell'agendina scelto da chi legge. Tutto nel browser come la libreria:
 // testi e impostazioni in localStorage, foto della moodboard in IndexedDB (localStorage si riempirebbe subito).
 
+import { PATTERN_IDS } from './cover-patterns';
+
 export type JournalFormat = 'paper' | 'ebook' | 'audio';
 export type JournalKind = 'standalone' | 'sequel' | 'prequel' | 'spinoff' | 'midquel';
 export type JournalSource = 'bought' | 'gift' | 'borrowed';
@@ -46,23 +48,45 @@ export interface JournalEntry {
   updatedAt: string;
 }
 
+export interface CoverSticker {
+  name: string; // scarabocchio di src/lib/doodles.ts
+  x: number; // % della copertina
+  y: number;
+  r: number; // gradi
+  s: number; // scala 0.6–1.4
+  c: string; // colore
+}
+
 export interface JournalSettings {
   cover: string; // id di COVER_COLORS
   material: 'leather' | 'linen' | 'kraft';
+  pattern: string; // fantasia sopra il colore: 'none' o un id di src/lib/cover-patterns.ts
+  coverStickers: CoverSticker[]; // adesivi sparsi sulla copertina
   band: string; // colore dell'elastico
   ribbon: string; // colore del segnalibro
-  paper: 'lines' | 'dots' | 'grid';
+  paper: 'lines' | 'dots' | 'grid' | 'plain'; // plain = tinta unita
+  paperColor: string; // id di PAPER_COLORS
   ink: string; // id di INKS
   hand: boolean; // scrittura a mano
   charm: string; // nome di uno scarabocchio appeso all'elastico, '' = nessuno
   sticker: string; // adesivo sulla copertina, '' = nessuno
   name: string; // scritto sulla copertina
+  subtitle: string; // riga più piccola sotto il nome (facoltativa)
+}
+
+/** Torneo dell'anno: tabellone iniziale (null = passaggio del turno) e scelte fatte, per sfida "turno-partita". */
+export interface Tournament {
+  seeds: Array<string | null>;
+  picks: Record<string, string>;
+  finishedAt: string | null;
 }
 
 export interface Journal {
   version: 1;
   entries: JournalEntry[];
   settings: JournalSettings;
+  monthly: Record<string, string>; // "2026-11" → id della scheda (facoltativo: i mesi possono restare vuoti)
+  tournaments: Record<string, Tournament>; // anno → torneo
   updatedAt: string;
 }
 
@@ -76,7 +100,25 @@ export const COVER_COLORS = [
   { id: 'ink', label: 'Nero inchiostro', value: '#2a2730' },
   { id: 'terracotta', label: 'Mattone', value: '#a5523a' },
   { id: 'lilac', label: 'Lilla', value: '#9d86c9' },
+  { id: 'candy', label: 'Rosa confetto', value: '#e88fb3' },
+  { id: 'teal', label: 'Ottanio', value: '#1f6f78' },
+  { id: 'forest', label: 'Verde bosco', value: '#2f5a3c' },
+  { id: 'wine', label: 'Bordeaux', value: '#6e1f33' },
+  { id: 'sky', label: 'Celeste', value: '#7fb2d9' },
+  { id: 'cream', label: 'Crema', value: '#e8d9b8' },
+  { id: 'peach', label: 'Pesca', value: '#f0a77e' },
+  { id: 'gold', label: 'Oro', value: '#b48a2c' },
 ];
+export const PAPER_COLORS = [
+  { id: 'cream', label: 'Avorio', value: '#fffdf7' },
+  { id: 'white', label: 'Bianco', value: '#ffffff' },
+  { id: 'pink', label: 'Rosa', value: '#fbeef2' },
+  { id: 'blue', label: 'Azzurro', value: '#eef5fb' },
+  { id: 'sage', label: 'Salvia', value: '#eff5ec' },
+  { id: 'lilac', label: 'Lilla', value: '#f4effa' },
+  { id: 'kraft', label: 'Kraft', value: '#efe3cc' },
+];
+export const STICKER_COLORS = ['#e9cf74', '#d99aae', '#ffffff', '#a6c4df', '#a9c8a2', '#c62828', '#2a2730'];
 export const ACCENTS = ['#e9cf74', '#f4e6f0', '#c62828', '#1e5aa8', '#2e7d32', '#ffffff', '#2a2730'];
 export const INKS = [
   { id: 'blue', label: 'Blu', value: '#1f3a8a' },
@@ -106,10 +148,14 @@ const DEFAULT_SETTINGS: JournalSettings = {
   charm: 'star',
   sticker: '',
   name: 'Il mio book journal',
+  subtitle: '',
+  pattern: 'none',
+  coverStickers: [],
+  paperColor: 'cream',
 };
 
 const now = () => new Date().toISOString();
-const empty = (): Journal => ({ version: 1, entries: [], settings: { ...DEFAULT_SETTINGS }, updatedAt: now() });
+const empty = (): Journal => ({ version: 1, entries: [], settings: { ...DEFAULT_SETTINGS }, monthly: {}, tournaments: {}, updatedAt: now() });
 
 let memory: Journal | null = null;
 
@@ -170,22 +216,43 @@ function sanitize(raw: unknown): Journal {
   const base = empty();
   if (!raw || typeof raw !== 'object') return base;
   const r = raw as Partial<Journal> & { settings?: Partial<JournalSettings> };
+  const entries = (Array.isArray(r.entries) ? r.entries : []).map(sanitizeEntry).filter((e): e is JournalEntry => e !== null);
+  const ids = new Set(entries.map((e) => e.id));
+  const monthly: Record<string, string> = {};
+  for (const [month, id] of Object.entries(r.monthly ?? {})) if (/^\d{4}-\d{2}$/.test(month) && typeof id === 'string' && ids.has(id)) monthly[month] = id;
+  const tournaments: Record<string, Tournament> = {};
+  for (const [year, t] of Object.entries(r.tournaments ?? {})) {
+    if (!/^\d{4}$/.test(year) || !t || !Array.isArray(t.seeds)) continue;
+    const seeds = t.seeds.map((s) => (typeof s === 'string' && ids.has(s) ? s : null));
+    const picks: Record<string, string> = {};
+    for (const [k, v] of Object.entries(t.picks ?? {})) if (/^\d+-\d+$/.test(k) && typeof v === 'string' && ids.has(v)) picks[k] = v;
+    tournaments[year] = { seeds, picks, finishedAt: typeof t.finishedAt === 'string' ? t.finishedAt : null };
+  }
   const s: Partial<JournalSettings> = r.settings ?? {};
   const color = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback);
   return {
     version: 1,
-    entries: (Array.isArray(r.entries) ? r.entries : []).map(sanitizeEntry).filter((e): e is JournalEntry => e !== null),
+    entries,
+    monthly,
+    tournaments,
     settings: {
       cover: COVER_COLORS.some((c) => c.id === s.cover) ? s.cover! : DEFAULT_SETTINGS.cover,
       material: oneOf(s.material, ['leather', 'linen', 'kraft'] as const) ?? DEFAULT_SETTINGS.material,
       band: color(s.band, DEFAULT_SETTINGS.band),
       ribbon: color(s.ribbon, DEFAULT_SETTINGS.ribbon),
-      paper: oneOf(s.paper, ['lines', 'dots', 'grid'] as const) ?? DEFAULT_SETTINGS.paper,
+      paper: oneOf(s.paper, ['lines', 'dots', 'grid', 'plain'] as const) ?? DEFAULT_SETTINGS.paper,
+      paperColor: PAPER_COLORS.some((c) => c.id === s.paperColor) ? s.paperColor! : DEFAULT_SETTINGS.paperColor,
+      pattern: typeof s.pattern === 'string' && PATTERN_IDS.includes(s.pattern) ? s.pattern : DEFAULT_SETTINGS.pattern,
+      coverStickers: (Array.isArray(s.coverStickers) ? s.coverStickers : [])
+        .filter((x): x is CoverSticker => Boolean(x) && typeof x.name === 'string')
+        .slice(0, 24)
+        .map((x) => ({ name: x.name, x: clamp(x.x, 0, 100, 50), y: clamp(x.y, 0, 100, 50), r: clamp(x.r, -180, 180, 0), s: clamp(x.s, 0.6, 1.4, 1), c: color(x.c, '#e9cf74') })),
       ink: INKS.some((c) => c.id === s.ink) ? s.ink! : DEFAULT_SETTINGS.ink,
       hand: typeof s.hand === 'boolean' ? s.hand : DEFAULT_SETTINGS.hand,
       charm: typeof s.charm === 'string' ? s.charm : DEFAULT_SETTINGS.charm,
       sticker: typeof s.sticker === 'string' ? s.sticker : DEFAULT_SETTINGS.sticker,
       name: typeof s.name === 'string' ? s.name.slice(0, 40) : DEFAULT_SETTINGS.name,
+      subtitle: typeof s.subtitle === 'string' ? s.subtitle.slice(0, 60) : DEFAULT_SETTINGS.subtitle,
     },
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : base.updatedAt,
   };
@@ -297,6 +364,54 @@ export function deleteEntry(id: string) {
 
 export const updateSettings = (change: Partial<JournalSettings>) => update((j) => (j.settings = { ...j.settings, ...change }));
 
+// Copertina vista come 490×760 (proporzioni della pagina): gli adesivi non toccano dorso, elastico, etichetta del nome
+// e nemmeno gli altri adesivi.
+const COVER_W = 490;
+const COVER_H = 760;
+const SPINE = 20; // striscia colorata a sinistra (dorso)
+const BAND = 52; // elastico vicino al bordo destro
+const LABEL = { x0: 0.18, x1: 0.82, y0: 0.4, y1: 0.66 }; // zona di nome e conteggio
+const stickerRadius = (s: number) => 31 * s; // adesivo 46px ruotato: il cerchio che lo contiene
+
+function fits(c: { x: number; y: number; s: number }, others: CoverSticker[]): boolean {
+  const px = (c.x / 100) * COVER_W;
+  const py = (c.y / 100) * COVER_H;
+  const r = stickerRadius(c.s);
+  if (px - r < SPINE || px + r > COVER_W - BAND || py - r < 6 || py + r > COVER_H - 40) return false;
+  const lx0 = LABEL.x0 * COVER_W - r;
+  const lx1 = LABEL.x1 * COVER_W + r;
+  if (px > lx0 && px < lx1 && py > LABEL.y0 * COVER_H - r && py < LABEL.y1 * COVER_H + r) return false;
+  return others.every((o) => Math.hypot(px - (o.x / 100) * COVER_W, py - (o.y / 100) * COVER_H) >= r + stickerRadius(o.s) + 6);
+}
+
+/** Adesivo in un punto a caso dove non tocca niente; null se sulla copertina non c'è più posto. */
+export function randomSticker(name: string, others: CoverSticker[] = [], color?: string): CoverSticker | null {
+  for (let i = 0; i < 250; i++) {
+    const s = Math.round((0.75 + Math.random() * 0.5) * 100) / 100;
+    const c = { x: Math.random() * 100, y: Math.random() * 100, s };
+    if (!fits(c, others)) continue;
+    return {
+      name,
+      x: Math.round(c.x * 10) / 10,
+      y: Math.round(c.y * 10) / 10,
+      r: Math.round((Math.random() - 0.5) * 50),
+      s,
+      c: color ?? STICKER_COLORS[Math.floor(Math.random() * STICKER_COLORS.length)],
+    };
+  }
+  return null;
+}
+
+/** Ridistribuisce a caso gli adesivi, senza sovrapposizioni (quelli che non trovano posto restano fuori). */
+export function shuffleStickers(stickers: CoverSticker[]): CoverSticker[] {
+  const out: CoverSticker[] = [];
+  for (const x of [...stickers].sort((a, b) => b.s - a.s)) {
+    const placed = randomSticker(x.name, out, x.c);
+    if (placed) out.push(placed);
+  }
+  return out;
+}
+
 export function onJournalChange(callback: (journal: Journal) => void): () => void {
   const local = () => callback(getJournal());
   const other = (e: StorageEvent) => {
@@ -311,6 +426,168 @@ export function onJournalChange(callback: (journal: Journal) => void): () => voi
 }
 
 export const newMoodId = () => newId('m');
+
+// ---------------------------------------------------------------------------
+// Libro del mese (facoltativo) e statistiche
+// ---------------------------------------------------------------------------
+export const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+export const monthKey = (year: number, month: number) => `${year}-${String(month + 1).padStart(2, '0')}`;
+
+/** Imposta (o toglie, con null) il libro del mese. Un libro è libro del mese una volta sola per anno: se era altrove si sposta. */
+export const setMonthly = (month: string, entryId: string | null) =>
+  update((j) => {
+    const year = month.slice(0, 4);
+    if (entryId) for (const [m, id] of Object.entries(j.monthly)) if (id === entryId && m.startsWith(year)) delete j.monthly[m];
+    if (entryId) j.monthly[month] = entryId;
+    else delete j.monthly[month];
+  });
+
+/** Mese in cui il libro è libro del mese, se lo è. */
+export const monthOf = (journal: Journal, entryId: string) => Object.entries(journal.monthly).find(([, id]) => id === entryId)?.[0] ?? null;
+
+/** Anno in cui il libro conta: quello della fine lettura, altrimenti dell'inizio o della creazione. */
+export const yearOf = (e: JournalEntry) => Number((e.finishedOn || e.startedOn || e.createdAt).slice(0, 4));
+const monthIndexOf = (e: JournalEntry) => Number((e.finishedOn || e.startedOn || e.createdAt).slice(5, 7)) - 1;
+
+export interface YearStats {
+  year: number;
+  month: number | null; // null = tutto l'anno
+  books: JournalEntry[]; // libri finiti nel periodo, dal più recente
+  read: number; // libri finiti nell'anno
+  reading: number; // in lettura
+  pages: number; // pagine dei libri finiti + pagine arrivate di quelli in corso
+  avgRating: number | null; // media del voto finale (solo libri votati)
+  avgDays: number | null; // giorni medi dall'inizio alla fine
+  perMonth: number[]; // libri finiti per mese
+  bestMonth: number | null; // indice del mese con più libri
+  genres: Array<[string, number]>; // i più letti
+  tropes: Array<[string, number]>;
+  formats: Record<'paper' | 'ebook' | 'audio', number>;
+  longest: JournalEntry | null;
+  shortest: JournalEntry | null;
+}
+
+const top = (values: string[], n = 5): Array<[string, number]> =>
+  [...values.reduce((m, v) => m.set(v, (m.get(v) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'it')).slice(0, n);
+
+/** Statistiche dell'anno o, con `month` (0–11), di un solo mese. */
+export function statsFor(journal: Journal, year: number, month: number | null = null): YearStats {
+  const inYear = journal.entries.filter((e) => yearOf(e) === year && (month == null || monthIndexOf(e) === month));
+  const done = inYear.filter(isRead);
+  const going = inYear.filter((e) => !isRead(e));
+  const perMonth = Array(12).fill(0);
+  for (const e of done) perMonth[monthIndexOf(e)]++;
+  const max = Math.max(...perMonth);
+  const rated = done.filter((e) => e.ratings.overall > 0);
+  const timed = done.filter((e) => e.startedOn && e.finishedOn);
+  const days = timed.map((e) => Math.max(1, Math.round((Date.parse(e.finishedOn) - Date.parse(e.startedOn)) / 86400000) + 1));
+  const paged = done.filter((e) => e.totalPages).sort((a, b) => b.totalPages! - a.totalPages!);
+  const formats = { paper: 0, ebook: 0, audio: 0 };
+  for (const e of done) if (e.format) formats[e.format]++;
+  return {
+    year,
+    month,
+    books: done.slice().sort((a, b) => (b.finishedOn || '').localeCompare(a.finishedOn || '')),
+    read: done.length,
+    reading: going.length,
+    pages: done.reduce((s, e) => s + (e.totalPages ?? 0), 0) + going.reduce((s, e) => s + (e.currentPage ?? 0), 0),
+    avgRating: rated.length ? Math.round((rated.reduce((s, e) => s + e.ratings.overall, 0) / rated.length) * 10) / 10 : null,
+    avgDays: days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : null,
+    perMonth,
+    bestMonth: max > 0 ? perMonth.indexOf(max) : null,
+    genres: top(done.map((e) => e.genre.trim()).filter(Boolean)),
+    tropes: top(done.flatMap((e) => e.tropes)),
+    formats,
+    longest: paged[0] ?? null,
+    shortest: paged.length > 1 ? paged[paged.length - 1] : null,
+  };
+}
+
+/** Anni con qualcosa nel journal, dal più recente; c'è sempre l'anno in corso. */
+export function journalYears(journal: Journal): number[] {
+  const years = new Set([new Date().getFullYear(), ...journal.entries.map(yearOf), ...Object.keys(journal.monthly).map((m) => Number(m.slice(0, 4)))]);
+  return [...years].sort((a, b) => b - a);
+}
+
+// ---------------------------------------------------------------------------
+// Torneo dell'anno
+// ---------------------------------------------------------------------------
+/** Libri del mese dell'anno, in ordine di mese. */
+export const monthlyOf = (journal: Journal, year: number) =>
+  Object.entries(journal.monthly)
+    .filter(([m]) => m.startsWith(`${year}-`))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, id]) => ({ month, id }));
+
+/** Il torneo dell'anno in corso si apre il 1° dicembre; gli anni passati sono sempre giocabili. */
+export function tournamentOpensOn(year: number): Date {
+  return new Date(year, 11, 1);
+}
+export const tournamentOpen = (year: number, today = new Date()) => today >= tournamentOpensOn(year);
+
+/** Tabellone a potenza di 2 con passaggi del turno ai primi mesi, così nessuna sfida è vuota. */
+export function buildSeeds(ids: string[]): Array<string | null> {
+  let size = 2;
+  while (size < ids.length) size *= 2;
+  const byes = size - ids.length;
+  const seeds: Array<string | null> = [];
+  ids.forEach((id, i) => {
+    seeds.push(id);
+    if (i < byes) seeds.push(null);
+  });
+  return seeds;
+}
+
+/** Turni del torneo: per ogni turno gli slot (id, null = vuoto/passaggio, undefined = ancora da decidere). */
+export function tournamentRounds(t: Tournament): Array<Array<string | null | undefined>> {
+  const rounds: Array<Array<string | null | undefined>> = [t.seeds];
+  while (rounds[rounds.length - 1].length > 1) {
+    const prev = rounds[rounds.length - 1];
+    const r = rounds.length - 1;
+    const next: Array<string | null | undefined> = [];
+    for (let m = 0; m < prev.length / 2; m++) {
+      const [a, b] = [prev[m * 2], prev[m * 2 + 1]];
+      if (a === undefined || b === undefined) next.push(undefined);
+      else if (a === null) next.push(b);
+      else if (b === null) next.push(a);
+      else next.push(t.picks[`${r}-${m}`] ?? undefined);
+    }
+    rounds.push(next);
+  }
+  return rounds;
+}
+
+/** Prossima sfida da giocare (con due libri veri), o null se il torneo è finito. */
+export function nextMatch(t: Tournament): { round: number; match: number; a: string; b: string } | null {
+  const rounds = tournamentRounds(t);
+  for (let r = 0; r < rounds.length - 1; r++)
+    for (let m = 0; m < rounds[r].length / 2; m++) {
+      const [a, b] = [rounds[r][m * 2], rounds[r][m * 2 + 1]];
+      if (a && b && !t.picks[`${r}-${m}`]) return { round: r, match: m, a, b };
+    }
+  return null;
+}
+
+/** Numero di sfide vere (senza passaggi del turno): ids - 1. */
+export const matchCount = (t: Tournament) => Math.max(0, t.seeds.filter(Boolean).length - 1);
+
+export const tournamentWinner = (t: Tournament) => {
+  const rounds = tournamentRounds(t);
+  return rounds[rounds.length - 1][0] ?? null;
+};
+
+export const startTournament = (year: number, ids: string[]) =>
+  update((j) => (j.tournaments[year] = { seeds: buildSeeds(ids), picks: {}, finishedAt: null }));
+
+export const pickWinner = (year: number, round: number, match: number, id: string) =>
+  update((j) => {
+    const t = j.tournaments[year];
+    if (!t) return;
+    t.picks[`${round}-${match}`] = id;
+    if (tournamentWinner(t)) t.finishedAt = now();
+  });
+
+export const resetTournament = (year: number) => update((j) => delete j.tournaments[year]);
 
 // ---------------------------------------------------------------------------
 // Foto della moodboard (IndexedDB)

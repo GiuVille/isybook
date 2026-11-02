@@ -1,0 +1,50 @@
+---
+// Torneo dell'anno in La mia libreria: i libri del mese (facoltativi) si sfidano a coppie e chi legge
+// sceglie il preferito di ogni sfida fino al vincitore. Si apre il 1° dicembre; gli anni passati sono sempre
+// giocabili. Disegnato nel browser da src/scripts/tournament.ts; stili in src/styles/tournament.css.
+import '../styles/tournament.css';
+---
+
+<section class="tourney" aria-labelledby="tourney-title">
+  <div class="tourney-head">
+    <h2 id="tourney-title">Torneo dell'anno</h2>
+    <div class="tourney-year"></div>
+  </div>
+  <p class="muted tourney-intro">I tuoi libri del mese si sfidano uno contro uno: scegli ogni volta il preferito, fino al libro dell'anno.</p>
+  <div class="tourney-body" aria-live="polite"></div>
+
+  <dialog class="tourney-match" aria-labelledby="tmatch-title">
+    <div class="tmatch">
+      <p class="tmatch-round" id="tmatch-title"></p>
+      <div class="tmatch-bar" aria-hidden="true"><span></span></div>
+      <div class="tmatch-arena">
+        <button type="button" class="tmatch-book a" data-side="a"></button>
+        <span class="tmatch-vs" aria-hidden="true">VS</span>
+        <button type="button" class="tmatch-book b" data-side="b"></button>
+      </div>
+      <p class="tmatch-hint">Tocca il libro che preferisci</p>
+      <button type="button" class="button-soft tmatch-close">Continua dopo</button>
+    </div>
+  </dialog>
+
+  <dialog class="journal-dialog tourney-share" aria-labelledby="tshare-title">
+    <form method="dialog">
+      <h3 id="tshare-title">Il tuo libro dell'anno</h3>
+      <div class="jshare-formats" role="radiogroup" aria-label="Formato">
+        <label><input type="radio" name="tshare-format" value="post" checked /> Post 4:5</label>
+        <label><input type="radio" name="tshare-format" value="story" /> Storia 9:16</label>
+      </div>
+      <div class="jshare-preview"></div>
+      <div class="jshare-actions">
+        <button type="button" class="button-strong jshare-download">Scarica l'immagine</button>
+        <button type="button" class="button-soft jshare-native" hidden>Condividi…</button>
+        <button class="button-soft">Chiudi</button>
+      </div>
+    </form>
+  </dialog>
+</section>
+
+<script>
+  import { initTournament } from '../scripts/tournament';
+  initTournament(document.querySelector<HTMLElement>('.tourney')!);
+</script>

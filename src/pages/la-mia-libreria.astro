@@ -1,8 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
 import BookJournal from '../components/BookJournal.astro';
+import YearTournament from '../components/YearTournament.astro';
 import '../styles/drawer.css';
 import '../styles/videoteca.css';
+import '../styles/shuffle.css';
 ---
 
 <Base title="La mia libreria" description="I tuoi libri preferiti, le tue cartelle personali, il book journal e la videoteca con serie e film da vedere.">
@@ -25,6 +27,7 @@ import '../styles/videoteca.css';
   </div>
 
   <BookJournal />
+  <YearTournament />
 
   <section class="videoteca" aria-labelledby="videoteca-title">
     <div class="page-head">
@@ -64,6 +67,7 @@ import '../styles/videoteca.css';
   import { bookCard, esc, miniCover, miniPoster, screenCard } from '../lib/book-card';
   import { loadCatalog, type Catalog } from '../lib/catalog';
   import { exportJournal, importJournal } from '../lib/journal';
+  import { openShuffle, type ShuffleItem } from '../scripts/shuffle';
   import {
     collectionsOf,
     createCollection,
@@ -252,7 +256,11 @@ import '../styles/videoteca.css';
     shelf.panel.innerHTML = `
       <section class="shelf" ${isFav ? '' : `data-collection="${esc(current.id)}"`}>
         <div class="shelf-head">
-          <h3>${isFav ? shelf.favorites.icon : preset ? PRESET_ICONS[current.id] : shelf.folderIcon} ${esc(current.name)} <span class="count">${items.length}</span></h3>
+          <h3>${isFav ? shelf.favorites.icon : preset ? PRESET_ICONS[current.id] : shelf.folderIcon} ${esc(current.name)} <span class="count">${items.length}</span>${
+            items.length >= 2
+              ? `<button type="button" class="shuffle-btn" data-shuffle="${esc(current.id)}" ${kindAttr} aria-label="Estrai a caso da «${esc(current.name)}»" title="Estrai a caso">${shelf.kind === 'screen' ? '🎞️' : '🎲'}</button>`
+              : ''
+          }</h3>
           ${
             isFav || preset
               ? ''
@@ -338,6 +346,23 @@ import '../styles/videoteca.css';
       const t = e.target as HTMLElement;
       const kind = shelfOf(t.dataset.kind).kind;
       if (t.dataset.journal) return window.dispatchEvent(new CustomEvent('journal:add', { detail: t.dataset.journal }));
+      if (t.dataset.shuffle) {
+        // elementi della cartella aperta, con i dati del catalogo per il rullo e la carta del vincitore
+        const shelf = shelfOf(t.dataset.kind);
+        const folder = folders(shelf).find((x) => x.id === t.dataset.shuffle);
+        if (!folder || !catalog) return;
+        const items: ShuffleItem[] =
+          shelf.kind === 'screen'
+            ? folder.slugs.flatMap((s) => {
+                const x = catalog!.screens.find((y) => y.slug === s);
+                return x ? [{ slug: s, title: x.title, meta: `Dal libro «${x.source.title}»`, cover: x.poster, color: x.color, href: `/serie-e-film/${s}` }] : [];
+              })
+            : folder.slugs.flatMap((s) => {
+                const b = catalog!.books.find((y) => y.slug === s);
+                return b ? [{ slug: s, title: b.title, meta: b.authors.join(', '), cover: b.cover, color: b.color, href: `/libri/${s}` }] : [];
+              });
+        return openShuffle({ kind: shelf.kind, folder: folder.name, items });
+      }
       if (t.dataset.unfav) toggleFavorite(t.dataset.unfav, kind);
       if (t.dataset.remove && t.dataset.from) removeFromCollection(t.dataset.from, t.dataset.remove, kind);
       if (t.dataset.rename) {

@@ -263,6 +263,9 @@ th { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
   cursor: pointer;
 }
 .mini-book .remove:hover { color: var(--limited); border-color: var(--limited); }
+/* "Nel journal" accanto a "Rimuovi", a sinistra: stessa forma, colore del sito */
+.mini-book .remove[data-journal] { right: auto; left: 8px; color: var(--accent); }
+.mini-book .remove[data-journal]:hover { color: var(--accent); border-color: var(--accent); }
 
 .button-soft {
   display: inline-block;

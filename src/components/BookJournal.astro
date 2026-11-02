@@ -18,11 +18,18 @@ import '../styles/journal.css';
         <section class="jpage jleft" aria-live="polite"></section>
         <section class="jpage jright"></section>
       </div>
+      <div class="journal-tabs" role="toolbar" aria-label="Sezioni del journal">
+        <button type="button" data-tab="" class="jtab t1">Indice</button>
+        <button type="button" data-tab="__monthly" class="jtab t2">Del mese</button>
+        <button type="button" data-tab="__stats" class="jtab t3">Statistiche</button>
+      </div>
       <button type="button" class="journal-cover" aria-expanded="false" aria-label="Apri il book journal">
         <span class="cover-front">
+          <span class="cover-stickers" aria-hidden="true"></span>
           <span class="cover-stitch" aria-hidden="true"></span>
           <span class="cover-sticker" aria-hidden="true"></span>
           <span class="cover-name"></span>
+          <span class="cover-subtitle"></span>
           <span class="cover-count"></span>
           <span class="cover-hint">Tocca per aprire</span>
         </span>

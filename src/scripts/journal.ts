@@ -2,12 +2,16 @@
 // personalizzazione e condivisione. Dati in src/lib/journal.ts; stili in src/styles/journal.css.
 import { esc } from '../lib/book-card';
 import { loadCatalog, type Catalog, type CatalogBook } from '../lib/catalog';
+import { PATTERNS, patternImage } from '../lib/cover-patterns';
 import { DOODLE_LABELS, doodlePath } from '../lib/doodles';
 import {
   ACCENTS,
   COVER_COLORS,
   INKS,
+  PAPER_COLORS,
   RATING_LABELS,
+  randomSticker,
+  shuffleStickers,
   createEntry,
   deleteEntry,
   deletePhoto,
@@ -16,8 +20,15 @@ import {
   isRead,
   newMoodId,
   onJournalChange,
+  MONTHS,
+  journalYears,
+  monthKey,
+  monthOf,
   progress,
   sagaOf,
+  setMonthly,
+  statsFor,
+  yearOf,
   savePhoto,
   updateEntry,
   updateSettings,
@@ -30,7 +41,12 @@ import {
 import { TBR_ID, getLibrary, removeFromCollection } from '../lib/library';
 import { reducedMotion } from './reveal';
 import { heartBurst } from './celebrate';
-import { openShare } from './journal-share';
+import { drawStatsPost, openImageDialog, openShare } from './journal-share';
+
+// pagine speciali dell'agendina, oltre all'indice e alle schede
+const MONTHLY = '__monthly';
+const STATS = '__stats';
+const isSpecial = (id: string | null) => id === MONTHLY || id === STATS;
 
 const STAR = 'M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8Z';
 const FORMAT_ICONS: Record<string, [string, string]> = {
@@ -74,6 +90,8 @@ export function initJournal(section: HTMLElement) {
   const bookOf = (slug: string | null) => (slug && catalog ? catalog.books.find((b) => b.slug === slug) ?? null : null);
   const saga = (e: JournalEntry): Saga | null => (catalog ? sagaOf(e, catalog.books, getJournal().entries) : null);
   const celebrated = new Set<string>(); // saghe già festeggiate in questa visita
+  let year = new Date().getFullYear(); // anno mostrato da statistiche e libri del mese
+  let statsMonth: number | null = null; // statistiche: null = tutto l'anno, altrimenti il mese
 
   // ---------------------------------------------------------------- aspetto
   function applySettings(s: JournalSettings = getJournal().settings) {
@@ -84,7 +102,16 @@ export function initJournal(section: HTMLElement) {
     root.style.setProperty('--jfont', s.hand ? 'var(--font-hand)' : 'var(--font-text)');
     root.dataset.material = s.material;
     root.dataset.paper = s.paper;
+    root.dataset.pattern = s.pattern;
+    root.style.setProperty('--pattern', patternImage(s.pattern, COVER_COLORS.find((c) => c.id === s.cover)!.value));
+    root.style.setProperty('--paper', PAPER_COLORS.find((c) => c.id === s.paperColor)!.value);
+    root.querySelector('.cover-stickers')!.innerHTML = s.coverStickers
+      .map((x) => `<span style="left:${x.x}%;top:${x.y}%;--r:${x.r}deg;--s:${x.s};color:${x.c}">${svgIcon(x.name)}</span>`)
+      .join('');
     root.querySelector('.cover-name')!.textContent = s.name || 'Book journal';
+    const subtitle = root.querySelector<HTMLElement>('.cover-subtitle')!;
+    subtitle.textContent = s.subtitle;
+    subtitle.hidden = !s.subtitle;
     root.querySelector('.cover-sticker')!.innerHTML = s.sticker ? svgIcon(s.sticker) : '';
     root.querySelector('.journal-charm')!.innerHTML = s.charm ? svgIcon(s.charm) : '';
     const all = getJournal().entries;
@@ -173,7 +200,7 @@ export function initJournal(section: HTMLElement) {
       updateNav();
       return turn(delta > 0 ? 'next' : 'prev');
     }
-    const ids = [null, ...entries().map((e) => e.id)];
+    const ids: Array<string | null> = [null, MONTHLY, STATS, ...entries().map((e) => e.id)];
     const i = ids.indexOf(current);
     const target = ids[i + delta];
     if (target !== undefined) go(target, delta > 0 ? 'next' : 'prev', narrow() && delta < 0 ? 'right' : 'left');
@@ -182,12 +209,16 @@ export function initJournal(section: HTMLElement) {
   function updateNav() {
     root.dataset.side = side;
     const list = entries();
-    const i = current ? list.findIndex((e) => e.id === current) + 1 : 0;
+    const ids: Array<string | null> = [null, MONTHLY, STATS, ...list.map((e) => e.id)];
+    const pos = Math.max(0, ids.indexOf(current));
     const small = narrow();
-    nav.prev.disabled = i === 0 && (!small || side === 'left');
-    nav.next.disabled = i >= list.length && (!small || side === 'right');
-    const page = small ? (current ? (side === 'left' ? ' · scheda' : ' · recensione') : '') : '';
-    nav.where.textContent = current ? `${i} di ${list.length}${page}` : small && side === 'right' ? 'Nuovo libro' : 'Indice';
+    nav.prev.disabled = pos === 0 && (!small || side === 'left');
+    nav.next.disabled = pos >= ids.length - 1 && (!small || side === 'right');
+    const i = pos - 2;
+    const page = small && current && !isSpecial(current) ? (side === 'left' ? ' · scheda' : ' · recensione') : '';
+    nav.where.textContent =
+      current === MONTHLY ? 'Libri del mese' : current === STATS ? 'Statistiche' : current ? `${i} di ${list.length}${page}` : small && side === 'right' ? 'Nuovo libro' : 'Indice';
+    root.querySelectorAll<HTMLElement>('[data-tab]').forEach((tab) => tab.setAttribute('aria-current', String((tab.dataset.tab || null) === current || (tab.dataset.tab === '' && !current))));
   }
   narrowQuery.addEventListener('change', updateNav);
 
@@ -195,7 +226,15 @@ export function initJournal(section: HTMLElement) {
   function render() {
     applySettings();
     const e = entry();
-    if (!e) {
+    if (current === MONTHLY) {
+      // tutti e 12 i mesi in una pagina; accanto il riepilogo verso il torneo
+      left.innerHTML = monthlyHtml();
+      right.innerHTML = monthlySummaryHtml();
+    } else if (current === STATS) {
+      left.innerHTML = statsLeftHtml();
+      right.innerHTML = statsRightHtml();
+      countUp();
+    } else if (!e) {
       current = null;
       left.innerHTML = indexHtml();
       right.innerHTML = addHtml();
@@ -362,6 +401,7 @@ export function initJournal(section: HTMLElement) {
           <span class="jbar" aria-hidden="true"><span style="--p:${(p ?? 0) / 100}"></span></span>
         </div>
       </div>
+      ${monthlyButtonHtml(e)}
       ${sagaHtml(e)}
       <div class="jblock">
         ${radios('format', Object.entries(FORMAT_ICONS).map(([v, [icon, label]]) => [v, `${icon}<span class="sr">${label}</span>`]), e.format, 'jformats')}
@@ -380,6 +420,157 @@ export function initJournal(section: HTMLElement) {
         <div><label class="jlabel" for="j-quotes">Frasi</label><textarea id="j-quotes" data-field="quotes" rows="3">${esc(e.quotes)}</textarea></div>
       </div>
       <div class="jratings">${(Object.keys(RATING_LABELS) as RatingKey[]).map((k) => stars(k, e.ratings[k])).join('')}</div>`;
+  }
+
+  // ---------------------------------------------------------------- libri del mese e statistiche
+  const yearPicker = () => {
+    const years = journalYears(getJournal());
+    const i = years.indexOf(year);
+    return `<div class="jyear"><button type="button" data-year="${years[i + 1] ?? ''}" ${years[i + 1] ? '' : 'disabled'} aria-label="Anno precedente">‹</button>
+      <strong>${year}</strong><button type="button" data-year="${years[i - 1] ?? ''}" ${i > 0 ? '' : 'disabled'} aria-label="Anno successivo">›</button></div>`;
+  };
+
+  /** Sei mesi per pagina: polaroid con il libro scelto, o vuota (scegliere è facoltativo). */
+  function monthlyHtml(): string {
+    const j = getJournal();
+    const today = new Date();
+    const options = entries().filter((e) => Math.abs(yearOf(e) - year) <= 1);
+    const months = [...Array(12)].map((_, m) => {
+      const k = m;
+      const key = monthKey(year, m);
+      const chosen = j.entries.find((e) => e.id === j.monthly[key]);
+      const future = new Date(year, m, 1) > today;
+      return `<li class="jmonth ${chosen ? 'has-book' : ''}" style="--k:${k}">
+        <span class="jmonth-name">${MONTHS[m]}</span>
+        <span class="jmonth-photo">${chosen ? coverHtml(chosen) : '<span class="jmonth-empty">?</span>'}</span>
+        ${chosen ? `<button type="button" class="jmonth-title" data-open="${esc(chosen.id)}">${esc(chosen.title)}</button>` : ''}
+        <label class="jsr" for="jm-${key}">Libro di ${MONTHS[m]} ${year}</label>
+        <select id="jm-${key}" data-monthly="${key}" ${future ? 'disabled' : ''}>
+          <option value="">${future ? 'In arrivo' : chosen ? '— togli —' : 'Scegli'}</option>
+          ${options.map((e) => `<option value="${esc(e.id)}" ${e.id === chosen?.id ? 'selected' : ''}>${esc(e.title)}</option>`).join('')}
+        </select>
+      </li>`;
+    });
+    return `<h3>Libri del mese</h3>${yearPicker()}<p class="jhint">Il tuo preferito di ogni mese, se ti va: a dicembre si sfidano nel torneo dell'anno.</p>
+      <ol class="jmonths">${months.join('')}</ol>`;
+  }
+
+  /** Pagina accanto ai mesi: quanti ne hai scelti e chi andrà al torneo. */
+  function monthlySummaryHtml(): string {
+    const j = getJournal();
+    const chosen = Object.entries(j.monthly)
+      .filter(([m]) => m.startsWith(`${year}-`))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([m, id]) => ({ m: Number(m.slice(5)) - 1, e: j.entries.find((x) => x.id === id) }))
+      .filter((x): x is { m: number; e: JournalEntry } => Boolean(x.e));
+    return `<h3>Verso il torneo</h3>
+      <p class="jsum-n"><strong>${chosen.length}</strong> di 12 mesi scelti</p>
+      ${
+        chosen.length
+          ? `<ol class="jindex">${chosen
+              .map(
+                ({ m, e }) => `<li><button type="button" data-open="${esc(e.id)}"><span class="n">${MONTHS[m].slice(0, 3)}</span>${coverHtml(e, 'mini')}
+                  <span class="t">${esc(e.title)}<small>${esc(e.author)}</small></span><span class="state">${e.ratings.overall ? `★ ${e.ratings.overall}` : ''}</span></button></li>`,
+              )
+              .join('')}</ol>`
+          : '<p class="jhint">Ancora nessun libro del mese: sceglili qui accanto, quando vuoi.</p>'
+      }
+      ${chosen.length >= 2 ? '<div class="jfoot"><button type="button" class="jbtn" data-go-tourney>Vai al torneo</button></div>' : ''}`;
+  }
+
+  function monthlyButtonHtml(e: JournalEntry): string {
+    const m = monthOf(getJournal(), e.id);
+    return `<div class="jblock"><button type="button" class="jbtn soft jstar-month" data-month-pick ${m ? 'aria-pressed="true"' : ''}>${
+      m ? `★ Libro di ${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}` : '☆ Libro del mese'
+    }</button></div>`;
+  }
+
+  const periodPicker = () =>
+    `<label class="jsr" for="jstats-month">Periodo</label><select id="jstats-month" class="jperiod" data-stats-month>
+      <option value="">Tutto l'anno</option>${MONTHS.map((m, i) => `<option value="${i}" ${statsMonth === i ? 'selected' : ''}>${m}</option>`).join('')}
+    </select>`;
+
+  function statsLeftHtml(): string {
+    const s = statsFor(getJournal(), year, statsMonth);
+    const num = (n: number | null, label: string, suffix = '') =>
+      `<div class="jstat"><span class="jstat-n" data-count="${n ?? ''}" data-suffix="${suffix}">${n == null ? '—' : '0'}</span><span>${label}</span></div>`;
+    const f = s.formats;
+    return `<h3>Statistiche</h3><div class="jperiod-row">${yearPicker()}${periodPicker()}</div>
+      <div class="jstats">
+        ${num(s.read, s.read === 1 ? 'libro letto' : 'libri letti')}
+        ${num(s.pages, 'pagine')}
+        ${num(s.avgRating, 'voto medio', '★')}
+        ${num(s.avgDays, 'giorni a libro')}
+      </div>
+      ${s.reading ? `<p class="jhint">${s.reading} ${s.reading === 1 ? 'libro' : 'libri'} ancora in lettura.</p>` : ''}
+      <div class="jblock"><span class="jlabel">Formati</span>
+        <p class="jformats-count">📖 ${f.paper} · 📱 ${f.ebook} · 🎧 ${f.audio}</p></div>
+      <div class="jblock"><span class="jlabel">Generi del cuore</span><div class="jtropes">${
+        s.genres.map(([g, n]) => `<span class="jchip">${esc(g)} <small>${n}</small></span>`).join('') || '<span class="jhint">—</span>'
+      }</div></div>
+      <div class="jblock"><span class="jlabel">Tropes del cuore</span><div class="jtropes">${
+        s.tropes.map(([t, n]) => `<span class="jchip">${esc(t)} <small>${n}</small></span>`).join('') || '<span class="jhint">—</span>'
+      }</div></div>`;
+  }
+
+  function statsRightHtml(): string {
+    const s = statsFor(getJournal(), year, statsMonth);
+    const max = Math.max(1, ...s.perMonth);
+    // un mese solo: al posto del grafico, i libri finiti in quel mese
+    if (statsMonth != null) {
+      return `<h3>Letti a ${MONTHS[statsMonth]}</h3>
+        ${
+          s.books.length
+            ? `<ol class="jindex">${s.books
+                .map(
+                  (e) => `<li><button type="button" data-open="${esc(e.id)}"><span class="n">${e.finishedOn ? Number(e.finishedOn.slice(8, 10)) : ''}</span>${coverHtml(e, 'mini')}
+                    <span class="t">${esc(e.title)}<small>${esc(e.author)}</small></span><span class="state">${e.ratings.overall ? `★ ${e.ratings.overall}` : ''}</span></button></li>`,
+                )
+                .join('')}</ol>`
+            : '<p class="jhint">Nessun libro finito in questo mese.</p>'
+        }
+        <div class="jblock jcurious">
+          ${s.longest ? `<p>Il più lungo: <strong>${esc(s.longest.title)}</strong> (${s.longest.totalPages} pagine)</p>` : ''}
+          ${s.avgDays != null ? `<p>In media <strong>${s.avgDays}</strong> giorni a libro</p>` : ''}
+        </div>
+        <div class="jfoot"><button type="button" class="jbtn" data-stats-post>Crea un post</button></div>`;
+    }
+    const sagas = catalog
+      ? new Set(getJournal().entries.filter((e) => yearOf(e) === year).map((e) => saga(e)).filter((x) => x && x.read === x.total).map((x) => x!.name)).size
+      : 0;
+    return `<h3>Mese per mese</h3>
+      <ol class="jchart" aria-label="Libri finiti per mese">${s.perMonth
+        .map(
+          (v, i) => `<li class="${i === s.bestMonth ? 'best' : ''}" style="--h:${v / max};--k:${i}"><span class="jbar-v">${v || ''}</span><span class="jbar-col"></span>
+            <span class="jbar-m">${MONTHS[i].slice(0, 3)}</span><span class="jsr">${MONTHS[i]}: ${v}</span></li>`,
+        )
+        .join('')}</ol>
+      <div class="jblock jcurious">
+        ${s.bestMonth != null ? `<p>Mese d'oro: <strong>${MONTHS[s.bestMonth]}</strong></p>` : ''}
+        ${s.longest ? `<p>Il più lungo: <strong>${esc(s.longest.title)}</strong> (${s.longest.totalPages} pagine)</p>` : ''}
+        ${s.shortest ? `<p>Il più breve: <strong>${esc(s.shortest.title)}</strong> (${s.shortest.totalPages} pagine)</p>` : ''}
+        ${sagas ? `<p>Saghe completate: <strong>${sagas}</strong></p>` : ''}
+        ${s.read === 0 ? '<p class="jhint">Ancora nessun libro finito in questo anno.</p>' : ''}
+      </div>
+      <div class="jfoot"><button type="button" class="jbtn" data-stats-post>Crea un post</button></div>`;
+  }
+
+  /** I numeri grandi contano fino al valore (testo, niente layout che si muove). */
+  function countUp() {
+    left.querySelectorAll<HTMLElement>('[data-count]').forEach((el) => {
+      const target = Number(el.dataset.count);
+      if (!el.dataset.count || Number.isNaN(target)) return;
+      const suffix = el.dataset.suffix ?? '';
+      const show = (v: number) => (el.textContent = `${Number.isInteger(target) ? Math.round(v).toLocaleString('it-IT') : v.toFixed(1).replace('.', ',')}${suffix}`);
+      if (reducedMotion()) return show(target);
+      const start = performance.now();
+      const tick = (t: number) => {
+        const p = Math.min(1, (t - start) / 900);
+        show(target * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
   }
 
   /** Saga del libro: numero, completamento, copertine in ordine e prossima lettura. */
@@ -588,6 +779,12 @@ export function initJournal(section: HTMLElement) {
   cover.addEventListener('click', open);
   nav.close.addEventListener('click', close);
   nav.index.addEventListener('click', () => go(null, 'prev'));
+  root.querySelectorAll<HTMLElement>('[data-tab]').forEach((tab) =>
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab || null;
+      if (target !== current) go(target, 'next');
+    }),
+  );
   nav.prev.addEventListener('click', () => step(-1));
   nav.next.addEventListener('click', () => step(1));
   root.addEventListener('keydown', (ev) => {
@@ -616,6 +813,19 @@ export function initJournal(section: HTMLElement) {
     });
     page.addEventListener('change', (ev) => {
       const t = ev.target as HTMLInputElement;
+      if (t.dataset.statsMonth !== undefined) {
+        statsMonth = t.value === '' ? null : Number(t.value);
+        return render();
+      }
+      if (t.dataset.monthly !== undefined) {
+        setMonthly(t.dataset.monthly, t.value || null);
+        const box = t.closest<HTMLElement>('.jmonth')!;
+        const k = box.style.getPropertyValue('--k');
+        box.outerHTML = new DOMParser().parseFromString(`<ol>${monthlyHtml()}</ol>`, 'text/html').querySelector(`li[style*="--k:${k}"]`)!.outerHTML;
+        right.innerHTML = monthlySummaryHtml();
+        page.querySelector(`[data-monthly="${t.dataset.monthly}"]`)?.closest('.jmonth')?.classList.add('is-stamped');
+        return showSaved();
+      }
       const e = entry();
       if (!e) return;
       if (t.type === 'radio' && t.dataset.field) {
@@ -643,10 +853,35 @@ export function initJournal(section: HTMLElement) {
       if (!t) return;
       const e = entry();
       if (t.dataset.open) return go(t.dataset.open);
+      if (t.dataset.goTourney !== undefined) return document.querySelector('.tourney')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+      if (t.dataset.year) {
+        year = Number(t.dataset.year);
+        return render();
+      }
+      if (t.dataset.statsPost !== undefined)
+        return openImageDialog(section.querySelector<HTMLDialogElement>('.journal-share-dialog')!, `statistiche-${year}${statsMonth != null ? `-${MONTHS[statsMonth]}` : ''}`, `Anteprima del riepilogo ${statsMonth != null ? `${MONTHS[statsMonth]} ` : ''}${year}`, (format) =>
+          drawStatsPost(statsFor(getJournal(), year, statsMonth), getJournal().settings, format),
+        );
       if (t.dataset.goAdd !== undefined) return step(1); // telefono: dall'indice alla pagina "Nuovo libro"
       if (t.dataset.pick) return addFromCatalog(t.dataset.pick);
       if (!e) return;
       if (t.dataset.finish !== undefined) return finish();
+      if (t.dataset.monthPick !== undefined) {
+        const j = getJournal();
+        const current = monthOf(j, e.id);
+        if (current) {
+          setMonthly(current, null);
+        } else {
+          const date = e.finishedOn || new Date().toISOString().slice(0, 10);
+          const key = date.slice(0, 7);
+          const other = j.entries.find((x) => x.id === j.monthly[key]);
+          if (other && !confirm(`Il libro di ${MONTHS[Number(key.slice(5)) - 1]} è già «${other.title}». Lo sostituisco?`)) return;
+          setMonthly(key, e.id);
+          heartBurst(t, '★', '#e2a92b');
+        }
+        t.closest('.jblock')!.outerHTML = monthlyButtonHtml(e);
+        return showSaved();
+      }
       if (t.dataset.trope) {
         const on = e.tropes.includes(t.dataset.trope);
         updateEntry(e.id, { tropes: on ? e.tropes.filter((x) => x !== t.dataset.trope) : [...e.tropes, t.dataset.trope] });
@@ -723,16 +958,53 @@ export function initJournal(section: HTMLElement) {
     return `
       <label class="jlabel" for="jc-name">Nome sulla copertina</label>
       <input type="text" id="jc-name" maxlength="40" value="${esc(s.name)}">
+      <label class="jlabel" for="jc-subtitle">Sottotitolo <small>(facoltativo)</small></label>
+      <input type="text" id="jc-subtitle" maxlength="60" placeholder="Es. «Letture 2026», «Solo romantasy»" value="${esc(s.subtitle)}">
       ${group('Copertina', 'cover', COVER_COLORS.map((c) => ({ value: c.id, label: c.label, swatch: c.value })), s.cover)}
       ${group('Materiale', 'material', [{ value: 'leather', label: 'Pelle' }, { value: 'linen', label: 'Tela' }, { value: 'kraft', label: 'Kraft' }], s.material)}
+      ${patternGroup('Animalier', 'animalier', s)}
+      ${patternGroup('Fantasie', 'fantasie', s)}
+      <fieldset class="jc-stickers"><legend>Adesivi sulla copertina (${s.coverStickers.length}/24)</legend>
+        <div class="jswatches">${Object.keys(DOODLE_LABELS)
+          .map((n) => `<button type="button" class="jc-add" data-add-sticker="${n}" title="Aggiungi ${esc(DOODLE_LABELS[n as keyof typeof DOODLE_LABELS])}">${svgIcon(n)}</button>`)
+          .join('')}</div>
+        <div class="jc-sticker-actions">
+          <button type="button" class="button-soft" data-stickers-fill>Riempi di adesivi</button>
+          <button type="button" class="button-soft" data-stickers-shuffle ${s.coverStickers.length ? '' : 'disabled'}>Disposizione casuale</button>
+          <button type="button" class="button-soft" data-stickers-undo ${s.coverStickers.length ? '' : 'disabled'}>Togli l'ultimo</button>
+          <button type="button" class="button-soft" data-stickers-clear ${s.coverStickers.length ? '' : 'disabled'}>Togli tutti</button>
+        </div>
+      </fieldset>
       ${group('Elastico', 'band', colors(ACCENTS), s.band)}
       ${group('Segnalibro', 'ribbon', colors(ACCENTS), s.ribbon)}
       ${group('Ciondolo', 'charm', charms, s.charm)}
       ${group('Adesivo sulla copertina', 'sticker', charms.map((c) => ({ ...c })), s.sticker)}
-      ${group('Carta', 'paper', [{ value: 'lines', label: 'Righe' }, { value: 'dots', label: 'Puntini' }, { value: 'grid', label: 'Quadretti' }], s.paper)}
+      ${group('Carta', 'paper', [{ value: 'lines', label: 'Righe' }, { value: 'dots', label: 'Puntini' }, { value: 'grid', label: 'Quadretti' }, { value: 'plain', label: 'Tinta unita' }], s.paper)}
+      ${group('Colore della carta', 'paperColor', PAPER_COLORS.map((c) => ({ value: c.id, label: c.label, swatch: c.value })), s.paperColor)}
       ${group('Inchiostro', 'ink', INKS.map((c) => ({ value: c.id, label: c.label, swatch: c.value })), s.ink)}
       ${group('Scrittura', 'hand', [{ value: 'true', label: 'A mano' }, { value: 'false', label: 'Stampatello' }], String(s.hand))}`;
   }
+  /** Campioni delle fantasie con l'anteprima vera sul colore della copertina scelto. */
+  function patternGroup(legend: string, group: 'animalier' | 'fantasie', s: JournalSettings): string {
+    const cover = COVER_COLORS.find((c) => c.id === s.cover)!.value;
+    const items = [{ id: 'none', label: 'Nessuna' }, ...PATTERNS.filter((p) => p.group === group)];
+    return `<fieldset class="jc-patterns" data-group="${group}"><legend>${legend}</legend><div class="jswatches">${items
+      .map(
+        (p) => `<label class="pattern" title="${esc(p.label)}"><input type="radio" name="jc-pattern" value="${p.id}" ${s.pattern === p.id ? 'checked' : ''}><span class="jpat" style="background-color:${cover};background-image:${
+          patternImage(p.id, cover).replace(/"/g, '&quot;')
+        }"></span><small>${esc(p.label)}</small></label>`,
+      )
+      .join('')}</div></fieldset>`;
+  }
+
+  function flash(text: string) {
+    saved.textContent = text;
+    saved.classList.add('is-on');
+    clearTimeout(savedTimer);
+    savedTimer = window.setTimeout(() => saved.classList.remove('is-on'), 2200);
+    customDialog.querySelector('.jc-stickers legend')?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }], { duration: 300 });
+  }
+
   // due punti d'accesso: il pulsante in alto e "Personalizza" tra i comandi del libro aperto
   section.querySelectorAll('[data-customize]').forEach((button) =>
     button.addEventListener('click', () => {
@@ -743,14 +1015,47 @@ export function initJournal(section: HTMLElement) {
   customDialog.addEventListener('input', (ev) => {
     const t = ev.target as HTMLInputElement;
     if (t.id === 'jc-name') updateSettings({ name: t.value });
+    else if (t.id === 'jc-subtitle') updateSettings({ subtitle: t.value });
     else if (t.name?.startsWith('jc-')) {
       const key = t.name.slice(3) as keyof JournalSettings;
       updateSettings({ [key]: key === 'hand' ? t.value === 'true' : t.value } as Partial<JournalSettings>);
+      // cambiando colore, le anteprime delle fantasie si ridisegnano su quello nuovo
+      if (key === 'cover')
+        customDialog.querySelectorAll<HTMLElement>('.jc-patterns').forEach((box) => {
+          box.outerHTML = patternGroup(box.querySelector('legend')!.textContent!, box.dataset.group as 'animalier' | 'fantasie', getJournal().settings);
+        });
     }
     applySettings();
   });
   customDialog.addEventListener('click', (ev) => {
-    if (ev.target === customDialog) customDialog.close();
+    if (ev.target === customDialog) return customDialog.close();
+    const t = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[type="button"]');
+    if (!t) return;
+    const stickers = getJournal().settings.coverStickers;
+    const names = Object.keys(DOODLE_LABELS);
+    const full = () => flash('Sulla copertina non c\'è più posto senza sovrapporre gli adesivi');
+    if (t.dataset.addSticker) {
+      const added = stickers.length < 24 ? randomSticker(t.dataset.addSticker, stickers) : null;
+      if (!added) return full();
+      updateSettings({ coverStickers: [...stickers, added] });
+    } else if (t.dataset.stickersFill !== undefined) {
+      const next = [...stickers];
+      for (let i = 0; i < 10 && next.length < 24; i++) {
+        const added = randomSticker(names[Math.floor(Math.random() * names.length)], next);
+        if (added) next.push(added);
+      }
+      if (next.length === stickers.length) return full();
+      updateSettings({ coverStickers: next });
+    } else if (t.dataset.stickersShuffle !== undefined) updateSettings({ coverStickers: shuffleStickers(stickers) });
+    else if (t.dataset.stickersUndo !== undefined) updateSettings({ coverStickers: stickers.slice(0, -1) });
+    else if (t.dataset.stickersClear !== undefined) updateSettings({ coverStickers: [] });
+    else return;
+    applySettings();
+    // aggiorno contatore e pulsanti senza perdere lo scorrimento della finestra
+    const box = customDialog.querySelector('.jc-stickers')!;
+    const fresh = new DOMParser().parseFromString(customHtml(getJournal().settings), 'text/html').querySelector('.jc-stickers')!;
+    box.querySelector('legend')!.textContent = fresh.querySelector('legend')!.textContent;
+    box.querySelector('.jc-sticker-actions')!.innerHTML = fresh.querySelector('.jc-sticker-actions')!.innerHTML;
   });
 
   // ---------------------------------------------------------------- avvio

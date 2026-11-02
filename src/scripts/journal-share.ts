@@ -1,7 +1,7 @@
 // Immagine da condividere di una scheda del book journal: post 4:5 o storia 9:16 disegnati su canvas
 // con i colori dell'agendina (copertina, voti, una frase, l'inizio della recensione, piè di pagina IsyBooks).
 // Le copertine remote non si possono disegnare senza "sporcare" il canvas: al loro posto un segnaposto col titolo.
-import { COVER_COLORS, INKS, RATING_LABELS, type JournalEntry, type JournalSettings, type RatingKey, type Saga } from '../lib/journal';
+import { COVER_COLORS, INKS, MONTHS, RATING_LABELS, type JournalEntry, type JournalSettings, type RatingKey, type Saga, type YearStats } from '../lib/journal';
 
 type Ctx = CanvasRenderingContext2D;
 const SERIF = "'Young Serif', Georgia, serif";
@@ -182,26 +182,243 @@ export async function drawShare(entry: JournalEntry, settings: JournalSettings, 
   return canvas;
 }
 
-/** Finestra con anteprima, scelta del formato, download e condivisione nativa dove c'è. */
-export function openShare(section: HTMLElement, entry: JournalEntry, settings: JournalSettings, saga: Saga | null) {
-  const dialog = section.querySelector<HTMLDialogElement>('.journal-share-dialog')!;
+// ---------------------------------------------------------------------------
+// Post dell'anno: statistiche e torneo
+// ---------------------------------------------------------------------------
+type Format = 'post' | 'story';
+
+function page(settings: JournalSettings, format: Format): [HTMLCanvasElement, Ctx, number, number, string] {
+  const W = 1080;
+  const H = format === 'post' ? 1350 : 1920;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  const cover = COVER_COLORS.find((c) => c.id === settings.cover)!.value;
+  ctx.fillStyle = cover;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fffdf7';
+  ctx.beginPath();
+  ctx.roundRect(56, 56, W - 112, H - 112, 18);
+  ctx.fill();
+  // carta puntinata
+  ctx.fillStyle = '#d3dbe5';
+  for (let y = 100; y < H - 90; y += 36) for (let x = 100; x < W - 90; x += 36) ctx.fillRect(x, y, 3, 3);
+  ctx.fillStyle = cover;
+  ctx.font = `30px ${HAND}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('dal mio book journal su IsyBooks', W / 2, H - 92);
+  ctx.textAlign = 'left';
+  return [canvas, ctx, W, H, cover];
+}
+
+/** Copertina di un libro (solo se dal nostro sito: le altre "sporcherebbero" il canvas) o segnaposto col titolo. */
+async function bookCover(ctx: Ctx, e: JournalEntry, x: number, y: number, w: number, h: number, tilt = 0) {
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate(tilt);
+  ctx.shadowColor = 'rgba(0,0,0,0.3)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetY = 10;
+  const img = e.cover?.startsWith('/') ? await loadImage(e.cover) : null;
+  if (img) ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  else {
+    ctx.fillStyle = e.color;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    const size = Math.max(18, Math.round(w / 7.5));
+    ctx.font = `${size}px ${SERIF}`;
+    const lines = wrap(ctx, e.title, w - 24, 5);
+    lines.forEach((l, i) => ctx.fillText(l, 0, -((lines.length - 1) * size * 1.2) / 2 + i * size * 1.2));
+  }
+  ctx.restore();
+}
+
+function crown(ctx: Ctx, cx: number, y: number, w: number, color: string) {
+  const h = w * 0.6;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#8a6a1c';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2, y + h);
+  ctx.lineTo(cx - w / 2, y + h * 0.25);
+  ctx.lineTo(cx - w / 4, y + h * 0.6);
+  ctx.lineTo(cx, y);
+  ctx.lineTo(cx + w / 4, y + h * 0.6);
+  ctx.lineTo(cx + w / 2, y + h * 0.25);
+  ctx.lineTo(cx + w / 2, y + h);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+export async function drawStatsPost(stats: YearStats, settings: JournalSettings, format: Format): Promise<HTMLCanvasElement> {
+  await ensureFonts();
+  const [canvas, ctx, W, H, cover] = page(settings, format);
+  const ink = INKS.find((c) => c.id === settings.ink)!.value;
+  let y = 190;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2b2a35';
+  ctx.font = `68px ${HAND}`;
+  ctx.fillText(stats.month != null ? `Il mio ${MONTHS[stats.month]} ${stats.year} in libri` : `Il mio ${stats.year} in libri`, W / 2, y);
+  y += 150;
+  const big = [
+    [String(stats.read), stats.read === 1 ? 'libro letto' : 'libri letti'],
+    [stats.pages.toLocaleString('it-IT'), 'pagine'],
+    [stats.avgRating != null ? `${String(stats.avgRating).replace('.', ',')}★` : '—', 'voto medio'],
+  ];
+  big.forEach(([n, label], i) => {
+    const cx = W / 2 + (i - 1) * 300;
+    ctx.fillStyle = cover;
+    ctx.font = `96px ${SERIF}`;
+    ctx.fillText(n, cx, y);
+    ctx.fillStyle = '#5c5a68';
+    ctx.font = `32px ${HAND}`;
+    ctx.fillText(label, cx, y + 50);
+  });
+  if (stats.month != null) {
+    // un mese: le copertine dei libri finiti, in fila
+    y += 120;
+    const books = stats.books.slice(0, format === 'post' ? 4 : 6);
+    const cw = 170;
+    const perRow = Math.min(books.length, format === 'post' ? 4 : 3);
+    for (const [i, e] of books.entries()) {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const rowW = perRow * cw + (perRow - 1) * 40;
+      await bookCover(ctx, e, W / 2 - rowW / 2 + col * (cw + 40), y + row * (cw * 1.5 + 40), cw, cw * 1.5, (col - 1) * 0.04);
+    }
+    y += Math.ceil(books.length / Math.max(1, perRow)) * (cw * 1.5 + 40) + 70;
+    ctx.textAlign = 'left';
+    const line = (label: string, value: string) => {
+      if (y > H - 170) return;
+      ctx.fillStyle = '#5c5a68';
+      ctx.font = `34px ${HAND}`;
+      ctx.fillText(label, 120, y);
+      ctx.fillStyle = ink;
+      ctx.font = `36px ${settings.hand ? HAND : TEXT}`;
+      ctx.fillText(wrap(ctx, value, W - 520, 1)[0] ?? '', 440, y);
+      y += 62;
+    };
+    if (stats.genres[0]) line('Genere del mese', stats.genres[0][0]);
+    if (stats.tropes[0]) line('Trope del mese', stats.tropes[0][0]);
+    return canvas;
+  }
+  // barre dei mesi
+  y += 140;
+  const chartH = format === 'post' ? 300 : 420;
+  const max = Math.max(1, ...stats.perMonth);
+  const bw = 52;
+  const gap = (W - 200 - bw * 12) / 11;
+  stats.perMonth.forEach((v, i) => {
+    const x = 100 + i * (bw + gap);
+    const h = (v / max) * chartH;
+    ctx.fillStyle = i === stats.bestMonth ? cover : settings.ribbon;
+    ctx.beginPath();
+    ctx.roundRect(x, y + chartH - h, bw, Math.max(h, 4), 8);
+    ctx.fill();
+    ctx.fillStyle = '#5c5a68';
+    ctx.font = `26px ${HAND}`;
+    ctx.fillText(MONTHS[i].slice(0, 3), x + bw / 2, y + chartH + 36);
+    if (v) {
+      ctx.fillStyle = '#2b2a35';
+      ctx.fillText(String(v), x + bw / 2, y + chartH - h - 12);
+    }
+  });
+  y += chartH + 110;
+  ctx.textAlign = 'left';
+  const line = (label: string, value: string) => {
+    if (y > H - 170) return;
+    ctx.fillStyle = '#5c5a68';
+    ctx.font = `34px ${HAND}`;
+    ctx.fillText(label, 120, y);
+    ctx.fillStyle = ink;
+    ctx.font = `36px ${settings.hand ? HAND : TEXT}`;
+    ctx.fillText(wrap(ctx, value, W - 520, 1)[0] ?? '', 440, y);
+    y += 62;
+  };
+  if (stats.bestMonth != null) line('Mese d\'oro', MONTHS[stats.bestMonth]);
+  if (stats.genres[0]) line('Genere del cuore', stats.genres[0][0]);
+  if (stats.tropes[0]) line('Trope del cuore', stats.tropes[0][0]);
+  if (stats.longest) line('Il più lungo', `${stats.longest.title} (${stats.longest.totalPages} pag.)`);
+  if (stats.avgDays != null) line('In media', `${stats.avgDays} giorni a libro`);
+  return canvas;
+}
+
+export async function drawTournamentPost(
+  year: number,
+  winner: JournalEntry,
+  finalist: JournalEntry | null,
+  others: JournalEntry[],
+  settings: JournalSettings,
+  format: Format,
+): Promise<HTMLCanvasElement> {
+  await ensureFonts();
+  const [canvas, ctx, W, H, cover] = page(settings, format);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2b2a35';
+  ctx.font = `64px ${HAND}`;
+  ctx.fillText(`Il mio libro del ${year}`, W / 2, 190);
+  const cw = format === 'post' ? 340 : 420;
+  const ch = cw * 1.5;
+  const top = format === 'post' ? 330 : 420;
+  // raggi dietro il vincitore
+  ctx.save();
+  ctx.translate(W / 2, top + ch / 2);
+  ctx.fillStyle = 'rgba(233, 207, 116, 0.35)';
+  for (let i = 0; i < 16; i++) {
+    ctx.rotate(Math.PI / 8);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-40, -ch);
+    ctx.lineTo(40, -ch);
+    ctx.fill();
+  }
+  ctx.restore();
+  await bookCover(ctx, winner, W / 2 - cw / 2, top, cw, ch, -0.03);
+  crown(ctx, W / 2, top - 110, 150, '#e9cf74');
+  let y = top + ch + 80;
+  ctx.fillStyle = '#2b2a35';
+  ctx.font = `54px ${SERIF}`;
+  wrap(ctx, winner.title, W - 240, 2).forEach((l) => (ctx.fillText(l, W / 2, y), (y += 62)));
+  ctx.fillStyle = '#5c5a68';
+  ctx.font = `32px ${TEXT}`;
+  if (winner.author) ctx.fillText(winner.author, W / 2, y), (y += 70);
+  const podium = [finalist, ...others].filter((e): e is JournalEntry => Boolean(e)).slice(0, format === 'post' ? 3 : 5);
+  if (podium.length && y < H - 330) {
+    ctx.fillStyle = cover;
+    ctx.font = `36px ${HAND}`;
+    ctx.fillText(finalist ? 'In finale e semifinale' : 'In gara', W / 2, y);
+    y += 30;
+    const sw = 120;
+    const total = podium.length * sw + (podium.length - 1) * 40;
+    for (const [i, e] of podium.entries()) await bookCover(ctx, e, W / 2 - total / 2 + i * (sw + 40), y, sw, sw * 1.5, (i - 1) * 0.04);
+  }
+  return canvas;
+}
+
+/** Finestra con anteprima, scelta del formato, download e condivisione nativa dove c'è (riusata da journal e torneo). */
+export function openImageDialog(dialog: HTMLDialogElement, fileBase: string, label: string, draw: (format: Format) => Promise<HTMLCanvasElement>) {
   const preview = dialog.querySelector<HTMLElement>('.jshare-preview')!;
   const download = dialog.querySelector<HTMLButtonElement>('.jshare-download')!;
   const native = dialog.querySelector<HTMLButtonElement>('.jshare-native')!;
   let canvas: HTMLCanvasElement | null = null;
-  const format = () => (dialog.querySelector<HTMLInputElement>('[name="jshare-format"]:checked')?.value === 'story' ? 'story' : 'post');
-  const fileName = () => `isybooks-journal-${entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}-${format()}.png`;
+  const format = (): Format => (dialog.querySelector<HTMLInputElement>('input[value="story"]:checked') ? 'story' : 'post');
+  const fileName = () => `isybooks-${fileBase.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50)}-${format()}.png`;
   const blob = () => new Promise<Blob | null>((resolve) => canvas?.toBlob(resolve, 'image/png') ?? resolve(null));
 
-  async function draw() {
+  async function render() {
     preview.textContent = 'Preparo l\'immagine…';
-    canvas = await drawShare(entry, settings, format(), saga);
+    canvas = await draw(format());
     preview.replaceChildren(canvas);
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', `Anteprima dell'immagine di «${entry.title}»`);
+    canvas.setAttribute('aria-label', label);
   }
-
-  dialog.onchange = draw;
+  dialog.onchange = render;
   download.onclick = async () => {
     const b = await blob();
     if (!b) return;
@@ -216,11 +433,22 @@ export function openShare(section: HTMLElement, entry: JournalEntry, settings: J
     const b = await blob();
     if (!b) return;
     const file = new File([b], fileName(), { type: 'image/png' });
-    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: entry.title }).catch(() => {});
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }).catch(() => {});
   };
   dialog.onclick = (ev) => {
     if (ev.target === dialog) dialog.close();
   };
   dialog.showModal();
-  draw();
+  render();
 }
+
+/** Immagine di una scheda del journal. */
+export function openShare(section: HTMLElement, entry: JournalEntry, settings: JournalSettings, saga: Saga | null) {
+  openImageDialog(
+    section.querySelector<HTMLDialogElement>('.journal-share-dialog')!,
+    `journal-${entry.title}`,
+    `Anteprima dell'immagine di «${entry.title}»`,
+    (format) => drawShare(entry, settings, format, saga),
+  );
+}
+
