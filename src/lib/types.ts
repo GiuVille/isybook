@@ -71,6 +71,7 @@ export interface Adaptation {
   tmdb_id?: number | null;
   plot?: string | null;
   poster_url?: string | null;
+  trailer_url?: string | null; // link YouTube del trailer
   seasons?: number | null;
   episodes?: number | null;
   runtime_minutes?: number | null;

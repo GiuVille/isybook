@@ -13,6 +13,7 @@ import {
 } from '../../lib/format';
 import { similarToAdaptation, type SimilarItem } from '../../lib/similar';
 import type { Adaptation, Work } from '../../lib/types';
+import { youtubeId, youtubeThumb, youtubeEmbed, youtubeWatch } from '../../lib/youtube';
 
 export async function getStaticPaths() {
   const [adaptations, works] = await Promise.all([getAdaptations(), getWorks()]);
@@ -30,6 +31,7 @@ const { adaptation: a, source, similar } = Astro.props as { adaptation: Adaptati
 const theme = themeForWork(a);
 const kindLabel = ADAPTATION_KIND_LABELS[a.kind];
 const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movie' : 'tv'}/${a.tmdb_id}` : null;
+const trailer = youtubeId(a.trailer_url);
 ---
 
 <Base title={`${a.title} (${kindLabel.toLowerCase()})`} description={a.plot?.slice(0, 155) ?? `${kindLabel} tratto da ${a.source.title}.`}>
@@ -87,6 +89,21 @@ const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movi
       <section>
         <h2>Trama</h2>
         <p class="plot">{a.plot}</p>
+      </section>
+    )}
+
+    {trailer && (
+      <section class="trailer-section">
+        <h2>Trailer</h2>
+        <div class="trailer" data-embed={youtubeEmbed(trailer)} data-title={`Trailer di «${a.title}»`}>
+          <a class="trailer-play" href={youtubeWatch(trailer)} target="_blank" rel="noopener" aria-label={`Guarda il trailer di «${a.title}»`}>
+            <img src={youtubeThumb(trailer)} alt="" loading="lazy" width="480" height="360" />
+            <span class="trailer-btn" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7Z" /></svg>
+            </span>
+          </a>
+        </div>
+        <p class="muted small">Il video si carica da YouTube quando premi play.</p>
       </section>
     )}
 
@@ -150,6 +167,23 @@ const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movi
   </article>
 </Base>
 
+<script>
+  // trailer: il lettore di YouTube (versione senza cookie) si carica solo al clic, al posto della miniatura
+  document.querySelectorAll<HTMLElement>('.trailer').forEach((box) => {
+    box.querySelector('.trailer-play')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const frame = document.createElement('iframe');
+      frame.src = box.dataset.embed!;
+      frame.title = box.dataset.title!;
+      frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      frame.allowFullscreen = true;
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      box.replaceChildren(frame);
+      box.classList.add('is-playing');
+    });
+  });
+</script>
+
 <style>
   .head { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
   .head :global(.poster) { width: 220px; height: auto; flex-shrink: 0; filter: drop-shadow(4px 8px 10px rgba(0, 0, 0, 0.25)); }
@@ -185,4 +219,45 @@ const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movi
   @media (max-width: 700px) {
     .head :global(.poster) { width: 160px; }
   }
+  /* trailer: schermo con cornice scura, miniatura e pulsante play */
+  .trailer {
+    position: relative;
+    max-width: 720px;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #1d1a22;
+    border: 10px solid #2a2530;
+    border-radius: 18px;
+    box-shadow: 0 18px 30px -18px rgba(0, 0, 0, 0.6), inset 0 0 0 2px rgba(255, 255, 255, 0.06);
+  }
+  .trailer-play { display: block; width: 100%; height: 100%; }
+  .trailer img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0.88; transition: opacity 0.3s, transform 0.5s var(--ease-out); }
+  .trailer-btn {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 74px;
+    height: 74px;
+    margin: -37px 0 0 -37px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6);
+    transition: transform 0.35s var(--ease-spring);
+  }
+  .trailer-btn svg { width: 34px; height: 34px; margin-left: 4px; fill: #fff; }
+  .trailer-play:hover img,
+  .trailer-play:focus-visible img { opacity: 1; transform: scale(1.03); }
+  .trailer-play:hover .trailer-btn,
+  .trailer-play:focus-visible .trailer-btn { transform: scale(1.12); }
+  .trailer-play:focus-visible { outline: 3px solid var(--accent); outline-offset: -6px; }
+  .trailer iframe { display: block; width: 100%; height: 100%; border: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .trailer.is-playing iframe { animation: trailer-on 0.5s var(--ease-out); }
+    .trailer-btn { animation: trailer-pulse 2.4s ease-in-out infinite; }
+    .trailer-play:hover .trailer-btn { animation: none; }
+  }
+  @keyframes trailer-on { from { opacity: 0; transform: scaleY(0.02); } }
+  @keyframes trailer-pulse { 0%, 100% { box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6), 0 0 0 0 rgba(255, 255, 255, 0.35); } 50% { box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6), 0 0 0 10px rgba(255, 255, 255, 0); } }
 </style>

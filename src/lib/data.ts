@@ -21,7 +21,7 @@ const WORK_SELECT = `
   merch_works ( merch ( ${MERCH_FIELDS} ) ),
   adaptations (
     id, slug, title, kind, platform, release_date, production_status, tmdb_id, status,
-    plot, poster_url, seasons, episodes, runtime_minutes, watch_providers,
+    plot, poster_url, trailer_url, seasons, episodes, runtime_minutes, watch_providers,
     adaptation_genres ( genres ( id, slug, name, theme ) ),
     adaptation_tropes ( tropes ( id, slug, name, doodle ) )
   )
@@ -45,6 +45,7 @@ function buildAdaptation(
     tmdb_id: raw.tmdb_id,
     plot: raw.plot,
     poster_url: raw.poster_url,
+    trailer_url: raw.trailer_url ?? null,
     seasons: raw.seasons,
     episodes: raw.episodes,
     runtime_minutes: raw.runtime_minutes,

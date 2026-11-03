@@ -319,6 +319,7 @@ export const RESOURCES: Resource[] = [
       { name: 'episodes', label: 'Episodi in totale (serie)', type: 'number' },
       { name: 'runtime_minutes', label: 'Durata in minuti (film)', type: 'number' },
       { name: 'poster_url', label: 'URL locandina', type: 'text' },
+      { name: 'trailer_url', label: 'Trailer (link YouTube)', type: 'text', help: 'Incolla il link del trailer ufficiale (youtube.com/watch?v=… o youtu.be/…). Sul sito si carica solo quando si preme play.' },
       {
         name: 'watch_providers', label: 'Dove vederlo (Italia)', type: 'json',
         help: 'Lista JSON: [{"platform": "Netflix", "url": "https://…", "kind": "subscription"}] — kind: subscription, rent, buy, free',

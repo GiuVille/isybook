@@ -141,6 +141,8 @@ const path = Astro.url.pathname;
     <script>
       import { getLibrary, onLibraryChange, savedCount } from '../lib/library';
       import { initReveal, reducedMotion } from '../scripts/reveal';
+      import { initKonami } from '../scripts/konami';
+      initKonami();
 
       // animazioni d'ingresso (frecce delle anteprime, peperoncini…)
       initReveal();
