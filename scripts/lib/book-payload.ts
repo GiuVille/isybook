@@ -20,6 +20,8 @@ export interface BookInput {
   editionExtra?: { print_run?: number | null; details?: string | null; price?: number | null };
   plot: string | null;
   tropes: string[];
+  /** Slug dei generi (vedi genresFromCategories). */
+  genres?: string[];
   /** Descrizione dell'editore: solo riferimento in revisione, non si pubblica. */
   description?: string | null;
   meta?: Record<string, unknown>;
@@ -48,11 +50,38 @@ export function bookPayload(b: BookInput) {
       purchase_links: [],
       ...b.editionExtra,
     },
-    genres: [],
+    genres: b.genres ?? [],
     tropes: b.tropes,
     original_description: b.description ?? null,
     meta: b.meta ?? {},
   };
+}
+
+/**
+ * Generi del catalogo (migrazione 0013) dedotti dalle categorie delle API, in inglese ("Fiction / Romance / Fantasy",
+ * "Juvenile Fiction") o dai soggetti di Open Library. Solo una proposta: la redazione li corregge dal pannello.
+ */
+export function genresFromCategories(categories: string[], text = ''): string[] {
+  const c = categories.join(' | ').toLowerCase();
+  const all = `${c} ${text.toLowerCase()}`;
+  const ya = /juvenile|young adult|ragazzi/.test(c);
+  const fantasy = /fantasy|fairy|magic|dragon|fae/.test(c);
+  const romance = /romance|love stor/.test(c);
+  const out = new Set<string>();
+  if (fantasy && romance) out.add('romantasy');
+  else if (fantasy) out.add(ya ? 'fantasy-ya' : 'fantasy');
+  else if (romance) {
+    if (/historical/.test(c)) out.add('romance-storico');
+    else if (/dark romance/.test(all)) out.add('dark-romance');
+    else if (/sport|hockey|football/.test(c)) out.add('sports-romance');
+    else out.add(/contemporary/.test(c) ? 'romance-contemporaneo' : 'romance');
+  }
+  if (ya && !out.has('fantasy-ya')) out.add('young-adult');
+  if (/thriller|suspense/.test(c)) out.add('thriller');
+  if (/mystery|detective|crime/.test(c)) out.add('giallo');
+  if (/horror/.test(c)) out.add('horror');
+  if (/science fiction|dystopi/.test(c)) out.add('fantascienza');
+  return [...out];
 }
 
 /** Tropes già in catalogo, tra cui scegliere quelli di un libro nuovo. */

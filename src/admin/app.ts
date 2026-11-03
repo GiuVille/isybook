@@ -620,9 +620,6 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   plot: 'Trama',
   adaptation: 'Serie o film',
 };
-/** Tipi che si possono approvare anche in blocco dall'elenco (gli altri vanno aperti uno per uno). */
-const BULK_TYPES = ['plot', 'adaptation'];
-
 const PROMOTION_KINDS = getResource('promotions')!.fields.find((f) => f.name === 'kind')!.options!;
 
 // Voci proposte per un libro o una promozione: ognuna va approvata, nulla viene scartato o creato in silenzio.
@@ -733,6 +730,7 @@ function reviewTitle(item: Row): string {
 }
 
 /** Una trama o un adattamento si possono approvare in blocco solo se non c'è nulla da decidere a mano. */
+/** Si può approvare anche in blocco dall'elenco (il resto va aperto uno per uno)? */
 function bulkReady(item: Row): boolean {
   const p = item.payload ?? {};
   if (item.content_type === 'plot') return Boolean(p.plot?.trim()) && !(p.new_tropes ?? []).length;

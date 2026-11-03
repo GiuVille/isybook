@@ -47,16 +47,28 @@ export async function chat(messages: ChatMessage[], opts: ChatOptions = {}): Pro
   return data.choices[0]?.message.content.trim() ?? '';
 }
 
+/** Toglie ciò che i modelli aggiungono di loro: grassetti, titoletti ("Trama:"), virgolette attorno a tutto. */
+export function plainText(text: string): string {
+  return text
+    .replace(/^\s*#+\s.*$/gm, '')
+    .replace(/\*\*|__|\*/g, '')
+    .replace(/^\s*(trama|sinossi|riassunto)\s*:\s*/i, '')
+    .replace(/^["«“](.*)["»”]$/s, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Trama riscritta in italiano: niente frasi copiate dalla descrizione dell'editore. */
 export async function rewritePlot(original: string, meta: { title: string; authors: string[] }): Promise<string> {
-  return chat(
+  const plot = await chat(
     [
       {
         role: 'system',
         content:
           'Sei la redazione di un sito italiano dedicato a romantasy, romance e fantasy YA. ' +
           'Scrivi trame originali in italiano, 60-100 parole, tono caldo ma informativo, senza spoiler oltre la premessa. ' +
-          'Non copiare frasi dal testo di partenza: riformula completamente. Rispondi solo con la trama.',
+          'Non copiare frasi dal testo di partenza: riformula completamente. ' +
+          'Rispondi solo con la trama in testo semplice: niente titolo, niente "Trama:", niente grassetti o elenchi.',
       },
       {
         role: 'user',
@@ -65,6 +77,7 @@ export async function rewritePlot(original: string, meta: { title: string; autho
     ],
     { temperature: 0.8 },
   );
+  return plainText(plot);
 }
 
 /** Sceglie i tropi pertinenti da una lista chiusa di slug. */

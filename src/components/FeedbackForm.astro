@@ -93,7 +93,7 @@ const KINDS = [
       }
       const res = await fetch(`${url}/rest/v1/feedback`, {
         method: 'POST',
-        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        headers: { apikey: key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, // le chiavi pubblicabili nuove vanno solo in apikey, non come Bearer
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(String(res.status));

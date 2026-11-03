@@ -16,7 +16,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { aiConfigured, rewritePlot, suggestTropes } from './lib/ai.ts';
-import { bookPayload, knownTropes } from './lib/book-payload.ts';
+import { bookPayload, genresFromCategories, knownTropes } from './lib/book-payload.ts';
 import { fetchBook, normalizeIsbn } from './lib/books.ts';
 import { notifyEditors } from './lib/notify.ts';
 import { readJson, sb, similar } from './lib/sources.ts';
@@ -35,6 +35,8 @@ interface Candidate {
   title: string;
   authors: string[];
   found: string; // la ricerca che l'ha trovato
+  editionType: 'standard' | 'special' | 'limited';
+  score: number; // più alto = scheda più completa (trama, copertina, categorie di narrativa)
 }
 
 const { values: flags } = parseArgs({
@@ -86,11 +88,41 @@ interface Volume {
     title?: string;
     authors?: string[];
     language?: string;
+    description?: string;
+    categories?: string[];
+    imageLinks?: unknown;
     industryIdentifiers?: Array<{ type: string; identifier: string }>;
   };
 }
 
-async function search(q: string, max: number): Promise<Candidate[]> {
+// Narrativa sì, saggi e manuali no. Google usa le categorie BISAC in inglese.
+const FICTION = /fiction|romance|fantasy|young adult|juvenile|narrativa/i;
+const NOT_FICTION = /criticism|biography|philosophy|history|religion|education|self-help|psychology|social science|business|cooking|reference|study aids|language arts/i;
+
+/**
+ * Tiene un volume solo se è narrativa: per le ricerche generiche e per editore servono categorie di narrativa,
+ * per le autrici di riferimento basta che non sia un saggio. Solo ISBN italiani (978-88, 979-12): quelli esteri
+ * (979-8 di Amazon, 978-1 delle piattaforme di traduzione) sono quasi sempre autopubblicazioni o omonimi.
+ */
+/**
+ * Le special e le limitate arrivano da Google come libri a sé ("Powerless. Limited edition"): si toglie la dicitura
+ * dal titolo e diventano un'edizione della stessa opera, con il tipo giusto.
+ */
+const VARIANT = /[\s.,:;(\[-]*\b(limited edition|edizione limitata|ediz\.? limitata|special edition|edizione speciale|ediz\.? speciale|deluxe edition|edizione deluxe|ediz\.? deluxe)\b[)\]]*\s*$/i;
+function variant(title: string): { title: string; editionType: 'standard' | 'special' | 'limited' } {
+  const m = title.match(VARIANT);
+  if (!m) return { title, editionType: 'standard' };
+  return { title: title.slice(0, m.index).trim(), editionType: /limit/i.test(m[1]) ? 'limited' : 'special' };
+}
+
+function keep(info: NonNullable<Volume['volumeInfo']>, isbn: string, trusted: boolean): boolean {
+  if (!/^(97888|97912)/.test(isbn) || !info.authors?.length) return false;
+  const cats = (info.categories ?? []).join(' ');
+  if (NOT_FICTION.test(cats) && !FICTION.test(cats)) return false;
+  return trusted ? true : FICTION.test(cats);
+}
+
+async function search(q: string, max: number, trusted: boolean): Promise<Candidate[]> {
   const key = process.env.GOOGLE_BOOKS_API_KEY;
   const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&langRestrict=it&printType=books&maxResults=${Math.min(40, max)}&orderBy=relevance${key ? `&key=${key}` : ''}`;
   // "troppe richieste": si aspetta sempre di più e si riprova (senza chiave il limite di Google è molto basso)
@@ -109,35 +141,49 @@ async function search(q: string, max: number): Promise<Candidate[]> {
     const info = v.volumeInfo;
     const id = info?.industryIdentifiers?.find((i) => i.type === 'ISBN_13') ?? info?.industryIdentifiers?.find((i) => i.type === 'ISBN_10');
     if (!info?.title || !id || (info.language && info.language !== 'it')) return [];
-    return [{ isbn: normalizeIsbn(id.identifier), title: info.title, authors: info.authors ?? [], found: q }];
+    const isbn = normalizeIsbn(id.identifier);
+    if (!keep(info, isbn, trusted)) return [];
+    const score = (info.description ? 2 : 0) + (info.imageLinks ? 2 : 0) + (FICTION.test((info.categories ?? []).join(' ')) ? 1 : 0);
+    return [{ isbn, ...variant(info.title), authors: info.authors ?? [], found: q, score }];
   });
 }
 
 const k = await known();
-const searches = [
-  ...config.queries.map((q) => q),
-  ...[...new Set([...config.authors, ...k.authors])].map((a) => `inauthor:"${a}"`),
-  ...config.publishers.map((p) => `inpublisher:"${p}" romance OR fantasy`),
+// prima le autrici (risultati più sicuri), poi gli editori, infine le ricerche generiche
+const searches: Array<{ q: string; trusted: boolean }> = [
+  ...[...new Set([...config.authors, ...k.authors])].map((a) => ({ q: `inauthor:"${a}"`, trusted: true })),
+  ...config.publishers.map((p) => ({ q: `inpublisher:"${p}" romance OR fantasy`, trusted: false })),
+  ...config.queries.map((q) => ({ q, trusted: false })),
 ];
 
 const candidates: Candidate[] = [];
+// stessa opera: titolo simile e stessa autrice (con un catalogo vuoto basta il titolo)
+const sameWork = (a: { title: string; authors: string[] }, b: { title: string; authors: string[] }) =>
+  similar(a.title, b.title) && (a.authors[0] ?? '') === (b.authors[0] ?? '');
+// le special e le limitate sono nuove se l'ISBN è nuovo: si agganciano all'opera anche se c'è già
 const isNew = (c: Candidate) =>
   !k.isbns.has(c.isbn) &&
-  !candidates.some((x) => x.isbn === c.isbn || (similar(x.title, c.title) && x.authors[0] === c.authors[0])) &&
-  !k.titles.some((t) => similar(t, c.title));
+  !candidates.some((x) => x.isbn === c.isbn || (x.editionType === c.editionType && sameWork(x, c))) &&
+  (c.editionType !== 'standard' || !k.titles.some((t) => similar(t, c.title)));
 
 console.log(`Ricerche: ${searches.length} (di cui ${k.authors.length} autrici e autori già in catalogo).`);
-for (const q of searches) {
+for (const { q, trusted } of searches) {
   if (!dryRun && candidates.length >= batch * 3) break; // abbastanza per questo lotto e i prossimi due
-  const found = (await search(q, config.perQuery)).filter(isNew);
-  candidates.push(...found);
-  console.log(`- ${q}: ${found.length} nuovi`);
+  let found = 0;
+  for (const c of await search(q, config.perQuery, trusted)) {
+    if (!isNew(c)) continue; // uno alla volta: anche i doppioni dentro la stessa risposta restano fuori
+    candidates.push(c);
+    found++;
+  }
+  console.log(`- ${q}: ${found} nuovi`);
   await pause(300); // gentili con l'API pubblica
 }
 
+// a parità di ricerca, prima le schede complete (trama e copertina): l'ordine delle ricerche resta
+candidates.sort((a, b) => searches.findIndex((s) => s.q === a.found) - searches.findIndex((s) => s.q === b.found) || b.score - a.score);
 console.log(`\nCandidati nuovi: ${candidates.length}.`);
 if (dryRun) {
-  for (const c of candidates.slice(0, 60)) console.log(`  ${c.isbn}  ${c.title} — ${c.authors.join(', ')}  (${c.found})`);
+  for (const c of candidates.slice(0, 60)) console.log(`  ${c.isbn}  ${c.title}${c.editionType === 'standard' ? '' : ` [${c.editionType}]`} — ${c.authors.join(', ')}  (${c.found})`);
   if (candidates.length > 60) console.log(`  …e altri ${candidates.length - 60}`);
   console.log('\nProva: nessuna scheda preparata, nessuna scrittura.');
   process.exit(0);
@@ -147,40 +193,47 @@ if (dryRun) {
 // Schede del lotto
 // ---------------------------------------------------------------------------
 const tropeList = useAi ? await knownTropes(sb) : [];
-const prepared: Array<{ book: ReturnType<typeof bookPayload>; plot: string | null; tropes: string[] }> = [];
+// opere con già una trama in coda o in catalogo: una special nuova non ne chiede un'altra
+const withPlot = k.titles.map((title) => ({ title, authors: [] as string[] }));
+const prepared: Array<{ book: ReturnType<typeof bookPayload>; plot: string | null; tropes: string[]; needsPlot: boolean }> = [];
 for (const c of candidates.slice(0, batch)) {
   try {
     const book = await fetchBook(c.isbn);
     if (!book?.title) continue;
+    const { title, editionType } = variant(book.title);
+    const needsPlot = !withPlot.some((w) => similar(w.title, title));
+    withPlot.push({ title, authors: book.authors });
     let plot: string | null = null;
     let tropes: string[] = [];
-    if (useAi && book.description) {
-      plot = await rewritePlot(book.description, { title: book.title, authors: book.authors });
-      tropes = await suggestTropes({ title: book.title, description: book.description }, tropeList);
+    if (needsPlot && useAi && book.description) {
+      plot = await rewritePlot(book.description, { title, authors: book.authors });
+      tropes = await suggestTropes({ title, description: book.description }, tropeList);
       await pause(1500); // limiti dei piani gratuiti
     }
     prepared.push({
       // il libro si pubblica senza trama e senza tropes: quelli passano dalla redazione
       book: bookPayload({
-        title: book.title,
+        title,
         authors: book.authors,
         publisher: book.publisher,
         isbn: book.isbn,
         format: 'paperback',
-        editionType: 'standard',
+        editionType: c.editionType === 'standard' ? editionType : c.editionType,
         releaseDate: book.publishedDate,
         language: book.language,
         coverUrl: book.coverUrl,
         pages: book.pageCount,
         plot: null,
         tropes: [],
+        genres: genresFromCategories(book.categories),
         description: book.description,
         meta: { sources: book.sources, categories: book.categories, seed: c.found },
       }),
       plot,
       tropes,
+      needsPlot,
     });
-    console.log(`✓ ${book.title}`);
+    console.log(`✓ ${title}${editionType === 'standard' ? '' : ` (${editionType})`}`);
   } catch (err) {
     console.error(`✗ ${c.isbn}: ${(err as Error).message}`);
   }
@@ -190,9 +243,12 @@ if (prepared.length) {
   if (sb) {
     const known = new Set(tropeList.map((t) => t.slug));
     let published = 0;
-    for (const { book, plot, tropes } of prepared) {
+    let plots = 0;
+    for (const { book, plot, tropes, needsPlot } of prepared) {
       try {
         const workId = await publishBook(sb, book as unknown as BookPayload);
+        published++;
+        if (!needsPlot) continue;
         const { error } = await sb.from('review_queue').insert({
           content_type: 'plot',
           payload: {
@@ -208,13 +264,13 @@ if (prepared.length) {
           },
         });
         if (error) throw error;
-        published++;
+        plots++;
       } catch (err) {
         console.error(`✗ ${book.work.title}: ${(err as Error).message}`);
       }
     }
-    console.log(`\n${published} libri pubblicati (senza trama) e ${published} trame in "Da approvare". Candidati rimasti: ${Math.max(0, candidates.length - batch)}.`);
-    await notifyEditors(`📚 ${published} libri aggiunti al catalogo: le trame aspettano la tua approvazione`, prepared.map((p) => p.book.work.title));
+    console.log(`\n${published} edizioni pubblicate (senza trama) e ${plots} trame in "Da approvare". Candidati rimasti: ${Math.max(0, candidates.length - batch)}.`);
+    await notifyEditors(`📚 ${published} edizioni aggiunte al catalogo: ${plots} trame aspettano la tua approvazione`, prepared.map((p) => p.book.work.title));
   } else {
     await mkdir('scripts/out', { recursive: true });
     const file = `scripts/out/seed-${new Date().toISOString().slice(0, 10)}.json`;
