@@ -963,7 +963,7 @@ export function initJournal(section: HTMLElement) {
         )
         .join('')}</div></fieldset>`;
     const colors = (list: string[]) => list.map((c) => ({ value: c, label: c, swatch: c }));
-    const charms = ['', 'star', 'moon', 'heart', 'daisy', 'key', 'crown', 'crystal', 'sparkle'].map((c) => ({ value: c, label: c ? DOODLE_LABELS[c as keyof typeof DOODLE_LABELS] : 'Nessuno', icon: c ? svgIcon(c) : '' }));
+    const charms = ['', 'star', 'moon', 'heart', 'daisy', 'key', 'crown', 'crystal', 'sparkle', 'bow', 'sparkle4', 'openBook', 'stampHeart'].map((c) => ({ value: c, label: c ? DOODLE_LABELS[c as keyof typeof DOODLE_LABELS] : 'Nessuno', icon: c ? svgIcon(c) : '' }));
     return `
       <label class="jlabel" for="jc-name">Nome sulla copertina</label>
       <input type="text" id="jc-name" maxlength="40" value="${esc(s.name)}">

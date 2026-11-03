@@ -59,6 +59,33 @@ const ICONS = {
   wave: 'M2 12c3-3 5-3 7 0s4 3 6 0 4-3 7 0 M2 17c3-3 5-3 7 0s4 3 6 0 4-3 7 0',
   city: 'M3 21V9h5v12 M8 21V4h7v17 M15 21v-8h6v8 M10 8h3 M10 12h3 M10 16h3',
   briefcase: 'M3 8h18v12H3Z M9 8V5h6v3 M3 13h18',
+  // bookish (ispirati ai pattern di scarabocchi da lettrici)
+  openBook: 'M12 6c-2.5-2-6-2.5-9-1.5v13c3-1 6.5-.5 9 1.5 2.5-2 6-2.5 9-1.5v-13c-3-1-6.5-.5-9 1.5Z M12 6v13 M5.5 8.5c1.6-.3 3.2 0 4.5.6 M5.5 11.5c1.6-.3 3.2 0 4.5.6 M14 9.1c1.3-.6 2.9-.9 4.5-.6 M14 12.1c1.3-.6 2.9-.9 4.5-.6',
+  review: 'M6 3h12v18H6Z M8.5 6.5h7 M8.5 10c1-.8 1.5.8 2.5 0s1.5.8 2.5 0 1.5.8 2.5 0 M8.5 13.5c1-.8 1.5.8 2.5 0s1.5.8 2.5 0 1.5.8 2.5 0 M8.5 17c1-.8 1.5.8 2.5 0s1.5.8 2.5 0',
+  giftBook: 'M4 7l14-3 2 13-14 3Z M5 12l14-3 M11 5.5l2 13 M10.6 10.7c-1.5-2-3.8-1.6-3.2-.2.5 1.1 2.4.8 3.2.2.8.6 2.7.9 3.2-.2.6-1.4-1.7-1.8-3.2.2Z',
+  headphones: 'M4 15v-3a8 8 0 0 1 16 0v3 M4 14h3v6H5a1 1 0 0 1-1-1Z M20 14h-3v6h2a1 1 0 0 0 1-1Z',
+  bookTag: 'M3 9l11-5 3 7-11 5Z M15.5 7.5l3.5 1.5 M19 9c1.5 1 1.5 3 .5 4 M5.6 11.6l1.6-.7 M8 10.6l1.2 1.3 M8 10.6l.6 1.7',
+  stampHeart: 'M4 4h16v16H4Z M4 6.5a1 1 0 0 0 0-2.5 M4 9a1 1 0 0 0 0-2.5 M4 11.5a1 1 0 0 0 0-2.5 M4 14a1 1 0 0 0 0-2.5 M4 16.5a1 1 0 0 0 0-2.5 M4 19a1 1 0 0 0 0-2.5 M20 6.5a1 1 0 0 1 0-2.5 M20 9a1 1 0 0 1 0-2.5 M20 11.5a1 1 0 0 1 0-2.5 M20 14a1 1 0 0 1 0-2.5 M20 16.5a1 1 0 0 1 0-2.5 M20 19a1 1 0 0 1 0-2.5 M12 16s-4-2.5-4.6-4.7C7 9.6 8.1 8.4 9.4 8.4c1.1 0 2 .7 2.6 1.6.6-.9 1.5-1.6 2.6-1.6 1.3 0 2.4 1.2 2 2.9C16 13.5 12 16 12 16Z',
+  bookStack: 'M4 17h15v3H4Z M5 13h14v4H5Z M3.5 9h14v4h-14Z M16.5 17v3 M6.5 13v4 M15 9v4 M7 10.5c1.5 1 3 .5 4 0s2.5-1 3.5 0',
+  flowerBadge: 'M12 3l2 1.6 2.5-.4.9 2.4 2.4.9-.4 2.5L21 12l-1.6 2 .4 2.5-2.4.9-.9 2.4-2.5-.4L12 21l-2-1.6-2.5.4-.9-2.4-2.4-.9.4-2.5L3 12l1.6-2-.4-2.5 2.4-.9.9-2.4 2.5.4Z M12 10.5a1.5 1.5 0 1 0 .01 0 M12 9c-.8-1.5.8-1.5 0 0 M12 15c.8 1.5-.8 1.5 0 0 M9 12c-1.5-.8-1.5.8 0 0 M15 12c1.5.8 1.5-.8 0 0',
+  bow: 'M12 11c-3-4-8-5-8-2s5 3.5 8 2c3 1.5 8 1 8-2s-5-2-8 2Z M12 11l-3 9 M12 11l3 9 M11 10.5h2v1.5h-2Z',
+  glasses: 'M2 10h2 M20 10h2 M4 10.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0 M13 10.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0 M11 10c.6-.6 1.4-.6 2 0',
+  pen: 'M18 3l3 3-12 12-4 1 1-4Z M15 6l3 3 M5 19l-2 2',
+  sparkle4: 'M12 2c.6 5 1.4 6 6 7-4.6 1-5.4 2-6 7-.6-5-1.4-6-6-7 4.6-1 5.4-2 6-7Z M19 15c.3 2 .7 2.4 2.5 2.8-1.8.4-2.2.8-2.5 2.8-.3-2-.7-2.4-2.5-2.8 1.8-.4 2.2-.8 2.5-2.8Z',
+  washi: 'M8 3h8v18H8Z M8 6.5h8 M8 10.5h8 M8 14.5h8 M8 18h8 M9.5 4.7l1.5 1 1.5-1 1.5 1 1.5-1 M9.5 12.5h.01 M12 12.5h.01 M14.5 12.5h.01',
+  // romance sportivo e musica
+  jersey: 'M8 3L3 6.5 5 11l3-1.2V21h8V9.8l3 1.2 2-4.5L16 3c-.6 1.8-2.1 2.8-4 2.8S8.6 4.8 8 3Z M8 16.5h8 M8 18.5h8 M10.4 9.5l-.9 2.5h2 M11 10v4 M13.4 9.5l-.9 2.5h2 M14 10v4',
+  puck: 'M4 10c0-1.7 3.6-3 8-3s8 1.3 8 3v4c0 1.7-3.6 3-8 3s-8-1.3-8-3Z M4 10c0 1.7 3.6 3 8 3s8-1.3 8-3',
+  helmet: 'M3.5 16a8.5 8.5 0 0 1 17 0Z M12 7.5V11 M3.5 16v2h7 M14 13.5h6.5v6H14Z M16.2 13.5v6 M18.3 13.5v6 M14 16.5h6.5',
+  goal: 'M3 20V6h18v14 M3 6l3 3h12l3-3 M6 9v11 M18 9v11 M10 9v11 M14 9v11 M6 13h12 M6 17h12',
+  guitar: 'M14.5 9.5l6-6 M19 2l3 3 M8.6 8.8a3.6 3.6 0 0 0-4.3 4.4A4.2 4.2 0 0 0 10.8 19.7a3.6 3.6 0 0 0 4.4-4.3 3.4 3.4 0 0 0-1.5-4.6l-.5-.5A3.4 3.4 0 0 0 8.6 8.8Z M10 14a1.6 1.6 0 1 0 .01 0 M10 14l4.5-4.5',
+  mic: 'M9 6a3 3 0 1 0 6 0 3 3 0 1 0-6 0 M10 9h4l-1 10h-2Z M12 19v2',
+  note: 'M8 18a2 2 0 1 0 .01 0 M10 18V5l10-2v12 M18 15a2 2 0 1 0 .01 0 M10 8l10-2',
+  partyCup: 'M5 4h14l-2 17H7Z M5.5 8h13 M6 12h12',
+  coffeeCup: 'M6 6h12l-1.5 15h-9Z M5 4h14v2H5Z M6.6 11h10.8 M7 15h10',
+  cocktail: 'M4 5h16l-8 8Z M12 13v7 M8 20h8 M15 3l3 5 M17 2.5c1 .5 1.5 1.5 1 2.5',
+  ipod: 'M7 3h10v18H7Z M9 5h6v6H9Z M12 16a2.5 2.5 0 1 0 .01 0 M12 16h.01',
+  varsity: 'M6 4h7a4 4 0 0 1 2 7 4 4 0 0 1-2 9H6Z M9 7v3.5h3a1.75 1.75 0 0 0 0-3.5Z M9 13.5V17h3.5a1.75 1.75 0 0 0 0-3.5Z',
   // fiori
   daisy: 'M12 9.6C10.2 7.6 10.6 3.2 12 2.6C13.4 3.2 13.8 7.6 12 9.6ZM13.7 10.3C13.8 7.6 17.2 4.8 18.6 5.4C19.2 6.8 16.4 10.2 13.7 10.3ZM14.4 12C16.4 10.2 20.8 10.6 21.4 12C20.8 13.4 16.4 13.8 14.4 12ZM13.7 13.7C16.4 13.8 19.2 17.2 18.6 18.6C17.2 19.2 13.8 16.4 13.7 13.7ZM12 14.4C13.8 16.4 13.4 20.8 12 21.4C10.6 20.8 10.2 16.4 12 14.4ZM10.3 13.7C10.2 16.4 6.8 19.2 5.4 18.6C4.8 17.2 7.6 13.8 10.3 13.7ZM9.6 12C7.6 13.8 3.2 13.4 2.6 12C3.2 10.6 7.6 10.2 9.6 12ZM10.3 10.3C7.6 10.2 4.8 6.8 5.4 5.4C6.8 4.8 10.2 7.6 10.3 10.3ZM14.4 12a2.4 2.4 0 1 1-4.8 0 2.4 2.4 0 1 1 4.8 0Z',
 } as const;
@@ -76,6 +103,7 @@ export const DOODLE_LABELS: Record<DoodleName, string> = {
   glove: 'Guantone', ballet: 'Scarpetta da danza', swim: 'Nuoto', whistle: 'Fischietto', trophy: 'Coppa',
   crown: 'Corona', pencil: 'Matita', book: 'Libro', gradCap: 'Tocco di laurea', pennant: 'Gagliardetto', key: 'Chiave',
   lantern: 'Lanterna', house: 'Casa', belltower: 'Campanile', wave: 'Onda', city: 'Città', briefcase: 'Valigetta', daisy: 'Margherita',
+  openBook: 'Libro aperto', review: 'Recensione', giftBook: 'Libro regalo', headphones: 'Cuffie', bookTag: 'Etichetta «books»', stampHeart: 'Francobollo col cuore', bookStack: 'Pila di libri', flowerBadge: 'Coccarda col fiore', bow: 'Fiocco', glasses: 'Occhiali', pen: 'Penna', sparkle4: 'Scintille', washi: 'Washi tape', jersey: 'Maglia da hockey', puck: 'Disco da hockey', helmet: 'Casco', goal: 'Porta', guitar: 'Chitarra', mic: 'Microfono', note: 'Note musicali', partyCup: 'Bicchiere da festa', coffeeCup: 'Caffè da asporto', cocktail: 'Cocktail', ipod: 'Lettore musicale', varsity: 'Lettera «B» da college',
 };
 export const DOODLE_OPTIONS = (Object.entries(DOODLE_LABELS) as Array<[DoodleName, string]>).sort((a, b) => a[1].localeCompare(b[1], 'it'));
 const isDoodle = (name: string | null | undefined): name is DoodleName => Boolean(name && name in ICONS);
