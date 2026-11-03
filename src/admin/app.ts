@@ -111,7 +111,7 @@ function renderLogin(message = '') {
       email: String(form.get('email')),
       password: String(form.get('password')),
     });
-    if (error) renderLogin(error.message);
+    if (error) renderLogin(error.message === 'Invalid login credentials' ? 'Email o password sbagliate.' : error.message);
   });
 }
 
@@ -1055,8 +1055,15 @@ async function renderSocial() {
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
+// messaggio da mostrare sul modulo di accesso dopo un'uscita forzata (l'evento SIGNED_OUT ridisegna il modulo)
+let loginMessage = '';
+
 async function route() {
-  if (!session) return renderLogin();
+  if (!session) {
+    renderLogin(loginMessage);
+    loginMessage = '';
+    return;
+  }
   const [path, query = ''] = location.hash.replace(/^#/, '').split('?');
   const parts = path.split('/').filter(Boolean);
   try {
@@ -1078,9 +1085,14 @@ async function route() {
   }
 }
 
-async function checkEditor(): Promise<boolean> {
+/** null = fa parte della redazione; altrimenti il motivo da mostrare sul modulo di accesso. */
+async function checkEditor(): Promise<string | null> {
   const { data, error } = await getSupabase().rpc('is_editor');
-  return !error && data === true;
+  if (error) {
+    console.error('is_editor', error);
+    return `Accesso riuscito, ma il controllo della redazione non ha risposto: ${error.message}`;
+  }
+  return data === true ? null : 'Questo account non fa parte della redazione.';
 }
 
 async function start() {
@@ -1098,9 +1110,11 @@ async function start() {
   const sb = getSupabase();
   const apply = async (s: Session | null) => {
     session = s;
-    if (s && !(await checkEditor())) {
+    const problem = s ? await checkEditor() : null;
+    if (problem) {
+      loginMessage = problem;
       await sb.auth.signOut();
-      return renderLogin('Questo account non fa parte della redazione.');
+      return;
     }
     route();
   };
