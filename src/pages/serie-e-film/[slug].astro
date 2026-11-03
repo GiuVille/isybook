@@ -252,9 +252,10 @@ const trailer = youtubeId(a.trailer_url);
   .trailer-play:hover .trailer-btn,
   .trailer-play:focus-visible .trailer-btn { transform: scale(1.12); }
   .trailer-play:focus-visible { outline: 3px solid var(--accent); outline-offset: -6px; }
-  .trailer iframe { display: block; width: 100%; height: 100%; border: 0; }
+  /* il lettore viene aggiunto al clic: senza :global gli stili della pagina non lo raggiungerebbero */
+  .trailer :global(iframe) { display: block; width: 100%; height: 100%; border: 0; }
   @media (prefers-reduced-motion: no-preference) {
-    .trailer.is-playing iframe { animation: trailer-on 0.5s var(--ease-out); }
+    .trailer.is-playing :global(iframe) { animation: trailer-on 0.5s var(--ease-out); }
     .trailer-btn { animation: trailer-pulse 2.4s ease-in-out infinite; }
     .trailer-play:hover .trailer-btn { animation: none; }
   }
