@@ -114,6 +114,8 @@ export function initJournal(section: HTMLElement) {
     root.querySelector('.cover-ornament.bottom')!.innerHTML = s.ornament === 'book' ? OPEN_BOOK : '';
     root.style.setProperty('--pattern', patternImage(s.pattern, COVER_COLORS.find((c) => c.id === s.cover)!.value));
     root.style.setProperty('--paper', PAPER_COLORS.find((c) => c.id === s.paperColor)!.value);
+    root.style.setProperty('--sticker-opacity', String(s.stickerOpacity));
+    root.style.setProperty('--pattern-opacity', String(s.patternOpacity));
     root.querySelector('.cover-stickers')!.innerHTML = s.coverStickers
       .map((x) => `<span style="left:${x.x}%;top:${x.y}%;--r:${x.r}deg;--s:${x.s};color:${x.c}">${svgIcon(x.name)}</span>`)
       .join('');
@@ -974,12 +976,14 @@ export function initJournal(section: HTMLElement) {
       ${patternGroup('Animalier', 'animalier', s)}
       ${patternGroup('Fantasie', 'fantasie', s)}
       ${patternGroup('Classiche', 'classiche', s)}
+      ${opacitySlider('jc-pattern-opacity', 'Trasparenza della fantasia', s.patternOpacity)}
       ${group('Stile del titolo', 'label', [{ value: 'paper', label: 'Etichetta di carta' }, { value: 'cartouche', label: 'Cartiglio' }, { value: 'none', label: 'Solo testo' }], s.label)}
       ${group('Ornamenti', 'ornament', [{ value: 'none', label: 'Nessuno' }, { value: 'keyhole', label: 'Serratura' }, { value: 'book', label: 'Libro aperto' }], s.ornament)}
       <fieldset class="jc-stickers"><legend>Adesivi sulla copertina (${s.coverStickers.length}/24)</legend>
         <div class="jswatches">${Object.keys(DOODLE_LABELS)
           .map((n) => `<button type="button" class="jc-add" data-add-sticker="${n}" title="Aggiungi ${esc(DOODLE_LABELS[n as keyof typeof DOODLE_LABELS])}">${svgIcon(n)}</button>`)
           .join('')}</div>
+        ${opacitySlider('jc-opacity', 'Trasparenza degli adesivi', s.stickerOpacity)}
         <div class="jc-sticker-actions">
           <button type="button" class="button-soft" data-stickers-fill>Riempi di adesivi</button>
           <button type="button" class="button-soft" data-stickers-shuffle ${s.coverStickers.length ? '' : 'disabled'}>Disposizione casuale</button>
@@ -996,6 +1000,16 @@ export function initJournal(section: HTMLElement) {
       ${group('Inchiostro', 'ink', INKS.map((c) => ({ value: c.id, label: c.label, swatch: c.value })), s.ink)}
       ${group('Scrittura', 'hand', [{ value: 'true', label: 'A mano' }, { value: 'false', label: 'Stampatello' }], String(s.hand))}`;
   }
+  /** Barra scorrevole per la trasparenza (20–100%), con il valore accanto. */
+  const opacitySlider = (id: string, label: string, value: number) => {
+    const v = Math.round(value * 100);
+    return `<label class="jc-opacity" for="${id}">
+      <span>${label}</span>
+      <input type="range" id="${id}" min="20" max="100" step="5" value="${v}" aria-valuetext="${v}% visibile">
+      <output for="${id}">${v}%</output>
+    </label>`;
+  };
+
   /** Campioni delle fantasie con l'anteprima vera sul colore della copertina scelto. */
   function patternGroup(legend: string, group: 'animalier' | 'fantasie' | 'classiche', s: JournalSettings): string {
     const cover = COVER_COLORS.find((c) => c.id === s.cover)!.value;
@@ -1028,6 +1042,13 @@ export function initJournal(section: HTMLElement) {
     const t = ev.target as HTMLInputElement;
     if (t.id === 'jc-name') updateSettings({ name: t.value });
     else if (t.id === 'jc-subtitle') updateSettings({ subtitle: t.value });
+    else if (t.id === 'jc-opacity' || t.id === 'jc-pattern-opacity') {
+      // la copertina cambia mentre trascini; il valore si mostra accanto alla barra
+      const v = Number(t.value);
+      updateSettings(t.id === 'jc-opacity' ? { stickerOpacity: v / 100 } : { patternOpacity: v / 100 });
+      t.setAttribute('aria-valuetext', `${v}% visibile`);
+      t.parentElement!.querySelector('output')!.textContent = `${v}%`;
+    }
     else if (t.name?.startsWith('jc-')) {
       const key = t.name.slice(3) as keyof JournalSettings;
       updateSettings({ [key]: key === 'hand' ? t.value === 'true' : t.value } as Partial<JournalSettings>);

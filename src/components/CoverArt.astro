@@ -2,6 +2,7 @@
 // Copertina 2:3: la foto se c'è, altrimenti un segnaposto nei colori del genere.
 // Con `work` disegna il libro; con `art` qualsiasi altra cosa, per esempio la locandina di una serie o di un film.
 // Si può usare da sola o annidata in un altro SVG passando x/y/width/height.
+import { promoImage } from '../lib/promo-image';
 import { themeForWork } from '../lib/book-themes';
 import { wrapTitle } from '../lib/trope-arrows';
 import type { Work } from '../lib/types';
@@ -38,7 +39,9 @@ const art: Art = givenArt ?? {
   color: themeForWork(work!).cover,
   variant: 'book',
 };
-const cover = art.image;
+// copertine e locandine remote passano dalla build (scaricate e ottimizzate): il browser di chi legge
+// non contatta mai Google Books, Open Library o TMDB. Se l'immagine non è disponibile resta il segnaposto.
+const cover = art.image ? ((await promoImage(art.image))?.src ?? null) : null;
 const authors = art.caption;
 const titleLines = wrapTitle(art.title, 11);
 const clipId = `cover-clip-${art.id}-${Math.random().toString(36).slice(2, 8)}`;

@@ -62,6 +62,8 @@ export interface JournalSettings {
   material: 'leather' | 'linen' | 'kraft';
   pattern: string; // fantasia sopra il colore: 'none' o un id di src/lib/cover-patterns.ts
   coverStickers: CoverSticker[]; // adesivi sparsi sulla copertina
+  stickerOpacity: number; // trasparenza degli adesivi sparsi, 0.2–1
+  patternOpacity: number; // trasparenza della fantasia della copertina, 0.2–1
   band: string; // colore dell'elastico
   ribbon: string; // colore del segnalibro
   paper: 'lines' | 'dots' | 'grid' | 'plain'; // plain = tinta unita
@@ -155,6 +157,8 @@ const DEFAULT_SETTINGS: JournalSettings = {
   subtitle: '',
   pattern: 'none',
   coverStickers: [],
+  stickerOpacity: 1,
+  patternOpacity: 1,
   paperColor: 'cream',
 };
 
@@ -247,6 +251,8 @@ function sanitize(raw: unknown): Journal {
       paper: oneOf(s.paper, ['lines', 'dots', 'grid', 'plain'] as const) ?? DEFAULT_SETTINGS.paper,
       paperColor: PAPER_COLORS.some((c) => c.id === s.paperColor) ? s.paperColor! : DEFAULT_SETTINGS.paperColor,
       pattern: typeof s.pattern === 'string' && PATTERN_IDS.includes(s.pattern) ? s.pattern : DEFAULT_SETTINGS.pattern,
+      stickerOpacity: Math.round(clamp(s.stickerOpacity, 0.2, 1, 1) * 100) / 100,
+      patternOpacity: Math.round(clamp(s.patternOpacity, 0.2, 1, 1) * 100) / 100,
       coverStickers: (Array.isArray(s.coverStickers) ? s.coverStickers : [])
         .filter((x): x is CoverSticker => Boolean(x) && typeof x.name === 'string')
         .slice(0, 24)

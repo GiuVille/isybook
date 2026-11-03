@@ -1,0 +1,75 @@
+---
+// Informativa privacy e cookie. Descrive il sito com'è davvero: nessun cookie, nessun tracciamento,
+// dati salvati solo nel browser di chi legge, tranne i messaggi del modulo dei feedback.
+// Va riletta da un professionista prima del lancio e aggiornata a ogni servizio nuovo.
+import Base from '../layouts/Base.astro';
+
+const UPDATED = '3 novembre 2026';
+const CONTACT = 'villella.giuseppe03@gmail.com';
+---
+
+<Base title="Privacy e cookie" description="Come IsyBooks tratta i tuoi dati: niente cookie, niente tracciamento, la tua libreria resta nel tuo browser.">
+  <article class="privacy">
+    <h1>Privacy e cookie</h1>
+    <p class="lead">In breve: IsyBooks <strong>non usa cookie</strong>, <strong>non ti traccia</strong> e non ha pubblicità. La tua libreria e il tuo book journal restano nel tuo browser. Gli unici dati che riceviamo sono quelli che ci scrivi tu nel modulo dei messaggi.</p>
+    <p class="muted">Ultimo aggiornamento: {UPDATED}</p>
+
+    <h2>Chi è il titolare</h2>
+    <p>Il titolare del trattamento è <strong>Giuseppe Villella</strong>. Per qualsiasi domanda o richiesta sui tuoi dati scrivi a <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
+
+    <h2>Cosa resta nel tuo browser</h2>
+    <p>Per farti usare La mia libreria senza account, il sito salva alcune informazioni <strong>solo sul tuo dispositivo</strong> (non sono cookie e non arrivano a noi). Servono a far funzionare le cose che scegli tu, quindi non serve un consenso.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cosa</th><th>A cosa serve</th><th>Come cancellarlo</th></tr></thead>
+        <tbody>
+          <tr><td>Libreria (<code>isybook:v1</code>)</td><td>Preferiti, cartelle, videoteca, i tuoi interessi</td><td rowspan="4">Svuotando i dati del sito dalle impostazioni del browser. Prima puoi salvarli con «Esporta» in La mia libreria.</td></tr>
+          <tr><td>Book journal (<code>isybook:journal:v1</code>)</td><td>Schede di lettura, recensioni, voti, libri del mese, torneo, aspetto dell'agendina</td></tr>
+          <tr><td>Foto della moodboard (database del browser <code>isybook-journal</code>)</td><td>Le foto che aggiungi alle recensioni, ridotte e senza dati di posizione</td></tr>
+          <tr><td>Tema (<code>isybook:theme</code>)</td><td>Ricordare se preferisci il tema chiaro o scuro</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="messaggi">I messaggi che ci mandi</h2>
+    <p>Se usi il modulo «Scrivici due righe» in fondo alla home riceviamo: il tuo messaggio, il tipo di messaggio, la pagina da cui scrivi e, <strong>solo se li inserisci</strong>, il tuo nome e la tua email.</p>
+    <ul>
+      <li><strong>Perché:</strong> leggere i tuoi suggerimenti e, se ce lo chiedi lasciando l'email, risponderti.</li>
+      <li><strong>Base giuridica:</strong> il tuo consenso, che dai inviando il messaggio, e il nostro interesse a migliorare il sito.</li>
+      <li><strong>Per quanto tempo:</strong> l'email la cancelliamo dopo averti risposto; i messaggi senza dati personali possono restare come promemoria.</li>
+      <li><strong>Chi li vede:</strong> solo noi due della redazione. Non li vendiamo, non li cediamo e non li usiamo per newsletter o pubblicità.</li>
+    </ul>
+
+    <h2>Servizi tecnici che usiamo</h2>
+    <ul>
+      <li><strong>Cloudflare Pages</strong> ospita il sito. Come ogni server registra per motivi tecnici e di sicurezza alcuni dati di connessione (per esempio l'indirizzo IP), per poco tempo.</li>
+      <li><strong>Supabase</strong> conserva i messaggi del modulo e i contenuti del sito, su server nell'Unione europea.</li>
+    </ul>
+    <p>Tutte le immagini (copertine, locandine, grafiche, miniature dei trailer) sono preparate e servite dal nostro sito: navigando, il tuo browser non contatta altri servizi.</p>
+
+    <h2>Contenuti di altri siti</h2>
+    <ul>
+      <li><strong>Trailer:</strong> il video si carica da YouTube (nella versione «senza cookie») <strong>solo quando premi play</strong>. Da quel momento vale l'<a href="https://policies.google.com/privacy?hl=it" target="_blank" rel="noopener">informativa di Google</a>.</li>
+      <li><strong>Link d'acquisto e link esterni:</strong> alcuni sono link affiliati. Il negozio può usare i suoi cookie solo dopo che ci vai, secondo la sua informativa.</li>
+    </ul>
+
+    <h2>Cookie</h2>
+    <p>IsyBooks non usa cookie, né nostri né di terzi, e non usa strumenti di statistica o di profilazione. Per questo non vedi nessun banner: non c'è niente da accettare. Se in futuro aggiungeremo qualcosa che li richiede, aggiorneremo questa pagina e te lo chiederemo prima.</p>
+
+    <h2>I tuoi diritti</h2>
+    <p>Puoi chiederci in qualsiasi momento di vedere, correggere o cancellare i dati che ci hai mandato, o di smettere di usarli, scrivendo a <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. Se pensi che i tuoi dati siano trattati in modo scorretto puoi rivolgerti al <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener">Garante per la protezione dei dati personali</a>.</p>
+  </article>
+</Base>
+
+<style>
+  .privacy { max-width: 72ch; }
+  .lead { font-size: 1.1rem; }
+  h2 { margin-top: 34px; }
+  ul { padding-left: 1.2em; }
+  li { margin: 6px 0; }
+  code { font-size: 0.85em; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; }
+</style>

@@ -14,6 +14,7 @@ import {
 import { similarToAdaptation, type SimilarItem } from '../../lib/similar';
 import type { Adaptation, Work } from '../../lib/types';
 import { youtubeId, youtubeThumb, youtubeEmbed, youtubeWatch } from '../../lib/youtube';
+import { promoImage } from '../../lib/promo-image';
 
 export async function getStaticPaths() {
   const [adaptations, works] = await Promise.all([getAdaptations(), getWorks()]);
@@ -32,6 +33,8 @@ const theme = themeForWork(a);
 const kindLabel = ADAPTATION_KIND_LABELS[a.kind];
 const tmdb = a.tmdb_id ? `https://www.themoviedb.org/${a.kind === 'film' ? 'movie' : 'tv'}/${a.tmdb_id}` : null;
 const trailer = youtubeId(a.trailer_url);
+// la miniatura arriva dalla build: finché non si preme play il browser non contatta YouTube
+const trailerThumb = trailer ? await promoImage(youtubeThumb(trailer)) : null;
 ---
 
 <Base title={`${a.title} (${kindLabel.toLowerCase()})`} description={a.plot?.slice(0, 155) ?? `${kindLabel} tratto da ${a.source.title}.`}>
@@ -97,7 +100,7 @@ const trailer = youtubeId(a.trailer_url);
         <h2>Trailer</h2>
         <div class="trailer" data-embed={youtubeEmbed(trailer)} data-title={`Trailer di «${a.title}»`}>
           <a class="trailer-play" href={youtubeWatch(trailer)} target="_blank" rel="noopener" aria-label={`Guarda il trailer di «${a.title}»`}>
-            <img src={youtubeThumb(trailer)} alt="" loading="lazy" width="480" height="360" />
+            {trailerThumb && <img src={trailerThumb.src} srcset={trailerThumb.srcset} sizes="(max-width: 760px) 100vw, 720px" alt="" loading="lazy" width={trailerThumb.width} height={trailerThumb.height} />}
             <span class="trailer-btn" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7Z" /></svg>
             </span>

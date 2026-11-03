@@ -697,6 +697,7 @@
   pointer-events: none;
   background-image: var(--pattern, none);
   background-size: 240px 240px;
+  opacity: var(--pattern-opacity, 1);
 }
 /* con una fantasia il nome sta su un'etichetta di carta, così si legge */
 .journal[data-label='paper']:not([data-pattern='none']) .cover-name,
@@ -716,7 +717,7 @@
 .cover-front::before { z-index: -1; }
 
 /* ---------- adesivi sparsi sulla copertina ---------- */
-.cover-stickers { position: absolute !important; inset: 0; pointer-events: none; }
+.cover-stickers { position: absolute !important; inset: 0; pointer-events: none; opacity: var(--sticker-opacity, 1); }
 .cover-stickers span { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; transform: rotate(var(--r)) scale(var(--s)); }
 .cover-stickers svg { width: 100%; height: 100%; filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.3)); }
 
@@ -837,3 +838,9 @@
 /* frase sotto il libro aperto: scura con un alone chiaro, leggibile su ogni fantasia */
 .orn-caps { fill: color-mix(in srgb, var(--cover) 45%, #2a0f14) !important; stroke: #fffdf7; stroke-width: 3px; stroke-linejoin: round; paint-order: stroke; font-weight: 600; }
 .journal[data-pattern='none'] .orn-caps { fill: color-mix(in srgb, var(--cover) 25%, #fff3e6) !important; stroke: none; }
+
+/* barra della trasparenza degli adesivi */
+.jc-opacity { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; margin-top: 10px; font-size: 0.85rem; }
+.jc-opacity span { grid-column: 1 / -1; font-weight: 600; }
+.jc-opacity input[type='range'] { width: 100%; accent-color: var(--accent); }
+.jc-opacity output { min-width: 3.5ch; font-variant-numeric: tabular-nums; text-align: right; }

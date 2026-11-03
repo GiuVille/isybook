@@ -135,6 +135,7 @@ const path = Astro.url.pathname;
       <p class="credits">
         © {new Date().getFullYear()} IsyBooks. Sviluppato da{' '}
         <a href="https://giuseppevillella.it" rel="author">Giuseppe Villella</a>.
+        <a class="privacy-link" href="/privacy">Privacy e cookie</a>
       </p>
     </footer>
 
@@ -327,6 +328,7 @@ const path = Astro.url.pathname;
   .site-footer { text-align: center; }
   .site-footer p { margin: 0 auto 6px; max-width: 70ch; }
   .site-footer a { color: var(--accent); }
+  .site-footer .privacy-link { margin-left: 10px; white-space: nowrap; }
   /* profili Instagram e TikTok della socia: pillole con l'icona che ruota al passaggio */
   .site-footer .insta {
     display: inline-flex;
