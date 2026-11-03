@@ -55,6 +55,8 @@ export interface PlotPayload {
   plot: string | null; // riscritta in automatico: si pubblica solo dopo l'approvazione
   tropes?: string[]; // slug suggeriti
   new_tropes?: Array<{ name: string; slug: string }>;
+  genres?: string[]; // slug suggeriti
+  new_genres?: Array<{ name: string; slug: string }>;
   original_description?: string | null; // solo riferimento, mai pubblicata
 }
 
@@ -178,7 +180,7 @@ export async function publishBook(sb: SupabaseClient, p: BookPayload): Promise<s
   return workId;
 }
 
-/** Trama approvata (eventualmente corretta) e tropes scelti per un libro già pubblicato. */
+/** Trama approvata (eventualmente corretta), tropes e generi scelti per un libro già pubblicato. */
 async function approvePlot(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
   const p = item.payload as PlotPayload;
   if (!p.plot?.trim()) throw new Error('La trama è vuota: scrivila prima di approvare');
@@ -186,6 +188,8 @@ async function approvePlot(sb: SupabaseClient, item: Row, reviewerId: string | n
   if (error) throw error;
   for (const t of p.new_tropes ?? []) await ensureBySlug(sb, 'tropes', t);
   await link(sb, 'work_tropes', (await idsBySlug(sb, 'tropes', p.tropes)).map((trope_id) => ({ work_id: p.work_id, trope_id })));
+  for (const g of p.new_genres ?? []) await ensureBySlug(sb, 'genres', g);
+  await link(sb, 'work_genres', (await idsBySlug(sb, 'genres', p.genres)).map((genre_id) => ({ work_id: p.work_id, genre_id })));
   await markApproved(sb, item, reviewerId);
   return p.work_id;
 }

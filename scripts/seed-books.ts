@@ -15,8 +15,8 @@
 // ci sono candidati, anche dal workflow seed.yml. I libri già in catalogo o già passati dalla coda non tornano.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { aiConfigured, rewritePlot, suggestTropes } from './lib/ai.ts';
-import { bookPayload, genresFromCategories, knownTropes } from './lib/book-payload.ts';
+import { aiConfigured, rewritePlot, suggestGenres, suggestTropes } from './lib/ai.ts';
+import { bookPayload, genresFromCategories, knownGenres, knownTropes } from './lib/book-payload.ts';
 import { fetchBook, normalizeIsbn } from './lib/books.ts';
 import { notifyEditors } from './lib/notify.ts';
 import { readJson, sb, similar } from './lib/sources.ts';
@@ -109,10 +109,14 @@ const NOT_FICTION = /criticism|biography|philosophy|history|religion|education|s
  * dal titolo e diventano un'edizione della stessa opera, con il tipo giusto.
  */
 const VARIANT = /[\s.,:;(\[-]*\b(limited edition|edizione limitata|ediz\.? limitata|special edition|edizione speciale|ediz\.? speciale|deluxe edition|edizione deluxe|ediz\.? deluxe)\b[)\]]*\s*$/i;
+// "Edizione italiana", "Ediz. italiana", "(versione italiana)": sul sito è tutto in italiano, la dicitura non serve
+const ITALIAN = /[s.,:;([-]*(edizione italiana|ediz.? italiana|versione italiana)[)]]*s*$/i;
 function variant(title: string): { title: string; editionType: 'standard' | 'special' | 'limited' } {
-  const m = title.match(VARIANT);
-  if (!m) return { title, editionType: 'standard' };
-  return { title: title.slice(0, m.index).trim(), editionType: /limit/i.test(m[1]) ? 'limited' : 'special' };
+  const clean = (t: string) => t.replace(ITALIAN, '').trim();
+  const t = clean(title);
+  const m = t.match(VARIANT);
+  if (!m) return { title: t, editionType: 'standard' };
+  return { title: clean(t.slice(0, m.index)), editionType: /limit/i.test(m[1]) ? 'limited' : 'special' };
 }
 
 function keep(info: NonNullable<Volume['volumeInfo']>, isbn: string, trusted: boolean): boolean {
@@ -193,9 +197,10 @@ if (dryRun) {
 // Schede del lotto
 // ---------------------------------------------------------------------------
 const tropeList = useAi ? await knownTropes(sb) : [];
+const genreList = useAi ? await knownGenres(sb) : [];
 // opere con già una trama in coda o in catalogo: una special nuova non ne chiede un'altra
 const withPlot = k.titles.map((title) => ({ title, authors: [] as string[] }));
-const prepared: Array<{ book: ReturnType<typeof bookPayload>; plot: string | null; tropes: string[]; needsPlot: boolean }> = [];
+const prepared: Array<{ book: ReturnType<typeof bookPayload>; plot: string | null; tropes: string[]; genres: string[]; needsPlot: boolean }> = [];
 for (const c of candidates.slice(0, batch)) {
   try {
     const book = await fetchBook(c.isbn);
@@ -205,13 +210,16 @@ for (const c of candidates.slice(0, batch)) {
     withPlot.push({ title, authors: book.authors });
     let plot: string | null = null;
     let tropes: string[] = [];
+    // dalle categorie se dicono qualcosa (per le edizioni italiane Google dice quasi sempre solo "Fiction"), se no dall'AI
+    let genres = genresFromCategories(book.categories);
     if (needsPlot && useAi && book.description) {
       plot = await rewritePlot(book.description, { title, authors: book.authors });
       tropes = await suggestTropes({ title, description: book.description }, tropeList);
+      if (genres.length === 0) genres = await suggestGenres({ title, description: book.description }, genreList);
       await pause(1500); // limiti dei piani gratuiti
     }
     prepared.push({
-      // il libro si pubblica senza trama e senza tropes: quelli passano dalla redazione
+      // il libro si pubblica senza trama, tropes e generi: passano dalla redazione
       book: bookPayload({
         title,
         authors: book.authors,
@@ -225,12 +233,12 @@ for (const c of candidates.slice(0, batch)) {
         pages: book.pageCount,
         plot: null,
         tropes: [],
-        genres: genresFromCategories(book.categories),
         description: book.description,
         meta: { sources: book.sources, categories: book.categories, seed: c.found },
       }),
       plot,
       tropes,
+      genres,
       needsPlot,
     });
     console.log(`✓ ${title}${editionType === 'standard' ? '' : ` (${editionType})`}`);
@@ -244,7 +252,7 @@ if (prepared.length) {
     const known = new Set(tropeList.map((t) => t.slug));
     let published = 0;
     let plots = 0;
-    for (const { book, plot, tropes, needsPlot } of prepared) {
+    for (const { book, plot, tropes, genres, needsPlot } of prepared) {
       try {
         const workId = await publishBook(sb, book as unknown as BookPayload);
         published++;
@@ -258,6 +266,7 @@ if (prepared.length) {
             authors: book.authors.map((a) => a.name),
             cover_url: book.edition.cover_url,
             plot,
+            genres,
             tropes: tropes.filter((t) => known.has(t)),
             new_tropes: tropes.filter((t) => !known.has(t)).map((slug) => ({ slug, name: slug.replace(/-/g, ' ') })),
             original_description: book.original_description,

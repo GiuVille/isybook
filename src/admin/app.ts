@@ -733,7 +733,7 @@ function reviewTitle(item: Row): string {
 /** Si può approvare anche in blocco dall'elenco (il resto va aperto uno per uno)? */
 function bulkReady(item: Row): boolean {
   const p = item.payload ?? {};
-  if (item.content_type === 'plot') return Boolean(p.plot?.trim()) && !(p.new_tropes ?? []).length;
+  if (item.content_type === 'plot') return Boolean(p.plot?.trim()) && !(p.new_tropes ?? []).length && !(p.new_genres ?? []).length;
   if (item.content_type === 'adaptation') return true;
   return false;
 }
@@ -834,10 +834,13 @@ function queueThumb(item: Row): string {
 
 /** Riepilogo di una trama da approvare: testo modificabile, tropes suggeriti, quarta originale solo come riferimento. */
 async function plotSummary(sb: ReturnType<typeof getSupabase>, p: Row): Promise<string> {
-  const tropes = [...(p.tropes ?? []).map((slug: string) => ({ slug, name: humanize(slug) })), ...(p.new_tropes ?? [])];
+  const tag = (slug: string) => ({ slug, name: humanize(slug) });
+  const tropes = [...(p.tropes ?? []).map(tag), ...(p.new_tropes ?? [])];
+  const genres = [...(p.genres ?? []).map(tag), ...(p.new_genres ?? [])];
   return `
     <dl class="summary">
       <dt>Libro</dt><dd><a href="/libri/${esc(p.work_slug)}" target="_blank" rel="noopener">${esc(p.title)}</a> ${p.authors?.length ? `di ${esc(p.authors.join(', '))}` : ''}</dd>
+      ${await proposedTags(sb, 'genres', 'Generi proposti', genres)}
       ${await proposedTags(sb, 'tropes', 'Tropes proposti', tropes)}
     </dl>
     <p class="muted small">Il libro è già online senza trama: la scheda mostra «La trama arriva presto» finché non approvi.</p>
@@ -936,7 +939,7 @@ async function renderReviewItem(id: string) {
     const text = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim() ?? '';
     if (item.content_type === 'plot') {
       if (!text) return flash('Scrivi la trama prima di approvare', 'error');
-      payload = { ...p, plot: text, ...approvedSlugs('tropes') };
+      payload = { ...p, plot: text, ...approvedSlugs('tropes'), ...approvedSlugs('genres') };
     } else if (item.content_type === 'adaptation') {
       payload = { ...p, adaptation: { ...p.adaptation, plot: text || null } };
     } else if (item.content_type === 'book') {

@@ -84,6 +84,14 @@ export function genresFromCategories(categories: string[], text = ''): string[] 
   return [...out];
 }
 
+/** Generi già in catalogo, tra cui scegliere quelli di un libro nuovo. */
+export async function knownGenres(sb: SupabaseClient | null): Promise<Array<{ slug: string; name: string }>> {
+  if (!sb) return [];
+  const { data, error } = await sb.from('genres').select('slug, name');
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Tropes già in catalogo, tra cui scegliere quelli di un libro nuovo. */
 export async function knownTropes(sb: SupabaseClient | null): Promise<Array<{ slug: string; name: string }>> {
   if (!sb) return [];

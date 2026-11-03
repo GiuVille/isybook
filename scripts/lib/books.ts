@@ -52,7 +52,8 @@ function toLanguage(code?: string): string | undefined {
 async function getJson<T>(url: string): Promise<T | null> {
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  // mai la chiave nei log (anche quelli di GitHub Actions sono pubblici)
+  if (!res.ok) throw new Error(`${url.replace(/([?&]key=)[^&]+/, '$1…')} → HTTP ${res.status}`);
   return (await res.json()) as T;
 }
 

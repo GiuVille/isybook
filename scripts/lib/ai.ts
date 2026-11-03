@@ -66,7 +66,7 @@ export async function rewritePlot(original: string, meta: { title: string; autho
         role: 'system',
         content:
           'Sei la redazione di un sito italiano dedicato a romantasy, romance e fantasy YA. ' +
-          'Scrivi trame originali in italiano, 60-100 parole, tono caldo ma informativo, senza spoiler oltre la premessa. ' +
+          'Scrivi trame originali in italiano, al massimo 90 parole (un solo paragrafo), tono caldo ma informativo, senza spoiler oltre la premessa. ' +
           'Non copiare frasi dal testo di partenza: riformula completamente. ' +
           'Rispondi solo con la trama in testo semplice: niente titolo, niente "Trama:", niente grassetti o elenchi.',
       },
@@ -78,6 +78,36 @@ export async function rewritePlot(original: string, meta: { title: string; autho
     { temperature: 0.8 },
   );
   return plainText(plot);
+}
+
+/** Sceglie 1 o 2 generi da una lista chiusa di slug (Google per le edizioni italiane dice solo "Fiction"). */
+export async function suggestGenres(
+  work: { title: string; description: string },
+  genres: Array<{ slug: string; name: string }>,
+): Promise<string[]> {
+  if (genres.length === 0) return [];
+  const answer = await chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Classifichi libri per genere. Scegli solo tra gli slug forniti, 1 o al massimo 2, il più specifico possibile ' +
+          '(romantasy se fantasy e storia d\'amore pesano uguale). Rispondi in JSON: {"genres": ["slug", ...]}',
+      },
+      {
+        role: 'user',
+        content: `Generi disponibili:\n${genres.map((g) => `- ${g.slug}: ${g.name}`).join('\n')}\n\nLibro: ${work.title}\nDescrizione: ${work.description}`,
+      },
+    ],
+    { temperature: 0, json: true },
+  );
+  try {
+    const parsed = JSON.parse(answer) as { genres?: unknown };
+    const valid = new Set(genres.map((g) => g.slug));
+    return Array.isArray(parsed.genres) ? parsed.genres.filter((s): s is string => typeof s === 'string' && valid.has(s)).slice(0, 2) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Sceglie i tropi pertinenti da una lista chiusa di slug. */
