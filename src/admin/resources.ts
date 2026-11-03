@@ -464,6 +464,11 @@ export const RESOURCES: Resource[] = [
         options: [['promotions', 'Promozioni'], ['releases', 'Uscite'], ['events', 'Eventi']],
       },
       { name: 'active', label: 'Leggila ogni notte', type: 'checkbox' },
+      {
+        name: 'frequency', label: 'Frequenza', type: 'select', required: true,
+        options: [['daily', 'Ogni notte'], ['hot', 'Calda: anche ogni mezz\'ora di giorno']],
+        help: 'Calda per box, edizioni limitate e promozioni a tempo, che vanno a ruba in poche ore. Se la pagina non cambia non si spende nulla.',
+      },
     ],
   },
 ];

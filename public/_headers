@@ -1,0 +1,23 @@
+# Intestazioni di sicurezza e cache per Cloudflare Pages.
+# CSP volutamente minima: blocca l'inserimento del sito in altri siti, plugin e cambi di base;
+# i trailer si caricano solo da youtube-nocookie.com dopo il clic su play.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'; frame-src https://www.youtube-nocookie.com
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# file con l'impronta nel nome: non cambiano mai, si possono tenere a lungo
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# pannello della redazione: mai in cache, mai nei motori di ricerca
+/admin/*
+  Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
+
+/promemoria/*
+  X-Robots-Tag: noindex

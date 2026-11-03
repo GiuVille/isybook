@@ -37,16 +37,16 @@ export async function readJson<T>(url: URL, fallback: T): Promise<T> {
   }
 }
 
-export async function loadSources(purpose: SourcePurpose): Promise<Source[]> {
+/** Fonti attive per uno scopo; con `hotOnly` solo quelle "calde" (lette ogni mezz'ora di giorno, .github/workflows/hot.yml). */
+export async function loadSources(purpose: SourcePurpose, hotOnly = false): Promise<Source[]> {
   if (sb) {
-    const { data, error } = await sb
-      .from('sources')
-      .select('id, name, url, kind, purpose, content_hash')
-      .eq('purpose', purpose)
-      .eq('active', true);
+    let query = sb.from('sources').select('id, name, url, kind, purpose, content_hash').eq('purpose', purpose).eq('active', true);
+    if (hotOnly) query = query.eq('frequency', 'hot');
+    const { data, error } = await query;
     if (error) throw error;
     return data ?? [];
   }
+  if (hotOnly) return []; // le fonti locali di prova sono tutte "giornaliere"
   // scripts/sources.json: le voci senza "purpose" sono fonti di promozioni
   const local = await readJson<Array<Omit<Source, 'id' | 'content_hash' | 'purpose'> & { purpose?: SourcePurpose }>>(LOCAL_SOURCES, []);
   const state = await readJson<Record<string, string>>(LOCAL_STATE, {});

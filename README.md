@@ -110,7 +110,7 @@ I due job girano uno dopo l'altro su GitHub Actions alle 5 del mattino (`.github
 
 Il sito è statico, quindi un contenuto approvato va online solo con una nuova build su Cloudflare Pages. Far partire una build a ogni salvataggio sarebbe uno spreco: approvando dieci libri di fila ne partirebbero dieci, e il piano gratuito ne concede 500 al mese.
 
-Così ho fatto in modo che sia il database a segnare quando qualcosa cambia (un trigger su ogni tabella pubblica aggiorna `site_state`, migrazione 0007). Ogni 15 minuti un job su GitHub Actions (`.github/workflows/rebuild.yml`) guarda lo stato e chiama il deploy hook di Cloudflare solo se le modifiche si sono fermate da almeno 10 minuti, o se qualcuno ha chiesto esplicitamente di aggiornare.
+Così ho fatto in modo che sia il database a segnare quando qualcosa cambia (un trigger su ogni tabella pubblica aggiorna `site_state`, migrazione 0007). Ogni 5 minuti un job su GitHub Actions (`.github/workflows/rebuild.yml`) guarda lo stato e chiama il deploy hook di Cloudflare solo se le modifiche si sono fermate da almeno 5 minuti, o se qualcuno ha chiesto esplicitamente di aggiornare. Un contatore in `site_state` limita le build automatiche a 14 al giorno, per restare nelle 500 al mese del piano gratuito di Cloudflare Pages.
 
 ```sh
 npm run rebuild            # ricostruisce solo se serve
@@ -141,7 +141,9 @@ C'è anche una build fissa ogni mattina, dopo la lettura notturna: le promozioni
 - [x] bacheca delle notizie: post-it scritti dalla redazione, con foto ridotte e convertite in WebP prima del caricamento
 - [x] promozioni degli editori, con lettura notturna delle fonti e approvazione prima della pubblicazione
 - [x] job notturno che legge le pagine "prossime uscite" degli editori, special e limitate comprese
-- [x] rebuild automatico del sito dopo le modifiche ai contenuti, più una build ogni mattina
+- [x] rebuild automatico del sito dopo le modifiche ai contenuti (controllo ogni 5 minuti, con un tetto giornaliero per restare nel piano gratuito), più una build ogni mattina
+- [x] fonti "calde" (box, edizioni limitate, promozioni a tempo) lette ogni mezz'ora di giorno, con avviso alla redazione quando c'è qualcosa da approvare
+- [x] sitemap, robots.txt, security.txt, intestazioni di sicurezza, pagina 404 e manifest per installare il sito come app
 - [x] bozze dei post social dai contenuti pubblicati: post e storie Instagram, caroselli e messaggi per Telegram, con immagini da scaricare
 - [ ] deploy su Cloudflare Pages
 - [ ] Edicola: uscite delle collane da edicola (fumetti particolari e libri), con piano dell'opera, prezzi e costo totale della collana

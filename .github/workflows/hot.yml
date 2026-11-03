@@ -1,0 +1,64 @@
+# Lettura delle fonti "calde" (box, edizioni limitate, promozioni a tempo) ogni mezz'ora di giorno,
+# perché i drop vanno a ruba in poche ore. Legge solo le fonti con frequenza "calda" (sezione Fonti del pannello):
+# se la pagina non è cambiata non chiama l'AI, quindi resta dentro i limiti gratuiti. La lettura notturna resta per tutte.
+# Le novità finiscono in "Da approvare" e, se ci sono i secret TELEGRAM_*, arriva un avviso alla redazione.
+# Secret: come la lettura notturna (+ TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID facoltativi). Finché mancano il job si chiude senza errori.
+name: Fonti calde
+
+on:
+  schedule:
+    - cron: '*/30 5-22 * * *' # dalle 6/7 a mezzanotte circa, ora italiana
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hot
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+      AI_MODEL: ${{ secrets.AI_MODEL }}
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+    steps:
+      - name: Controlla la configurazione
+        id: config
+        run: |
+          if [ -z "$PUBLIC_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$AI_BASE_URL" ] || [ -z "$AI_MODEL" ]; then
+            echo "Secret mancanti: imposta Supabase e il modulo di estrazione per attivare le fonti calde." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installa le dipendenze
+        id: install
+        if: steps.config.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Promozioni calde
+        if: steps.config.outputs.ready == 'true'
+        run: npm run promotions -- --hot
+
+      - name: Uscite e edizioni calde
+        if: always() && steps.config.outputs.ready == 'true' && steps.install.outcome == 'success'
+        run: npm run releases -- --hot

@@ -1,0 +1,40 @@
+---
+// Pagina non trovata: Cloudflare Pages la serve per ogni indirizzo che non esiste.
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Pagina non trovata" description="Questa pagina non esiste o è stata spostata.">
+  <section class="lost">
+    <div class="stamp" aria-hidden="true">404</div>
+    <h1>Questa pagina è uscita di catalogo</h1>
+    <p class="muted">Forse il link è sbagliato, o la pagina è stata spostata. Intanto, qualche posto da cui ripartire:</p>
+    <ul class="ways">
+      <li><a class="button-strong" href="/">Home</a></li>
+      <li><a class="button-soft" href="/uscite">Prossime uscite</a></li>
+      <li><a class="button-soft" href="/libri">Cerca un libro</a></li>
+      <li><a class="button-soft" href="/la-mia-libreria">La mia libreria</a></li>
+    </ul>
+  </section>
+</Base>
+
+<style>
+  .lost { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 0 20px; text-align: center; }
+  .stamp {
+    padding: 6px 22px;
+    font-family: var(--font-display);
+    font-size: 3.2rem;
+    color: var(--accent);
+    border: 4px double var(--accent);
+    border-radius: 12px;
+    rotate: -6deg;
+    opacity: 0.85;
+  }
+  h1 { margin: 10px 0 0; }
+  .lost p { max-width: 52ch; }
+  .ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+  .ways a { text-decoration: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stamp { animation: stamp-in 0.6s var(--ease-spring) backwards; }
+  }
+  @keyframes stamp-in { from { opacity: 0; transform: scale(1.8) rotate(12deg); } }
+</style>

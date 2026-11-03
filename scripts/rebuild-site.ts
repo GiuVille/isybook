@@ -3,9 +3,10 @@
 //   npm run rebuild -- --force ricostruisce comunque: la build del mattino, per le sezioni che dipendono dalla data
 //
 // Lo stato sta in site_state (migrazione 0007), aggiornato dai trigger del database a ogni modifica.
-// Gira ogni 15 minuti con .github/workflows/rebuild.yml. Senza configurazione esce senza errori.
+// Gira ogni 5 minuti con .github/workflows/rebuild.yml (tiene anche sveglio il progetto Supabase gratuito).
+// Senza configurazione esce senza errori.
 import { parseArgs } from 'node:util';
-import { shouldRebuild, type SiteState } from './lib/rebuild.ts';
+import { buildsToday, shouldRebuild, type SiteState } from './lib/rebuild.ts';
 import { sb } from './lib/sources.ts';
 
 const { values: flags } = parseArgs({ options: { force: { type: 'boolean', default: false } } });
@@ -18,7 +19,11 @@ if (!hook) {
 
 let state: SiteState = { content_changed_at: null, rebuild_requested_at: null, last_rebuild_at: null };
 if (sb) {
-  const { data, error } = await sb.from('site_state').select('content_changed_at, rebuild_requested_at, last_rebuild_at').eq('id', 1).single();
+  const { data, error } = await sb
+    .from('site_state')
+    .select('content_changed_at, rebuild_requested_at, last_rebuild_at, builds_day, builds_count')
+    .eq('id', 1)
+    .single();
   if (error) throw error;
   state = data;
 } else if (!flags.force) {
@@ -41,7 +46,12 @@ if (!res.ok) {
 }
 
 if (sb) {
-  const { error } = await sb.from('site_state').update({ last_rebuild_at: startedAt }).eq('id', 1);
+  // contatore del giorno: conta tutte le build, così il tetto tiene conto anche di quelle forzate
+  const now = new Date();
+  const { error } = await sb
+    .from('site_state')
+    .update({ last_rebuild_at: startedAt, builds_day: now.toISOString().slice(0, 10), builds_count: buildsToday(state, now) + 1 })
+    .eq('id', 1);
   if (error) throw error;
 }
 console.log(`Build avviata (${decision.reason}).`);

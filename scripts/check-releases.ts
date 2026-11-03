@@ -1,6 +1,7 @@
 // Lettura notturna delle pagine "prossime uscite" di editori e librerie.
 //   npm run releases               legge le fonti, estrae le uscite nuove e le mette in coda
 //   npm run releases -- --dry-run  legge le fonti e calcola l'impronta, senza estrazione né scritture
+//   npm run releases -- --hot      solo le fonti "calde" (ogni mezz'ora di giorno, .github/workflows/hot.yml)
 //
 // Fonti: tabella sources (purpose = 'releases', active) se Supabase è configurato, altrimenti scripts/sources.json.
 // Lettura, robots.txt e impronta come per le promozioni (scripts/lib/sources.ts). Per ogni uscita trovata:
@@ -14,9 +15,10 @@ import { parseArgs } from 'node:util';
 import { aiConfigured, extractReleases, rewritePlot, suggestTropes, type ExtractedRelease } from './lib/ai.ts';
 import { bookPayload, knownTropes } from './lib/book-payload.ts';
 import { fetchBook, type BookData } from './lib/books.ts';
+import { notifyEditors } from './lib/notify.ts';
 import { OUT_DIR, allowedByRobots, loadSources, readJson, readSource, saveRead, sb, similar, today } from './lib/sources.ts';
 
-const { values: flags } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false } } });
+const { values: flags } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false }, hot: { type: 'boolean', default: false } } });
 const dryRun = flags['dry-run'];
 
 /** Massimo di uscite preparate per notte: ognuna può costare fino a tre richieste di estrazione. */
@@ -135,7 +137,7 @@ if (!dryRun && !aiConfigured()) {
   process.exit(1);
 }
 
-const sources = await loadSources('releases');
+const sources = await loadSources('releases', flags.hot);
 if (sources.length === 0) {
   console.log(sb ? 'Nessuna fonte attiva per le uscite nella tabella sources.' : 'Nessuna fonte di uscite in scripts/sources.json.');
 }
@@ -193,6 +195,7 @@ if (!dryRun && found.length > 0) {
     const { error } = await sb.from('review_queue').insert(found.map(({ payload, source_id }) => ({ content_type: 'book', payload, source_id })));
     if (error) throw error;
     console.log(`\n${found.length} uscite in coda "Da approvare".`);
+    await notifyEditors(`📚 ${found.length} ${found.length === 1 ? 'nuova uscita' : 'nuove uscite'} da approvare`, found.map((f) => f.payload.work?.title ?? ''));
   } else {
     const previous = await readJson<Payload[]>(OUT_FILE, []);
     await mkdir(OUT_DIR, { recursive: true });

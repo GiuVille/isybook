@@ -1,12 +1,16 @@
 # Aggiornamento del sito su Cloudflare Pages.
-# Ogni 15 minuti controlla se i contenuti sono cambiati (e fermi da qualche minuto) o se la redazione ha chiesto
-# una build; ogni mattina, dopo la lettura notturna, ricostruisce comunque per le sezioni che dipendono dalla data.
+# Ogni 5 minuti controlla se i contenuti sono cambiati (e fermi da 5 minuti) o se la redazione ha chiesto una build:
+# un drop approvato va online in 5-10 minuti. Al massimo 14 build automatiche al giorno (Cloudflare Pages gratis: 500 al mese).
+# Ogni mattina, dopo la lettura notturna, ricostruisce comunque per le sezioni che dipendono dalla data.
+# Il controllo frequente tiene anche sveglio il progetto Supabase gratuito (va in pausa dopo 7 giorni senza attività).
+# GitHub disattiva i workflow programmati dopo 60 giorni senza commit (e manda un'email per riattivarli con un clic):
+# basta un commit ogni due mesi per non fermarli.
 # Secret richiesti: CLOUDFLARE_DEPLOY_HOOK, PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Finché mancano il job si chiude senza errori.
 name: Aggiornamento del sito
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'
     - cron: '30 4 * * *' # build del mattino: 05:30 in Italia con l'ora solare
   workflow_dispatch:
     inputs:

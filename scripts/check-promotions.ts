@@ -1,6 +1,7 @@
 // Lettura notturna delle fonti delle promozioni (pagine e feed di editori e librerie).
 //   npm run promotions               legge le fonti, estrae le promozioni nuove e le mette in coda
 //   npm run promotions -- --dry-run  legge le fonti e calcola l'impronta, senza estrazione né scritture
+//   npm run promotions -- --hot      solo le fonti "calde" (ogni mezz'ora di giorno, .github/workflows/hot.yml)
 //
 // Fonti: tabella sources (purpose = 'promotions', active) se Supabase è configurato, altrimenti scripts/sources.json.
 // Per ogni fonte: rispetta robots.txt, una sola richiesta con User-Agent dichiarato, salta le pagine invariate
@@ -11,10 +12,11 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { aiConfigured, extractPromotions, type ExtractedPromotion } from './lib/ai.ts';
+import { notifyEditors } from './lib/notify.ts';
 import { OUT_DIR, allowedByRobots, loadSources, readJson, readSource, saveRead, sb, similar, today } from './lib/sources.ts';
 import { slugify } from '../src/admin/resources.ts';
 
-const { values: flags } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false } } });
+const { values: flags } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false }, hot: { type: 'boolean', default: false } } });
 const dryRun = flags['dry-run'];
 
 type Candidate = ExtractedPromotion & {
@@ -117,7 +119,7 @@ if (!dryRun && !aiConfigured()) {
   process.exit(1);
 }
 
-const sources = await loadSources('promotions');
+const sources = await loadSources('promotions', flags.hot);
 if (sources.length === 0) {
   console.log(sb ? 'Nessuna fonte attiva per le promozioni nella tabella sources.' : 'Nessuna fonte in scripts/sources.json.');
 }
@@ -167,6 +169,7 @@ if (!dryRun && found.length > 0) {
       .insert(found.map((p) => ({ content_type: 'promotion', payload: toPayload(p), source_id: p.source_id })));
     if (error) throw error;
     console.log(`\n${found.length} promozioni in coda "Da approvare".`);
+    await notifyEditors(`🎁 ${found.length} ${found.length === 1 ? 'nuova promozione' : 'nuove promozioni'} da approvare`, found.map((p) => p.title ?? ''));
   } else {
     const file = new URL(`./out/promotions-${today}.json`, import.meta.url);
     const previous = await readJson<unknown[]>(file, []);
