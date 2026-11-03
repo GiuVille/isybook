@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "IsyBooks – il radar delle uscite",
   "short_name": "IsyBooks",
   "description": "Uscite, edizioni speciali, serie tratte dai libri, book journal ed eventi, in un posto solo.",
@@ -9,8 +10,53 @@
   "background_color": "#fbf8f4",
   "theme_color": "#8a3f7a",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "La mia libreria",
+      "short_name": "Libreria",
+      "url": "/la-mia-libreria",
+      "icons": [
+        {
+          "src": "/icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Prossime uscite",
+      "short_name": "Uscite",
+      "url": "/uscite",
+      "icons": [
+        {
+          "src": "/icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

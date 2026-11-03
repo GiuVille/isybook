@@ -1,0 +1,67 @@
+---
+// Pulsante "Installa l'app". Su Android, Chrome ed Edge apre l'installazione vera del sistema; su iPhone e iPad
+// (dove Safari non la offre) apre una guida in tre passi. Sparisce se il sito è già installato.
+// Logica in src/scripts/install.ts; una sola guida per pagina, anche con più pulsanti.
+interface Props {
+  /** Testo più lungo dove c'è spazio (La mia libreria). */
+  variant?: 'link' | 'card';
+}
+const { variant = 'link' } = Astro.props;
+---
+
+{
+  variant === 'card' ? (
+    <div class="install-card" data-install-wrap hidden>
+      <span class="install-icon" aria-hidden="true"><img src="/favicon.svg" alt="" width="40" height="40" /></span>
+      <div>
+        <strong>IsyBooks sul telefono</strong>
+        <p>Aggiungi il sito alla schermata Home: si apre come un'app, a tutto schermo, con la tua libreria sempre a portata di dito.</p>
+      </div>
+      <button type="button" class="button-strong" data-install>Installa l'app</button>
+    </div>
+  ) : (
+    <button type="button" class="install-link" data-install data-install-wrap hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" /></svg>
+      Installa l'app
+    </button>
+  )
+}
+
+<style>
+  .install-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 4px 0;
+    padding: 4px 12px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .install-link:hover,
+  .install-link:focus-visible { border-color: var(--accent); }
+  .install-link svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .install-link[hidden],
+  .install-card[hidden] { display: none; }
+  .install-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    margin: 16px 0 0;
+    padding: 14px 16px;
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+  }
+  .install-card > div { flex: 1 1 240px; }
+  .install-card p { margin: 2px 0 0; font-size: 0.9rem; }
+  .install-icon img { display: block; border-radius: 10px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .install-link svg { transition: transform 0.3s var(--ease-spring); }
+    .install-link:hover svg { transform: translateY(2px); }
+  }
+</style>

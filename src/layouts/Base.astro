@@ -4,6 +4,7 @@ import '@fontsource/young-serif';
 import '@fontsource-variable/literata';
 import '../styles/global.css';
 import '../styles/motion.css';
+import InstallApp from '../components/InstallApp.astro';
 import Onboarding from '../components/Onboarding.astro';
 
 interface Props {
@@ -46,6 +47,7 @@ const path = Astro.url.pathname;
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <link rel="canonical" href={new URL(path, Astro.site)} />
+    {import.meta.env.PUBLIC_NOINDEX && <meta name="robots" content="noindex, nofollow" />}
     <!-- prima del primo disegno: classe js per le animazioni e tema scelto dal pulsante, se c'è -->
     <script is:inline>
       document.documentElement.classList.add('js');
@@ -138,13 +140,16 @@ const path = Astro.url.pathname;
         <a href="https://giuseppevillella.it" rel="author">Giuseppe Villella</a>.
         <a class="privacy-link" href="/privacy">Privacy e cookie</a>
       </p>
+      <p><InstallApp /></p>
     </footer>
 
     <script>
       import { getLibrary, onLibraryChange, savedCount } from '../lib/library';
       import { initReveal, reducedMotion } from '../scripts/reveal';
       import { initKonami } from '../scripts/konami';
+      import { initInstall } from '../scripts/install';
       initKonami();
+      initInstall();
 
       // animazioni d'ingresso (frecce delle anteprime, peperoncini…)
       initReveal();

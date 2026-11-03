@@ -41,9 +41,14 @@ const groups: FilterGroup[] = [
   <div class="list">
     {adaptations.map((a) => <AdaptationPreview adaptation={a} />)}
   </div>
+<p class="tmdb-credit muted small">
+    Dati di serie e film da <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a>: questo sito usa le API di TMDB ma non è approvato né certificato da TMDB.
+    Disponibilità in streaming in Italia: dati <a href="https://www.justwatch.com/it" target="_blank" rel="noopener">JustWatch</a>.
+  </p>
 </Base>
 
 <style>
   .intro { margin-top: -8px; }
   .list { display: grid; gap: 24px; }
+  .tmdb-credit { margin-top: 40px; max-width: 70ch; }
 </style>

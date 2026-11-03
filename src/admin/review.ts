@@ -41,8 +41,29 @@ export interface PromotionPayload {
 
 /** Cosa è stato creato approvando: per aprirlo subito nell'admin. */
 export interface Approved {
-  resource: 'works' | 'promotions';
+  resource: 'works' | 'promotions' | 'adaptations';
   id: string;
+}
+
+/** Trama da approvare per un libro già pubblicato senza trama (semina automatica del catalogo). */
+export interface PlotPayload {
+  work_id: string;
+  work_slug: string;
+  title: string;
+  authors?: string[];
+  cover_url?: string | null;
+  plot: string | null; // riscritta in automatico: si pubblica solo dopo l'approvazione
+  tropes?: string[]; // slug suggeriti
+  new_tropes?: Array<{ name: string; slug: string }>;
+  original_description?: string | null; // solo riferimento, mai pubblicata
+}
+
+/** Serie o film tratto da un libro, proposto dall'import da TMDB. */
+export interface AdaptationPayload {
+  work_id: string;
+  work_title: string;
+  adaptation: Row; // colonne della tabella adaptations (senza work_id e status)
+  original_overview?: string | null; // trama di TMDB: solo riferimento
 }
 
 async function ensureBySlug(sb: SupabaseClient, table: string, values: Row): Promise<string> {
@@ -68,7 +89,7 @@ async function link(sb: SupabaseClient, table: string, rows: Row[]) {
   if (error) throw error;
 }
 
-async function markApproved(sb: SupabaseClient, item: Row, reviewerId: string) {
+async function markApproved(sb: SupabaseClient, item: Row, reviewerId: string | null) {
   const { error } = await sb
     .from('review_queue')
     .update({ status: 'approved', reviewed_by: reviewerId, reviewed_at: new Date().toISOString() })
@@ -86,7 +107,7 @@ async function freeSlug(sb: SupabaseClient, table: string, base: string): Promis
   return slug;
 }
 
-async function approvePromotion(sb: SupabaseClient, item: Row, reviewerId: string): Promise<string> {
+async function approvePromotion(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
   const p = item.payload as PromotionPayload;
   const publisherId = p.publisher ? await ensureBySlug(sb, 'publishers', { name: p.publisher.name, slug: p.publisher.slug }) : null;
   const slug = await freeSlug(sb, 'promotions', p.slug || slugify(p.title));
@@ -122,11 +143,21 @@ async function approvePromotion(sb: SupabaseClient, item: Row, reviewerId: strin
 }
 
 /** Approva un elemento della coda e pubblica ciò che propone. */
-export async function approveReviewItem(sb: SupabaseClient, item: Row, reviewerId: string): Promise<Approved> {
+export async function approveReviewItem(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<Approved> {
   if (item.content_type === 'promotion') return { resource: 'promotions', id: await approvePromotion(sb, item, reviewerId) };
+  if (item.content_type === 'plot') return { resource: 'works', id: await approvePlot(sb, item, reviewerId) };
+  if (item.content_type === 'adaptation') return { resource: 'adaptations', id: await approveAdaptation(sb, item, reviewerId) };
   if (item.content_type !== 'book') throw new Error(`Tipo non gestito: ${item.content_type}`);
-  const p = item.payload as BookPayload;
+  const workId = await publishBook(sb, item.payload as BookPayload);
+  await markApproved(sb, item, reviewerId);
+  return { resource: 'works', id: workId };
+}
 
+/**
+ * Crea (o completa) opera, autori, editore ed edizione di un libro. Usata dall'approvazione e dalla semina
+ * automatica del catalogo, che pubblica subito i dati del libro e manda in coda solo la trama.
+ */
+export async function publishBook(sb: SupabaseClient, p: BookPayload): Promise<string> {
   const publisherId = p.publisher ? await ensureBySlug(sb, 'publishers', { name: p.publisher.name, slug: p.publisher.slug }) : null;
   const authorIds = await Promise.all(p.authors.map((a) => ensureBySlug(sb, 'authors', { name: a.name, slug: a.slug })));
   const workId = await ensureBySlug(sb, 'works', { ...p.work, status: 'published' });
@@ -144,7 +175,41 @@ export async function approveReviewItem(sb: SupabaseClient, item: Row, reviewerI
     ? await sb.from('editions').upsert(edition, { onConflict: 'isbn' })
     : await sb.from('editions').insert(edition);
   if (saved.error) throw saved.error;
+  return workId;
+}
 
+/** Trama approvata (eventualmente corretta) e tropes scelti per un libro già pubblicato. */
+async function approvePlot(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
+  const p = item.payload as PlotPayload;
+  if (!p.plot?.trim()) throw new Error('La trama è vuota: scrivila prima di approvare');
+  const { error } = await sb.from('works').update({ plot: p.plot.trim() }).eq('id', p.work_id);
+  if (error) throw error;
+  for (const t of p.new_tropes ?? []) await ensureBySlug(sb, 'tropes', t);
+  await link(sb, 'work_tropes', (await idsBySlug(sb, 'tropes', p.tropes)).map((trope_id) => ({ work_id: p.work_id, trope_id })));
   await markApproved(sb, item, reviewerId);
-  return { resource: 'works', id: workId };
+  return p.work_id;
+}
+
+/** Serie o film proposto da TMDB: pubblicato e collegato al libro. */
+async function approveAdaptation(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
+  const p = item.payload as AdaptationPayload;
+  const a = p.adaptation;
+  // se c'è già (stesso id TMDB) si aggiorna, altrimenti si crea con uno slug libero
+  const existing = a.tmdb_id ? await sb.from('adaptations').select('id').eq('tmdb_id', a.tmdb_id).maybeSingle() : { data: null, error: null };
+  if (existing.error) throw existing.error;
+  const row = { ...a, work_id: p.work_id, status: 'published' };
+  let id: string;
+  if (existing.data) {
+    const { error } = await sb.from('adaptations').update(row).eq('id', existing.data.id);
+    if (error) throw error;
+    id = existing.data.id;
+  } else {
+    let slug = a.slug || slugify(a.title);
+    for (let n = 2; (await sb.from('adaptations').select('id').eq('slug', slug).maybeSingle()).data; n++) slug = `${a.slug || slugify(a.title)}-${n}`;
+    const { data, error } = await sb.from('adaptations').insert({ ...row, slug }).select('id').single();
+    if (error) throw error;
+    id = data.id;
+  }
+  await markApproved(sb, item, reviewerId);
+  return id;
 }

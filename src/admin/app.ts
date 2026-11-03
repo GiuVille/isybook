@@ -612,7 +612,16 @@ function defaults(resource: Resource): Row {
 // ---------------------------------------------------------------------------
 // Coda di revisione
 // ---------------------------------------------------------------------------
-const CONTENT_TYPE_LABELS: Record<string, string> = { book: 'Libro', event: 'Evento', article: 'Articolo', promotion: 'Promozione' };
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  book: 'Libro',
+  event: 'Evento',
+  article: 'Articolo',
+  promotion: 'Promozione',
+  plot: 'Trama',
+  adaptation: 'Serie o film',
+};
+/** Tipi che si possono approvare anche in blocco dall'elenco (gli altri vanno aperti uno per uno). */
+const BULK_TYPES = ['plot', 'adaptation'];
 
 const PROMOTION_KINDS = getResource('promotions')!.fields.find((f) => f.name === 'kind')!.options!;
 
@@ -719,7 +728,16 @@ function promotionSummary(p: Row, publisherHtml: string): string {
 
 function reviewTitle(item: Row): string {
   const p = item.payload ?? {};
+  if (item.content_type === 'adaptation') return `${p.adaptation?.title ?? ''} (da «${p.work_title ?? ''}»)`;
   return p.work?.title ?? p.title ?? p.name ?? item.id;
+}
+
+/** Una trama o un adattamento si possono approvare in blocco solo se non c'è nulla da decidere a mano. */
+function bulkReady(item: Row): boolean {
+  const p = item.payload ?? {};
+  if (item.content_type === 'plot') return Boolean(p.plot?.trim()) && !(p.new_tropes ?? []).length;
+  if (item.content_type === 'adaptation') return true;
+  return false;
 }
 
 async function renderReviewList() {
@@ -730,24 +748,126 @@ async function renderReviewList() {
     .order('created_at');
   if (error) fail(error);
   const rows = data ?? [];
+  const types = [...new Set(rows.map((r: Row) => r.content_type))];
+  const filter = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tipo') ?? '';
+  const shown = filter ? rows.filter((r: Row) => r.content_type === filter) : rows;
+  const bulkable = shown.filter(bulkReady);
   render(
     shell(`
       <h1>Da approvare</h1>
       ${rows.length === 0 ? '<p class="muted">Niente in coda.</p>' : ''}
+      ${
+        rows.length
+          ? `<div class="queue-tools">
+              <div class="queue-filter">${['', ...types]
+                .map((t) => `<a class="pill ${t === filter ? 'is-on' : ''}" href="#/review${t ? `?tipo=${t}` : ''}">${t ? esc(CONTENT_TYPE_LABELS[t] ?? t) : 'Tutto'} (${t ? rows.filter((r: Row) => r.content_type === t).length : rows.length})</a>`)
+                .join('')}</div>
+              ${
+                bulkable.length
+                  ? `<div class="queue-bulk">
+                      <label class="check"><input type="checkbox" id="bulk-all"> Seleziona tutte le pronte (${bulkable.length})</label>
+                      <button id="bulk-approve" disabled>Approva selezionati</button>
+                      <span class="muted small" id="bulk-progress"></span>
+                    </div>
+                    <p class="muted small">Si possono approvare in blocco trame già scritte (senza tropes nuovi da decidere) e serie o film. Il resto si apre uno per uno.</p>`
+                  : ''
+              }
+            </div>`
+          : ''
+      }
       <div class="queue">
-        ${rows
+        ${shown
           .map(
             (item: Row) => `
-            <a class="card queue-item" href="#/review/${item.id}">
+            <div class="card queue-item">
+              ${bulkReady(item) ? `<input type="checkbox" class="bulk-pick" value="${item.id}" aria-label="Seleziona «${esc(reviewTitle(item))}»">` : '<span class="bulk-space"></span>'}
+              ${queueThumb(item)}
               <span class="pill">${esc(CONTENT_TYPE_LABELS[item.content_type] ?? item.content_type)}</span>
-              <strong>${esc(reviewTitle(item))}</strong>
+              <a href="#/review/${item.id}"><strong>${esc(reviewTitle(item))}</strong></a>
+              ${item.content_type === 'plot' && !item.payload?.plot ? '<span class="pill draft">trama da scrivere</span>' : ''}
               <span class="muted small">${esc(new Date(item.created_at).toLocaleString('it-IT'))}</span>
-            </a>`,
+            </div>`,
           )
           .join('')}
       </div>`),
   );
   bindShell();
+
+  const picks = () => [...document.querySelectorAll<HTMLInputElement>('.bulk-pick:checked')].map((i) => i.value);
+  const approveBtn = document.getElementById('bulk-approve') as HTMLButtonElement | null;
+  const refresh = () => {
+    if (approveBtn) approveBtn.disabled = picks().length === 0;
+  };
+  document.querySelectorAll('.bulk-pick').forEach((i) => i.addEventListener('change', refresh));
+  document.getElementById('bulk-all')?.addEventListener('change', (e) => {
+    const on = (e.target as HTMLInputElement).checked;
+    document.querySelectorAll<HTMLInputElement>('.bulk-pick').forEach((i) => (i.checked = on));
+    refresh();
+  });
+  approveBtn?.addEventListener('click', async () => {
+    const ids = picks();
+    if (!confirm(`Approvare e pubblicare ${ids.length} elementi così come sono?`)) return;
+    approveBtn.disabled = true;
+    const progress = document.getElementById('bulk-progress')!;
+    const sb = getSupabase();
+    let done = 0;
+    let failed = 0;
+    for (const id of ids) {
+      const item = rows.find((r: Row) => r.id === id);
+      try {
+        await approveReviewItem(sb, item, session!.user.id);
+        done++;
+      } catch {
+        failed++;
+      }
+      progress.textContent = `${done + failed} di ${ids.length}…`;
+    }
+    flash(failed ? `Approvati ${done}, non riusciti ${failed}: aprili uno per uno` : `Approvati ${done}`, failed ? 'error' : 'ok');
+    await renderReviewList();
+  });
+}
+
+/** Copertina o locandina piccola nell'elenco, per riconoscere a colpo d'occhio. */
+function queueThumb(item: Row): string {
+  const p = item.payload ?? {};
+  const src = item.content_type === 'adaptation' ? p.adaptation?.poster_url : (p.cover_url ?? p.edition?.cover_url);
+  return src ? `<img class="queue-thumb" src="${esc(src)}" alt="" loading="lazy">` : '<span class="queue-thumb"></span>';
+}
+
+/** Riepilogo di una trama da approvare: testo modificabile, tropes suggeriti, quarta originale solo come riferimento. */
+async function plotSummary(sb: ReturnType<typeof getSupabase>, p: Row): Promise<string> {
+  const tropes = [...(p.tropes ?? []).map((slug: string) => ({ slug, name: humanize(slug) })), ...(p.new_tropes ?? [])];
+  return `
+    <dl class="summary">
+      <dt>Libro</dt><dd><a href="/libri/${esc(p.work_slug)}" target="_blank" rel="noopener">${esc(p.title)}</a> ${p.authors?.length ? `di ${esc(p.authors.join(', '))}` : ''}</dd>
+      ${await proposedTags(sb, 'tropes', 'Tropes proposti', tropes)}
+    </dl>
+    <p class="muted small">Il libro è già online senza trama: la scheda mostra «La trama arriva presto» finché non approvi.</p>
+    <label for="plot">Trama (scritta da noi: correggila liberamente prima di approvare)</label>
+    <textarea id="plot" rows="7" placeholder="Scrivi la trama con parole vostre, senza spoiler oltre la premessa.">${esc(p.plot)}</textarea>
+    ${p.original_description ? `<details><summary>Quarta di copertina dell'editore (solo riferimento, non copiarla)</summary><p class="muted">${esc(p.original_description)}</p></details>` : ''}`;
+}
+
+/** Riepilogo di una serie o un film proposto da TMDB. */
+function adaptationSummary(p: Row): string {
+  const a = p.adaptation ?? {};
+  const kinds: Record<string, string> = { subscription: 'abbonamento', rent: 'noleggio', buy: 'acquisto', free: 'gratis' };
+  return `
+    <div class="adapt-head">
+      ${a.poster_url ? `<img src="${esc(a.poster_url)}" alt="" class="adapt-poster">` : ''}
+      <dl class="summary">
+        <dt>Tratto da</dt><dd>${esc(p.work_title)}</dd>
+        <dt>Tipo</dt><dd>${a.kind === 'film' ? 'Film' : 'Serie TV'}${a.platform ? ` · ${esc(a.platform)}` : ''}</dd>
+        <dt>Uscita</dt><dd>${esc(a.release_date ?? '—')}${a.production_status ? ` · ${esc(a.production_status)}` : ''}</dd>
+        ${a.kind === 'film' ? `<dt>Durata</dt><dd>${esc(a.runtime_minutes ?? '—')} minuti</dd>` : `<dt>Stagioni</dt><dd>${esc(a.seasons ?? '—')} (${esc(a.episodes ?? '—')} episodi)</dd>`}
+        <dt>Dove vederlo</dt><dd>${(a.watch_providers ?? []).map((w: Row) => `${esc(w.platform)} (${kinds[w.kind] ?? w.kind})`).join(', ') || '—'}</dd>
+        <dt>Trailer</dt><dd>${a.trailer_url ? `<a href="${esc(a.trailer_url)}" target="_blank" rel="noopener">guarda</a>` : '—'}</dd>
+        <dt>TMDB</dt><dd><a href="https://www.themoviedb.org/${a.kind === 'film' ? 'movie' : 'tv'}/${esc(a.tmdb_id)}" target="_blank" rel="noopener">scheda</a></dd>
+      </dl>
+    </div>
+    <label for="plot">Trama (scritta da noi: correggila liberamente prima di approvare)</label>
+    <textarea id="plot" rows="6">${esc(a.plot)}</textarea>
+    ${p.original_overview ? `<details><summary>Trama di TMDB (solo riferimento)</summary><p class="muted">${esc(p.original_overview)}</p></details>` : ''}`;
 }
 
 async function renderReviewItem(id: string) {
@@ -790,7 +910,11 @@ async function renderReviewItem(id: string) {
         ${p.original_description ? `<details><summary>Descrizione originale (solo riferimento, non pubblicare)</summary><p class="muted">${esc(p.original_description)}</p></details>` : ''}`
       : item.content_type === 'promotion'
         ? promotionSummary(p, proposed)
-        : '';
+        : item.content_type === 'plot'
+          ? await plotSummary(sb, p)
+          : item.content_type === 'adaptation'
+            ? adaptationSummary(p)
+            : '';
 
   render(
     shell(`
@@ -801,7 +925,7 @@ async function renderReviewItem(id: string) {
         <details ${summary ? '' : 'open'}><summary>Dati completi</summary><pre>${esc(JSON.stringify(p, null, 2))}</pre></details>
         ${item.status === 'pending'
           ? `<div class="actions">
-              ${['book', 'promotion'].includes(item.content_type) ? '<button id="approve">Approva e pubblica</button>' : ''}
+              ${['book', 'promotion', 'plot', 'adaptation'].includes(item.content_type) ? `<button id="approve">${item.content_type === 'plot' ? 'Approva la trama' : 'Approva e pubblica'}</button>` : ''}
               <button class="danger" id="reject">Scarta</button>
             </div>`
           : `<p class="muted">Stato: ${esc(item.status)}</p>`}
@@ -811,7 +935,13 @@ async function renderReviewItem(id: string) {
 
   document.getElementById('approve')?.addEventListener('click', async () => {
     let payload: Row;
-    if (item.content_type === 'book') {
+    const text = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim() ?? '';
+    if (item.content_type === 'plot') {
+      if (!text) return flash('Scrivi la trama prima di approvare', 'error');
+      payload = { ...p, plot: text, ...approvedSlugs('tropes') };
+    } else if (item.content_type === 'adaptation') {
+      payload = { ...p, adaptation: { ...p.adaptation, plot: text || null } };
+    } else if (item.content_type === 'book') {
       const plot = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim();
       const authors = (approvedTags('authors') ?? []).map(({ slug, name }) => ({ slug, name }));
       if (authors.length === 0) return flash('Un libro ha bisogno di almeno un autore: spuntane o aggiungine uno', 'error');

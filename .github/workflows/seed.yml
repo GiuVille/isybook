@@ -1,0 +1,72 @@
+# Riempimento del catalogo: libri da Google Books (pubblicati subito senza trama, la trama passa dalla redazione)
+# e serie e film tratti dai libri da TMDB (in "Da approvare"). Si avvia a mano dal tab Actions; ogni volta prepara
+# un lotto, per restare nei limiti gratuiti. Si può rilanciare finché ci sono libri nuovi.
+# Secret: PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AI_BASE_URL, AI_MODEL (+ AI_API_KEY),
+#         GOOGLE_BOOKS_API_KEY (consigliata), TMDB_API_KEY; facoltativi TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID.
+name: Riempimento del catalogo
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: Libri da aggiungere in questo lotto
+        default: '40'
+      adaptations:
+        description: Cerca anche serie e film su TMDB
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+      AI_MODEL: ${{ secrets.AI_MODEL }}
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+      GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+    steps:
+      - name: Controlla la configurazione
+        id: config
+        run: |
+          if [ -z "$PUBLIC_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Secret di Supabase mancanti: il catalogo si riempie solo dopo aver collegato il database." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installa le dipendenze
+        id: install
+        if: steps.config.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Libri
+        if: steps.config.outputs.ready == 'true'
+        run: npm run seed -- --batch "${{ inputs.batch }}"
+
+      - name: Serie e film
+        if: always() && steps.config.outputs.ready == 'true' && steps.install.outcome == 'success' && inputs.adaptations
+        run: npm run adaptations

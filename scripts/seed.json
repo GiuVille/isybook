@@ -1,0 +1,44 @@
+{
+  "_info": "Semina automatica del catalogo (npm run seed). Ricerche su Google Books in italiano; per ogni voce si prendono al massimo 'perQuery' libri. Si possono aggiungere o togliere voci liberamente. Autrici e autori già in catalogo vengono cercati da soli per trovare gli altri loro libri.",
+  "perQuery": 20,
+  "batch": 40,
+  "queries": [
+    "romantasy",
+    "fantasy romance",
+    "fantasy young adult",
+    "enemies to lovers romanzo",
+    "dark romance",
+    "romance contemporaneo",
+    "fae fantasy",
+    "draghi fantasy romance",
+    "academy fantasy",
+    "slow burn romance"
+  ],
+  "authors": [
+    "Rebecca Yarros",
+    "Sarah J. Maas",
+    "Jennifer L. Armentrout",
+    "Holly Black",
+    "Leigh Bardugo",
+    "Ali Hazelwood",
+    "Colleen Hoover",
+    "Emily Henry",
+    "Elsie Silver",
+    "Tahereh Mafi",
+    "Marissa Meyer",
+    "Lauren Roberts",
+    "Carissa Broadbent",
+    "Raven Kennedy",
+    "Elena Armas"
+  ],
+  "publishers": [
+    "Mondadori",
+    "Fanucci",
+    "Newton Compton",
+    "Always Publishing",
+    "Sperling & Kupfer",
+    "HarperCollins Italia",
+    "Hope Edizioni",
+    "Oscar Vault"
+  ]
+}

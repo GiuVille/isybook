@@ -168,6 +168,10 @@ const trailerThumb = trailer ? await promoImage(youtubeThumb(trailer)) : null;
       </section>
     )}
   </article>
+<p class="tmdb-credit muted small">
+    Dati di serie e film da <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDB</a>: questo sito usa le API di TMDB ma non è approvato né certificato da TMDB.
+    Disponibilità in streaming in Italia: dati <a href="https://www.justwatch.com/it" target="_blank" rel="noopener">JustWatch</a>.
+  </p>
 </Base>
 
 <script>
@@ -264,4 +268,5 @@ const trailerThumb = trailer ? await promoImage(youtubeThumb(trailer)) : null;
   }
   @keyframes trailer-on { from { opacity: 0; transform: scaleY(0.02); } }
   @keyframes trailer-pulse { 0%, 100% { box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6), 0 0 0 0 rgba(255, 255, 255, 0.35); } 50% { box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6), 0 0 0 10px rgba(255, 255, 255, 0); } }
+  .tmdb-credit { margin-top: 40px; max-width: 70ch; }
 </style>

@@ -138,12 +138,10 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
       </div>
     </div>
 
-    {work.plot && (
-      <section>
-        <h2>Trama</h2>
-        <p class="plot">{work.plot}</p>
-      </section>
-    )}
+    <section>
+      <h2>Trama</h2>
+      {work.plot ? <p class="plot">{work.plot}</p> : <p class="muted plot-soon">La trama arriva presto: la stiamo scrivendo noi, senza spoiler.</p>}
+    </section>
 
     {series && (
       <section id="saga">

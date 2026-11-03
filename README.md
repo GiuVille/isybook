@@ -143,6 +143,8 @@ C'è anche una build fissa ogni mattina, dopo la lettura notturna: le promozioni
 - [x] job notturno che legge le pagine "prossime uscite" degli editori, special e limitate comprese
 - [x] rebuild automatico del sito dopo le modifiche ai contenuti (controllo ogni 5 minuti, con un tetto giornaliero per restare nel piano gratuito), più una build ogni mattina
 - [x] fonti "calde" (box, edizioni limitate, promozioni a tempo) lette ogni mezz'ora di giorno, con avviso alla redazione quando c'è qualcosa da approvare
+- [x] riempimento automatico del catalogo: libri da Google Books pubblicati con i loro dati e trama scritta da noi dopo la revisione, serie e film tratti dai libri da TMDB con trailer e dove vederli
+- [x] pulsante "Installa l'app" (PWA) con guida per iPhone
 - [x] sitemap, robots.txt, security.txt, intestazioni di sicurezza, pagina 404 e manifest per installare il sito come app
 - [x] bozze dei post social dai contenuti pubblicati: post e storie Instagram, caroselli e messaggi per Telegram, con immagini da scaricare
 - [ ] deploy su Cloudflare Pages

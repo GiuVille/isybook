@@ -111,6 +111,15 @@ import '../../styles/global.css';
 
   .children { margin-top: 32px; }
   .queue { display: grid; gap: 8px; }
+  .queue-tools { display: grid; gap: 8px; margin-bottom: 14px; }
+  .queue-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+  .queue-filter .pill { text-decoration: none; }
+  .queue-filter .pill.is-on { outline: 2px solid currentColor; }
+  .queue-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .queue-thumb { width: 32px; height: 46px; flex: none; object-fit: cover; border-radius: 2px; background: var(--border); }
+  .bulk-space { width: 13px; }
+  .adapt-head { display: flex; gap: 16px; align-items: flex-start; }
+  .adapt-poster { width: 110px; border-radius: 4px; }
   .queue-item { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; text-decoration: none; color: var(--text); }
   .summary { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 16px; }
   .summary dt { color: var(--muted); }

@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import BookJournal from '../components/BookJournal.astro';
+import InstallApp from '../components/InstallApp.astro';
 import YearTournament from '../components/YearTournament.astro';
 import '../styles/drawer.css';
 import '../styles/videoteca.css';
@@ -20,6 +21,8 @@ import '../styles/shuffle.css';
     Libri, serie e film sono salvati solo su questo browser: niente account e nessun dato inviato a noi.
     Presto potrai creare un account per ritrovarli su tutti i dispositivi. Nel frattempo puoi fare un backup qui sotto.
   </p>
+
+  <InstallApp variant="card" />
 
   <div id="library">
     <div class="lib-drawer" role="tablist" aria-label="Le tue raccolte"><p class="muted">Caricamento…</p></div>
