@@ -27,6 +27,8 @@ jobs:
       AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
       AI_MODEL: ${{ secrets.AI_MODEL }}
       AI_API_KEY: ${{ secrets.AI_API_KEY }}
+      GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
@@ -63,3 +65,16 @@ jobs:
       - name: Prossime uscite
         if: always() && steps.config.outputs.ready == 'true' && steps.install.outcome == 'success'
         run: npm run releases
+
+      # fiere, firmacopie e presentazioni (fonti con purpose = 'events'), indipendenti dalle altre
+      - name: Eventi
+        if: always() && steps.config.outputs.ready == 'true' && steps.install.outcome == 'success'
+        run: npm run events
+
+      # serie e film tratti dai libri entrati da poco: una volta a settimana (lunedì)
+      - name: Serie e film
+        if: always() && steps.config.outputs.ready == 'true' && steps.install.outcome == 'success'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$(date -u +%u)" = "1" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then npm run adaptations; else echo "Serie e film: solo il lunedì"; fi

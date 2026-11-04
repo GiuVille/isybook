@@ -86,6 +86,45 @@ const ICONS = {
   cocktail: 'M4 5h16l-8 8Z M12 13v7 M8 20h8 M15 3l3 5 M17 2.5c1 .5 1.5 1.5 1 2.5',
   ipod: 'M7 3h10v18H7Z M9 5h6v6H9Z M12 16a2.5 2.5 0 1 0 .01 0 M12 16h.01',
   varsity: 'M6 4h7a4 4 0 0 1 2 7 4 4 0 0 1-2 9H6Z M9 7v3.5h3a1.75 1.75 0 0 0 0-3.5Z M9 13.5V17h3.5a1.75 1.75 0 0 0 0-3.5Z',
+  // tropes (src/lib/doodles.ts, TROPES): un adesivo a tema per ogni famiglia di tropes
+  ring: 'M12 9.5a5.75 5.75 0 1 0 0 11.5 5.75 5.75 0 1 0 0-11.5Z M9 5h6l-3 4.5Z M9 5l1.5-2h3L15 5',
+  diamond: 'M6 4h12l4 5-10 12L2 9Z M2 9h20 M9 4 7.5 9 12 21l4.5-12L15 4',
+  dagger: 'M12 2l2.4 3.4V14H9.6V5.4Z M6.5 14h11 M10.5 14v4h3v-4 M12 18v3.5',
+  moto: 'M5.5 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M18.5 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M5.5 15h4l3-5h4l2 5 M9.5 10H14 M15 6.5h2l.8 3.5',
+  wrench: 'M14.5 3.5a5 5 0 0 0-5.6 6.6L3 16l2 3 2 2 5.9-5.9a5 5 0 0 0 6.6-5.6l-3 3-3-1-1-3Z',
+  shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6Z M9 12l2 2 4-4',
+  mask: 'M3 8c3-1 6-1 9 1 3-2 6-2 9-1 0 5-2 8-5 8-2 0-3-2-4-3-1 1-2 3-4 3-3 0-5-3-5-8Z M6.5 11h3 M14.5 11h3',
+  lock: 'M6 11h12v10H6Z M8.5 11V7.5a3.5 3.5 0 0 1 7 0V11 M12 15v2.5',
+  bed: 'M3 19V6 M3 15h18v4 M21 15v-3a3 3 0 0 0-3-3h-7v6 M7 12a1.6 1.6 0 1 0 .01 0',
+  tree: 'M12 3l5 6h-3l4 5h-3l3 5H6l3-5H6l4-5H7Z M12 19v3',
+  snowflake: 'M12 2v20 M3.3 7l17.4 10 M3.3 17l17.4-10 M9.5 3.5 12 6l2.5-2.5 M9.5 20.5 12 18l2.5 2.5',
+  cat: 'M4 11l1-7 4 3h6l4-3 1 7c0 5-3.5 9-8 9s-8-4-8-9Z M9 12h.01 M15 12h.01 M10.5 15.5 12 16.5l1.5-1',
+  paw: 'M12 20c-3 0-5-1.5-5-3.5S9 12 12 12s5 2.5 5 4.5-2 3.5-5 3.5Z M5.5 11.5a1.6 2 0 1 0 .01 0 M18.5 11.5a1.6 2 0 1 0 .01 0 M9.3 7a1.6 2 0 1 0 .01 0 M14.7 7a1.6 2 0 1 0 .01 0',
+  bandage: 'M4.5 15.5l11-11a3 3 0 0 1 4 4l-11 11a3 3 0 0 1-4-4Z M9 9l6 6 M11 11h.01 M13 13h.01 M11 13h.01 M13 11h.01',
+  hourglass: 'M6 3h12 M6 21h12 M7 3c0 5 5 6 5 9s-5 4-5 9 M17 3c0 5-5 6-5 9s5 4 5 9 M9 18h6',
+  bottle: 'M10 2h4v3h-4Z M9 5h6l1 3v12a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V8Z M8.5 12h3 M8.5 16h3',
+  flame: 'M12 21c-4 0-7-3-7-7 0-4 4-6 4-10 3 2 4 4 4 6 1-1 1.5-2 1.5-3 2.5 2 4.5 4.5 4.5 7 0 4-3 7-7 7Z M12 21c-2 0-3-1.5-3-3 0-2 2-3 2-5 2 1.5 4 3 4 5 0 1.5-1 3-3 3Z',
+  column: 'M5 5h14 M6 5l1-2h10l1 2 M7 8v11 M10.3 8v11 M13.7 8v11 M17 8v11 M6 8h12 M5 19h14 M4 22h16',
+  cowboy: 'M2 15c4 3 16 3 20 0 M6 15c-1-5 0-9 3-9 1.5 0 2 1 3 1s1.5-1 3-1c3 0 4 4 3 9 M7 12c3 1 7 1 10 0',
+  surf: 'M7 21c-3-3-2-11 3-16 3-3 7-3 9-2 1 2 1 6-2 9-5 5-7 9-10 9Z M9 17l8-11',
+  golf: 'M8 21V3l9 4-9 4 M5 21h8 M17.5 19a2 2 0 1 0 .01 0',
+  baseball: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M7 5c2 4 2 10 0 14 M17 5c-2 4-2 10 0 14 M7.4 8.5h1.6 M7.8 12h1.6 M7.4 15.5h1.6 M15 8.5h1.6 M14.6 12h1.6 M15 15.5h1.6',
+  hearts: 'M9 17.5s-6-3.4-6-7.6A3.4 3.4 0 0 1 9 7.6a3.4 3.4 0 0 1 6 2.3c0 4.2-6 7.6-6 7.6Z M14.2 6.4A3.4 3.4 0 0 1 21 8.4c0 4.2-6 7.6-6 7.6',
+  fangs: 'M4 6c5 3 11 3 16 0 M4 6c1 7 5 11 8 11s7-4 8-11 M8 8l1.5 4 1.5-3.6 M16 8l-1.5 4-1.5-3.6',
+  wings: 'M12 8C9 3 3 3 2 5c2 0 3 1 3 2-2 0-3 1-3 2 2 0 3 1 3 2-1 1-1 2-1 3 4 0 7-2 8-6Z M12 8c3-5 9-5 10-3-2 0-3 1-3 2 2 0 3 1 3 2-2 0-3 1-3 2 1 1 1 2 1 3-4 0-7-2-8-6Z M12 8v10',
+  puzzle: 'M4 4h6a2 2 0 1 1 4 0h6v6a2 2 0 1 0 0 4v6h-6a2 2 0 1 0-4 0H4v-6a2 2 0 1 1 0-4Z',
+  eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M15.5 8.5l-2 5-5 2 2-5Z M12 3v2 M12 19v2 M3 12h2 M19 12h2',
+  map: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2Z M9 4v14 M15 6v14 M16.5 10.5l2 2 M18.5 10.5l-2 2',
+  sunCloud: 'M8 9.5a4 4 0 1 1 7.5 2 M11.5 2v1.5 M5 4.5l1 1 M3 9.5h1.5 M18 4.5l-1 1 M7 20h11a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 7 20Z',
+  signpost: 'M12 22V6 M12 6h7l2 2-2 2h-7 M12 12H5l-2 2 2 2h7 M12 3v3',
+  shootingStar: 'M14 3l1.6 3.4 3.7.5-2.7 2.6.7 3.7-3.3-1.8-3.3 1.8.7-3.7L8.7 6.9l3.7-.5Z M8 13l-5 5 M10 16l-4 5 M5 12l-3 3',
+  money: 'M3 7h18v10H3Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M6 10v4 M18 10v4',
+  anchor: 'M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z M12 6v15 M8 10h8 M4 13c0 5 4 8 8 8s8-3 8-8 M2 15l2-2 2 2 M18 15l2-2 2 2',
+  medal: 'M8 2h8l-2 6h-4Z M12 22a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z M12 13l1 2h2l-1.6 1.3.6 2.2-2-1.2-2 1.2.6-2.2L9 15h2Z',
+  backpack: 'M7 8a5 5 0 0 1 10 0v12H7Z M9.5 8V6a2.5 2.5 0 0 1 5 0v2 M9 13h6v4H9Z',
+  again: 'M3.5 12a8.5 8.5 0 1 0 2.8-6.3 M3 4v5h5',
+  magnet: 'M6 3v9a6 6 0 0 0 12 0V3 M6 3h4v9a2 2 0 0 0 4 0V3h4 M6 7h4 M14 7h4',
   // fiori
   daisy: 'M12 9.6C10.2 7.6 10.6 3.2 12 2.6C13.4 3.2 13.8 7.6 12 9.6ZM13.7 10.3C13.8 7.6 17.2 4.8 18.6 5.4C19.2 6.8 16.4 10.2 13.7 10.3ZM14.4 12C16.4 10.2 20.8 10.6 21.4 12C20.8 13.4 16.4 13.8 14.4 12ZM13.7 13.7C16.4 13.8 19.2 17.2 18.6 18.6C17.2 19.2 13.8 16.4 13.7 13.7ZM12 14.4C13.8 16.4 13.4 20.8 12 21.4C10.6 20.8 10.2 16.4 12 14.4ZM10.3 13.7C10.2 16.4 6.8 19.2 5.4 18.6C4.8 17.2 7.6 13.8 10.3 13.7ZM9.6 12C7.6 13.8 3.2 13.4 2.6 12C3.2 10.6 7.6 10.2 9.6 12ZM10.3 10.3C7.6 10.2 4.8 6.8 5.4 5.4C6.8 4.8 10.2 7.6 10.3 10.3ZM14.4 12a2.4 2.4 0 1 1-4.8 0 2.4 2.4 0 1 1 4.8 0Z',
 } as const;
@@ -104,6 +143,12 @@ export const DOODLE_LABELS: Record<DoodleName, string> = {
   crown: 'Corona', pencil: 'Matita', book: 'Libro', gradCap: 'Tocco di laurea', pennant: 'Gagliardetto', key: 'Chiave',
   lantern: 'Lanterna', house: 'Casa', belltower: 'Campanile', wave: 'Onda', city: 'Città', briefcase: 'Valigetta', daisy: 'Margherita',
   openBook: 'Libro aperto', review: 'Recensione', giftBook: 'Libro regalo', headphones: 'Cuffie', bookTag: 'Etichetta «books»', stampHeart: 'Francobollo col cuore', bookStack: 'Pila di libri', flowerBadge: 'Coccarda col fiore', bow: 'Fiocco', glasses: 'Occhiali', pen: 'Penna', sparkle4: 'Scintille', washi: 'Washi tape', jersey: 'Maglia da hockey', puck: 'Disco da hockey', helmet: 'Casco', goal: 'Porta', guitar: 'Chitarra', mic: 'Microfono', note: 'Note musicali', partyCup: 'Bicchiere da festa', coffeeCup: 'Caffè da asporto', cocktail: 'Cocktail', ipod: 'Lettore musicale', varsity: 'Lettera «B» da college',
+  ring: 'Anello', diamond: 'Diamante', dagger: 'Pugnale', moto: 'Moto', wrench: 'Chiave inglese', shield: 'Scudo', mask: 'Maschera',
+  lock: 'Lucchetto', bed: 'Letto', tree: 'Albero di Natale', snowflake: 'Fiocco di neve', cat: 'Gatto', paw: 'Zampa', bandage: 'Cerotto',
+  hourglass: 'Clessidra', bottle: 'Biberon', flame: 'Fiamma', column: 'Colonna greca', cowboy: 'Cappello da cowboy', surf: 'Tavola da surf',
+  golf: 'Golf', baseball: 'Palla da baseball', hearts: 'Due cuori', fangs: 'Zanne', wings: 'Ali', puzzle: 'Puzzle', eye: 'Occhio',
+  compass: 'Bussola', map: 'Mappa del tesoro', sunCloud: 'Sole e nuvola', signpost: 'Cartello a bivio', shootingStar: 'Stella cadente',
+  money: 'Banconota', anchor: 'Ancora (tatuaggio)', medal: 'Medaglia', backpack: 'Zaino', again: 'Freccia «di nuovo»', magnet: 'Calamita',
 };
 export const DOODLE_OPTIONS = (Object.entries(DOODLE_LABELS) as Array<[DoodleName, string]>).sort((a, b) => a[1].localeCompare(b[1], 'it'));
 const isDoodle = (name: string | null | undefined): name is DoodleName => Boolean(name && name in ICONS);
@@ -112,6 +157,7 @@ export const doodlePath = (name: string): string | null => (isDoodle(name) ? ICO
 
 const GENRE: Record<ThemeName, DoodleName[]> = {
   romance: ['heart', 'heartArrow', 'loveLetter', 'rose'],
+  'dark-romance': ['rose', 'heart', 'candle', 'moon', 'dagger'],
   horror: ['web', 'spider', 'bat', 'candle', 'moon'],
   giallo: ['magnifier', 'fingerprint', 'footprints', 'question'],
   fantasy: ['star', 'sparkle', 'sword', 'crystal', 'moon'],
@@ -147,6 +193,55 @@ const SETTINGS: Array<[RegExp, DoodleName[]]> = [
   [/lavoro|ufficio|office|azienda|workplace/, ['mug', 'briefcase']],
 ];
 
+// riconosciuti negli slug dei tropes (un adesivo a tema per famiglia; la scelta dal pannello ha sempre la precedenza)
+const TROPES: Array<[RegExp, DoodleName[]]> = [
+  [/marriage|matrimonio|wedding|fake-relationship|fake-dating|convenien/, ['ring']],
+  [/billionaire|rich|ricc|social-gap|celebrity|rockstar/, ['diamond', 'money']],
+  [/assassin|mafia|revenge|vendetta|morally-grey|touch-her/, ['dagger']],
+  [/biker|motorcycle|mc-/, ['moto']],
+  [/mechanic|meccanic/, ['wrench']],
+  [/bodyguard|military|militar|touch-her/, ['shield', 'medal']],
+  [/secret-identity|identit|masquerade/, ['mask']],
+  [/secret|segret|forbidden|proibit|stepbrother|brother|sister|enemy-s/, ['lock']],
+  [/only-one-bed|forced-proximity|friends-with-benefit/, ['bed']],
+  [/roommate|coinquilin/, ['key', 'house']],
+  [/christmas|natale/, ['tree', 'snowflake']],
+  [/black-cat|golden-retriever/, ['cat', 'paw']],
+  [/hurt|scar|ferit|trauma/, ['bandage']],
+  [/slow-burn|age-gap/, ['hourglass']],
+  [/pregnan|single-(dad|mom|parent)|gravidanz/, ['bottle']],
+  [/forbidden|proibit|friends-with-benefit|bully|hate/, ['flame']],
+  [/greek|mitolog|myth/, ['column']],
+  [/western|cowboy|ranch/, ['cowboy']],
+  [/surf/, ['surf']],
+  [/golf/, ['golf']],
+  [/baseball/, ['baseball']],
+  [/soulmate|mates|friends-to-lovers|strangers|childhood/, ['hearts']],
+  [/vampir/, ['fangs', 'bat']],
+  [/fae|fat[ae]|elf|elfi/, ['wings', 'sparkle']],
+  [/drag/, ['flame', 'wings']],
+  [/plot-twist|amnesia/, ['puzzle', 'question']],
+  [/myster|mister|giallo|crime/, ['eye', 'magnifier']],
+  [/new-in-town|hometown|return/, ['compass', 'house']],
+  [/heist|colpo/, ['map']],
+  [/grumpy|sunshine/, ['sunCloud']],
+  [/triangle|triangolo|pov|multi/, ['signpost']],
+  [/chosen|prescelt|destin/, ['shootingStar']],
+  [/tattoo|tatuag/, ['anchor']],
+  [/high-school|liceo/, ['backpack', 'pencil']],
+  [/college|academy|accadem|tutor|nerd/, ['gradCap', 'glasses']],
+  [/second-chance|ex-/, ['again']],
+  [/opposites|bad-boy|bad-girl|good-girl|good-boy/, ['magnet', 'bolt']],
+  [/enemies|rival|hate/, ['bolt', 'sword']],
+  [/falls-(first|harder)|fall-first/, ['heartArrow']],
+  [/royal|corte|regn|princip/, ['crown']],
+  [/boss|workplace|employee|lavoro/, ['briefcase']],
+  [/ballerin|ballet/, ['ballet']],
+  [/found-family|crew|group/, ['house', 'star']],
+  [/rockstar|musician|band/, ['guitar']],
+  [/celebrity/, ['mic']],
+];
+
 export interface Doodle {
   name: DoodleName;
   path: string;
@@ -169,7 +264,7 @@ const matchAll = (rules: Array<[RegExp, DoodleName[]]>, slugs: string[]) =>
   [...new Set(rules.filter(([re]) => slugs.some((s) => re.test(s))).flatMap(([, icons]) => icons))];
 
 /**
- * Fino a `count` scarabocchi per un libro (o serie): metà dal genere, il resto da sport e ambientazione.
+ * Fino a `count` scarabocchi per un libro (o serie): metà dal genere, il resto da tropes, sport e ambientazione.
  * Stessi risultati a ogni build grazie al seme.
  */
 export function doodlesFor(
@@ -184,7 +279,8 @@ export function doodlesFor(
   const setting = matchAll(SETTINGS, (work.settings ?? []).map((t) => t.slug));
   // prima le decorazioni scelte dalla redazione su tropes e ambientazioni, poi quelle riconosciute dallo slug
   const chosen = [...(work.tropes ?? []), ...(work.settings ?? [])].map((t) => t.doodle).filter(isDoodle);
-  const extras = [...chosen, ...shuffle([...sport, ...sport, ...setting])].filter((v, i, a) => a.indexOf(v) === i); // lo sport pesa di più
+  const trope = matchAll(TROPES, (work.tropes ?? []).map((t) => t.slug));
+  const extras = [...chosen, ...shuffle([...trope, ...sport, ...sport, ...setting])].filter((v, i, a) => a.indexOf(v) === i); // lo sport pesa di più
   const genre = shuffle(GENRE[themeNameForWork(work)]);
   const fromExtras = Math.min(extras.length, Math.floor(count / 2));
   const picked = [...genre.slice(0, count - fromExtras), ...extras.slice(0, fromExtras)];

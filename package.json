@@ -13,7 +13,9 @@
     "releases": "tsx --env-file-if-exists=.env scripts/check-releases.ts",
     "rebuild": "tsx --env-file-if-exists=.env scripts/rebuild-site.ts",
     "seed": "tsx --env-file-if-exists=.env scripts/seed-books.ts",
-    "adaptations": "tsx --env-file-if-exists=.env scripts/import-adaptations.ts"
+    "adaptations": "tsx --env-file-if-exists=.env scripts/import-adaptations.ts",
+    "covers": "tsx --env-file-if-exists=.env scripts/upgrade-covers.ts",
+    "events": "tsx --env-file-if-exists=.env scripts/check-events.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

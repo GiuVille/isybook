@@ -114,6 +114,12 @@ function trailer(details: any): string | null {
   return best ? `https://www.youtube.com/watch?v=${best.key}` : null;
 }
 
+/** Stesso titolo, a meno di maiuscole, accenti e punteggiatura; vale anche la sola prima parte ("Titolo. Sottotitolo"). */
+function sameTitle(screen: string, book: string): boolean {
+  const main = book.split(/[.:]\s/)[0];
+  return Boolean(screen) && [book, main].some((t) => slugify(t) === slugify(screen));
+}
+
 async function findFor(work: WorkRef): Promise<Found[]> {
   const found: Found[] = [];
   for (const kind of ['series', 'film'] as const) {
@@ -132,7 +138,9 @@ async function findFor(work: WorkRef): Promise<Found[]> {
       const crew: string[] = [...(d.credits?.crew ?? []).map((c: any) => c.name), ...(d.created_by ?? []).map((c: any) => c.name)];
       const fromBook = keywords.some((k) => k.id === BASED_ON_BOOK);
       const byAuthor = work.authors.some((a) => crew.some((c) => similar(c, a)));
-      if (!fromBook && !byAuthor) continue;
+      // con l'autrice nei crediti basta un titolo simile; con il solo "tratto da un libro" (vale per qualunque libro)
+      // il titolo deve coincidere: «Falling» non è «Falling Into Your Smile», «Prima regola…» non è «Cruel Intentions»
+      if (!byAuthor && !(fromBook && (sameTitle(name ?? '', work.title) || sameTitle(original ?? '', work.title)))) continue;
       const title = (kind === 'series' ? d.name : d.title) as string;
       found.push({
         kind,

@@ -420,13 +420,16 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
             ({ rel, all, selected }) => `
             <fieldset class="field wide m2m" data-join="${rel.joinTable}">
               <legend>${esc(rel.label)}</legend>
-              ${all.length === 0 ? '<span class="muted small">Nessuna voce disponibile.</span>' : ''}
-              ${all
-                .map(
-                  ([v, l]) =>
-                    `<label class="check"><input type="checkbox" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''}> ${esc(l)}</label>`,
-                )
-                .join('')}
+              <div class="m2m-chosen" aria-live="polite"></div>
+              ${all.length === 0 ? '<span class="muted small">Nessuna voce disponibile.</span>' : `<input type="search" class="m2m-search" placeholder="Cerca tra ${all.length} voci…" aria-label="Cerca in ${esc(rel.label)}">`}
+              <div class="m2m-list">
+                ${all
+                  .map(
+                    ([v, l]) =>
+                      `<label class="check"><input type="checkbox" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''}> ${esc(l)}</label>`,
+                  )
+                  .join('')}
+              </div>
               ${rel.creatable ? newItemBox(rel.table, rel.label) : ''}
             </fieldset>`,
           )
@@ -455,6 +458,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
 
   bindImageFields(form);
   bindCreatable(form);
+  bindM2m(form);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -518,6 +522,50 @@ async function findOrCreate(table: string, name: string): Promise<{ row: Row; ex
   return { row: inserted.data, existed: false };
 }
 
+/**
+ * Elenchi molti-a-molti (tropes, generi, autori…): le voci scelte stanno in alto come pillole (si tolgono con ✕),
+ * sotto una ricerca e l'elenco completo che scorre. Con un centinaio di tropes non si scorre più tutta la pagina.
+ */
+function bindM2m(form: HTMLFormElement) {
+  form.querySelectorAll<HTMLFieldSetElement>('fieldset.m2m').forEach((fieldset) => {
+    const chosen = fieldset.querySelector<HTMLElement>('.m2m-chosen')!;
+    const search = fieldset.querySelector<HTMLInputElement>('.m2m-search');
+    const showChosen = () => {
+      const picked = [...fieldset.querySelectorAll<HTMLInputElement>('.m2m-list input:checked')];
+      chosen.innerHTML = picked.length
+        ? picked
+            .map((i) => `<button type="button" class="chip" data-uncheck="${esc(i.value)}">${esc(i.parentElement!.textContent!.trim())} <span aria-hidden="true">✕</span></button>`)
+            .join('')
+        : '<span class="muted small">Nessuna voce scelta.</span>';
+    };
+    fieldset.addEventListener('change', showChosen);
+    chosen.addEventListener('click', (e) => {
+      const chip = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-uncheck]');
+      if (!chip) return;
+      const input = fieldset.querySelector<HTMLInputElement>(`.m2m-list input[value="${CSS.escape(chip.dataset.uncheck!)}"]`);
+      if (input) input.checked = false;
+      showChosen();
+    });
+    search?.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      fieldset.querySelectorAll<HTMLLabelElement>('.m2m-list label').forEach((label) => {
+        label.hidden = q !== '' && !label.textContent!.toLowerCase().includes(q);
+      });
+    });
+    // Invio nella ricerca non invia il modulo: spunta la prima voce trovata
+    search?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const first = fieldset.querySelector<HTMLInputElement>('.m2m-list label:not([hidden]) input');
+      if (first) {
+        first.checked = !first.checked;
+        showChosen();
+      }
+    });
+    showChosen();
+  });
+}
+
 function bindCreatable(form: HTMLFormElement) {
   form.querySelectorAll<HTMLButtonElement>('[data-create]').forEach((button) => {
     const box = button.closest<HTMLElement>('.m2m-new')!;
@@ -530,7 +578,8 @@ function bindCreatable(form: HTMLFormElement) {
       if (fieldset) {
         const existing = fieldset.querySelector<HTMLInputElement>(`input[type="checkbox"][value="${CSS.escape(row.id)}"]`);
         if (existing) existing.checked = true;
-        else box.insertAdjacentHTML('beforebegin', `<label class="check"><input type="checkbox" value="${esc(row.id)}" checked> ${esc(row.name)}</label>`);
+        else (fieldset.querySelector('.m2m-list') ?? box).insertAdjacentHTML(fieldset.querySelector('.m2m-list') ? 'beforeend' : 'beforebegin', `<label class="check"><input type="checkbox" value="${esc(row.id)}" checked> ${esc(row.name)}</label>`);
+        fieldset.dispatchEvent(new Event('change'));
       } else {
         const select = box.parentElement!.querySelector('select')!;
         if (![...select.options].some((o) => o.value === row.id)) select.add(new Option(row.name, row.id));
@@ -722,6 +771,30 @@ function promotionSummary(p: Row, publisherHtml: string): string {
       ${input('image_credit', 'Credito', p.image_credit ?? p.publisher?.name)}
       ${input('image_alt', 'Testo alternativo (cosa mostra e cosa c\'è scritto)', p.image_alt)}
     </fieldset>`;
+}
+
+const EVENT_KINDS = getResource('events')!.fields.find((f) => f.name === 'kind')!.options!;
+
+/** Evento proposto dalle fonti: campi correggibili prima di approvare. */
+function eventSummary(p: Row): string {
+  const input = (name: string, label: string, value: unknown, type = 'text') =>
+    `<label for="ev-${name}">${label}</label><input id="ev-${name}" data-field="${name}" type="${type}" value="${esc(value ?? '')}">`;
+  return `
+    <dl class="summary">
+      <dt>Autrici e autori citati</dt><dd>${esc((p.authors ?? []).join(', ') || '—')} <small class="muted">(si collegano quelli già in catalogo)</small></dd>
+      <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
+      <dt>Fonte</dt><dd>${p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a>` : '—'}</dd>
+    </dl>
+    ${input('title', 'Titolo', p.title)}
+    <label for="ev-kind">Tipo</label>
+    <select id="ev-kind" data-field="kind">${EVENT_KINDS.map(([v, l]) => `<option value="${v}" ${v === p.kind ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+    ${input('starts_on', 'Inizio', p.starts_on, 'date')}
+    ${input('ends_on', 'Fine (se dura più giorni)', p.ends_on, 'date')}
+    ${input('venue', 'Luogo', p.venue)}
+    ${input('city', 'Città', p.city)}
+    ${input('url', 'Link', p.url, 'url')}
+    <label for="ev-description">Descrizione (scritta da noi)</label>
+    <textarea id="ev-description" data-field="description" rows="3">${esc(p.description)}</textarea>`;
 }
 
 function reviewTitle(item: Row): string {
@@ -916,7 +989,9 @@ async function renderReviewItem(id: string) {
           ? await plotSummary(sb, p)
           : item.content_type === 'adaptation'
             ? adaptationSummary(p)
-            : '';
+            : item.content_type === 'event'
+              ? eventSummary(p)
+              : '';
 
   render(
     shell(`
@@ -927,7 +1002,7 @@ async function renderReviewItem(id: string) {
         <details ${summary ? '' : 'open'}><summary>Dati completi</summary><pre>${esc(JSON.stringify(p, null, 2))}</pre></details>
         ${item.status === 'pending'
           ? `<div class="actions">
-              ${['book', 'promotion', 'plot', 'adaptation'].includes(item.content_type) ? `<button id="approve">${item.content_type === 'plot' ? 'Approva la trama' : 'Approva e pubblica'}</button>` : ''}
+              ${['book', 'promotion', 'plot', 'adaptation', 'event'].includes(item.content_type) ? `<button id="approve">${item.content_type === 'plot' ? 'Approva la trama' : 'Approva e pubblica'}</button>` : ''}
               <button class="danger" id="reject">Scarta</button>
             </div>`
           : `<p class="muted">Stato: ${esc(item.status)}</p>`}
@@ -940,7 +1015,8 @@ async function renderReviewItem(id: string) {
     const text = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim() ?? '';
     if (item.content_type === 'plot') {
       if (!text) return flash('Scrivi la trama prima di approvare', 'error');
-      payload = { ...p, plot: text, ...approvedSlugs('tropes'), ...approvedSlugs('genres') };
+      // proposed_genres: i generi suggeriti (già sul sito dalla semina), per scollegare quelli tolti in revisione
+      payload = { ...p, plot: text, proposed_genres: p.genres ?? [], ...approvedSlugs('tropes'), ...approvedSlugs('genres') };
     } else if (item.content_type === 'adaptation') {
       payload = { ...p, adaptation: { ...p.adaptation, plot: text || null } };
     } else if (item.content_type === 'book') {
@@ -957,6 +1033,10 @@ async function renderReviewItem(id: string) {
         ...approvedSlugs('tropes'),
         ...approvedSlugs('settings'),
       };
+    } else if (item.content_type === 'event') {
+      // evento: valgono i campi corretti a mano
+      payload = { ...p };
+      document.querySelectorAll<HTMLInputElement>('[data-field]').forEach((el) => (payload[el.dataset.field!] = el.value.trim() || null));
     } else {
       // promozione: valgono i campi corretti a mano
       payload = { ...p, needs_extraction: false };

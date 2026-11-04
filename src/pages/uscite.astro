@@ -7,10 +7,11 @@ import { groupEditions, upcomingReleases } from '../lib/releases';
 
 const today = new Date().toISOString().slice(0, 10);
 const all = await getEditionsWithWork();
-const editions = groupEditions(all.filter((e) => (e.release_date ?? '9999') >= today));
+// solo con una data certa: un libro senza data può essere uscito da anni
+const editions = groupEditions(all.filter((e) => e.release_date && e.release_date >= today));
 const releases = upcomingReleases(all, today).slice(0, 8);
 const byMonth = Map.groupBy(editions, (e) =>
-  !e.release_date ? 'Data da annunciare' : e.release_date.length === 4 ? e.release_date : new Date(e.release_date.slice(0, 7) + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }),
+  e.release_date!.length === 4 ? e.release_date! : new Date(e.release_date!.slice(0, 7) + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }),
 );
 ---
 

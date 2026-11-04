@@ -117,6 +117,26 @@ async function fromOpenLibrary(isbn: string): Promise<Partial<BookData> | null> 
   };
 }
 
+/**
+ * Copertina Google in grande (800 px di larghezza invece della miniatura da 128): si toglie lo zoom e si chiede
+ * `fife=w800`. Se Google non ha la versione grande risponde con un "image not available" quasi tutto bianco:
+ * in quel caso (o se sharp non c'è) null, e si tiene la miniatura.
+ */
+export async function largeGoogleCover(url: string): Promise<string | null> {
+  if (!/books\.google\.com\/books\/content/.test(url) || /[?&]fife=/.test(url)) return null;
+  const big = `${url.replace(/^http:/, 'https:').replace(/&edge=curl/g, '').replace(/&zoom=\d/g, '')}&fife=w800`;
+  try {
+    const res = await fetch(big, { headers: { 'User-Agent': USER_AGENT } });
+    if (!res.ok) return null;
+    const { default: sharp } = await import('sharp');
+    const { data } = await sharp(Buffer.from(await res.arrayBuffer())).greyscale().resize(40, 60, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });
+    const white = data.filter((v) => v > 235).length / data.length;
+    return white > 0.8 ? null : big;
+  } catch {
+    return null;
+  }
+}
+
 /** Unisce le due fonti: Google Books ha la precedenza, Open Library riempie i buchi. */
 export async function fetchBook(rawIsbn: string): Promise<BookData | null> {
   const isbn = normalizeIsbn(rawIsbn);
@@ -141,7 +161,8 @@ export async function fetchBook(rawIsbn: string): Promise<BookData | null> {
     description: pick('description'),
     language: pick('language'),
     pageCount: pick('pageCount'),
-    coverUrl: pick('coverUrl'),
+    // copertina: Open Library in grande se c'è, altrimenti Google ingrandita (o la sua miniatura)
+    coverUrl: openLibrary?.coverUrl || (google?.coverUrl ? ((await largeGoogleCover(google.coverUrl)) ?? google.coverUrl) : undefined),
     categories: [...new Set([...(google?.categories ?? []), ...(openLibrary?.categories ?? [])])],
     sources: [google && 'google-books', openLibrary && 'open-library'].filter(Boolean) as string[],
   };

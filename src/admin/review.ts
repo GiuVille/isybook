@@ -19,6 +19,22 @@ export interface BookPayload {
   new_settings?: Array<{ name: string; slug: string }>;
 }
 
+/** Evento estratto dalle fonti (scripts/check-events.ts): si pubblica dopo l'approvazione. */
+export interface EventPayload {
+  title: string;
+  slug?: string;
+  kind: string;
+  starts_on: string;
+  ends_on?: string | null;
+  venue?: string | null;
+  city?: string | null;
+  url?: string | null;
+  description?: string | null;
+  authors?: string[]; // nomi: si collegano solo quelli già in catalogo
+  works?: string[]; // titoli: idem
+  source_url?: string | null;
+}
+
 export interface PromotionPayload {
   title: string;
   slug?: string;
@@ -41,7 +57,7 @@ export interface PromotionPayload {
 
 /** Cosa è stato creato approvando: per aprirlo subito nell'admin. */
 export interface Approved {
-  resource: 'works' | 'promotions' | 'adaptations';
+  resource: 'works' | 'promotions' | 'adaptations' | 'events';
   id: string;
 }
 
@@ -55,8 +71,9 @@ export interface PlotPayload {
   plot: string | null; // riscritta in automatico: si pubblica solo dopo l'approvazione
   tropes?: string[]; // slug suggeriti
   new_tropes?: Array<{ name: string; slug: string }>;
-  genres?: string[]; // slug suggeriti
+  genres?: string[]; // slug suggeriti (dalla semina sono già collegati all'opera)
   new_genres?: Array<{ name: string; slug: string }>;
+  proposed_genres?: string[]; // quelli suggeriti all'origine: se in revisione se ne toglie uno, si scollega
   original_description?: string | null; // solo riferimento, mai pubblicata
 }
 
@@ -109,6 +126,37 @@ async function freeSlug(sb: SupabaseClient, table: string, base: string): Promis
   return slug;
 }
 
+/** Evento approvato: pubblicato e collegato alle autrici e ai libri già in catalogo (nessuno creato in silenzio). */
+async function approveEvent(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
+  const p = item.payload as EventPayload;
+  if (!p.title?.trim() || !p.starts_on) throw new Error("Un evento ha bisogno almeno di titolo e data d'inizio");
+  const slug = await freeSlug(sb, 'events', p.slug || slugify(p.title));
+  const inserted = await sb
+    .from('events')
+    .insert({
+      slug,
+      title: p.title.trim(),
+      kind: p.kind || 'other',
+      starts_on: p.starts_on,
+      ends_on: p.ends_on || null,
+      venue: p.venue || null,
+      city: p.city || null,
+      url: p.url || p.source_url || null,
+      description: p.description || null,
+      status: 'published',
+    })
+    .select('id')
+    .single();
+  if (inserted.error) throw inserted.error;
+  const eventId = inserted.data.id;
+  const authorIds = await idsBySlug(sb, 'authors', (p.authors ?? []).map(slugify));
+  await link(sb, 'event_authors', authorIds.map((author_id) => ({ event_id: eventId, author_id })));
+  const workIds = await idsBySlug(sb, 'works', (p.works ?? []).map(slugify));
+  await link(sb, 'event_works', workIds.map((work_id) => ({ event_id: eventId, work_id })));
+  await markApproved(sb, item, reviewerId);
+  return eventId;
+}
+
 async function approvePromotion(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
   const p = item.payload as PromotionPayload;
   const publisherId = p.publisher ? await ensureBySlug(sb, 'publishers', { name: p.publisher.name, slug: p.publisher.slug }) : null;
@@ -147,6 +195,7 @@ async function approvePromotion(sb: SupabaseClient, item: Row, reviewerId: strin
 /** Approva un elemento della coda e pubblica ciò che propone. */
 export async function approveReviewItem(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<Approved> {
   if (item.content_type === 'promotion') return { resource: 'promotions', id: await approvePromotion(sb, item, reviewerId) };
+  if (item.content_type === 'event') return { resource: 'events', id: await approveEvent(sb, item, reviewerId) };
   if (item.content_type === 'plot') return { resource: 'works', id: await approvePlot(sb, item, reviewerId) };
   if (item.content_type === 'adaptation') return { resource: 'adaptations', id: await approveAdaptation(sb, item, reviewerId) };
   if (item.content_type !== 'book') throw new Error(`Tipo non gestito: ${item.content_type}`);
@@ -180,7 +229,7 @@ export async function publishBook(sb: SupabaseClient, p: BookPayload): Promise<s
   return workId;
 }
 
-/** Trama approvata (eventualmente corretta), tropes e generi scelti per un libro già pubblicato. */
+/** Trama approvata (eventualmente corretta), tropes e generi scelti per un libro già pubblicato; i generi suggeriti e tolti si scollegano. */
 async function approvePlot(sb: SupabaseClient, item: Row, reviewerId: string | null): Promise<string> {
   const p = item.payload as PlotPayload;
   if (!p.plot?.trim()) throw new Error('La trama è vuota: scrivila prima di approvare');
@@ -190,6 +239,11 @@ async function approvePlot(sb: SupabaseClient, item: Row, reviewerId: string | n
   await link(sb, 'work_tropes', (await idsBySlug(sb, 'tropes', p.tropes)).map((trope_id) => ({ work_id: p.work_id, trope_id })));
   for (const g of p.new_genres ?? []) await ensureBySlug(sb, 'genres', g);
   await link(sb, 'work_genres', (await idsBySlug(sb, 'genres', p.genres)).map((genre_id) => ({ work_id: p.work_id, genre_id })));
+  const removed = (p.proposed_genres ?? []).filter((g) => !(p.genres ?? []).includes(g));
+  if (removed.length) {
+    const del = await sb.from('work_genres').delete().eq('work_id', p.work_id).in('genre_id', await idsBySlug(sb, 'genres', removed));
+    if (del.error) throw del.error;
+  }
   await markApproved(sb, item, reviewerId);
   return p.work_id;
 }

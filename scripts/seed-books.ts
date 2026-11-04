@@ -3,8 +3,8 @@
 // suggerite dall'AI a partire da quelle di riferimento (verificate su Google Books: un nome sbagliato non porta nulla),
 // altre autrici, editori, ricerche per genere.
 //
-// Per non lasciare il sito spoglio, i dati del libro (titolo, autrici, editore, edizione, copertina) si pubblicano
-// SUBITO, ma senza trama e senza tropes: la scheda mostra "La trama arriva presto". La trama riscritta in automatico
+// Per non lasciare il sito spoglio, i dati del libro (titolo, autrici, editore, edizione, copertina) e il genere
+// suggerito si pubblicano SUBITO, ma senza trama e senza tropes: la scheda mostra "La trama arriva presto". La trama riscritta in automatico
 // e i tropes suggeriti vanno in "Da approvare" come elemento "Trama": la redazione li corregge e li approva.
 // La quarta di copertina dell'editore resta solo come riferimento in coda: non si pubblica mai.
 //
@@ -306,7 +306,8 @@ for (const c of candidates.slice(0, batch)) {
       await pause(1500); // limiti dei piani gratuiti
     }
     prepared.push({
-      // il libro si pubblica senza trama, tropes e generi: passano dalla redazione
+      // il libro si pubblica col genere suggerito (la card ha subito il suo colore; si corregge in revisione),
+      // senza trama né tropes: quelli passano dalla redazione
       book: bookPayload({
         title,
         authors: book.authors,
@@ -320,6 +321,7 @@ for (const c of candidates.slice(0, batch)) {
         pages: book.pageCount,
         plot: null,
         tropes: [],
+        genres,
         description: book.description,
         meta: { sources: book.sources, categories: book.categories, seed: c.found },
       }),

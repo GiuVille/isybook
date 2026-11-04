@@ -260,6 +260,70 @@ export async function extractPromotions(
     .filter((p) => !p.ends_on || p.ends_on >= context.today);
 }
 
+export interface ExtractedEvent {
+  title: string;
+  kind: 'fair' | 'signing' | 'presentation' | 'other';
+  starts_on: string;
+  ends_on: string | null;
+  venue: string | null;
+  city: string | null;
+  url: string | null;
+  description: string | null;
+  authors: string[];
+  works: string[];
+}
+
+const EVENT_KINDS = ['fair', 'signing', 'presentation', 'other'] as const;
+
+/** Eventi sui libri (fiere, firmacopie, presentazioni) trovati in una pagina o un feed. Solo futuri e con una data. */
+export async function extractEvents(text: string, context: { sourceUrl?: string | null; source?: string | null; today: string }): Promise<ExtractedEvent[]> {
+  const answer = await chat(
+    [
+      {
+        role: 'system',
+        content:
+          'Estrai gli eventi legati ai libri da un testo in italiano (pagina eventi di una fiera, di una libreria o di un editore): ' +
+          'fiere (fair), firmacopie (signing), presentazioni e incontri con autrici e autori (presentation), altro (other). ' +
+          'Includi solo eventi scritti esplicitamente nel testo, con una data, mai supposizioni. Date in formato AAAA-MM-GG; ' +
+          `se manca l'anno deducilo da oggi (${context.today}). venue è il luogo (libreria, padiglione), city la città. ` +
+          'description: una o due frasi scritte da te, senza copiare il testo. authors e works: nomi delle autrici e titoli dei libri citati. ' +
+          'Rispondi in JSON: {"events": [{"title","kind","starts_on","ends_on","venue","city","url","description","authors","works"}]}. ' +
+          'Se non ce ne sono: {"events": []}.',
+      },
+      {
+        role: 'user',
+        content: (context.source ? `Fonte: ${context.source}\n` : '') + (context.sourceUrl ? `Pagina: ${context.sourceUrl}\n` : '') + `Testo:\n${text.slice(0, 12000)}`,
+      },
+    ],
+    { temperature: 0, json: true },
+  );
+  let parsed: { events?: unknown };
+  try {
+    parsed = JSON.parse(answer);
+  } catch {
+    return [];
+  }
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const date = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  const list = (v: unknown) => (Array.isArray(v) ? v.map(str).filter((x): x is string => Boolean(x)) : []);
+  return (Array.isArray(parsed.events) ? parsed.events : [])
+    .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object' && Boolean(str((e as any).title)) && Boolean(date((e as any).starts_on)))
+    .map((e) => ({
+      title: str(e.title)!,
+      kind: EVENT_KINDS.includes(e.kind as any) ? (e.kind as ExtractedEvent['kind']) : 'other',
+      starts_on: date(e.starts_on)!,
+      ends_on: date(e.ends_on),
+      venue: str(e.venue),
+      city: str(e.city),
+      url: str(e.url) ?? context.sourceUrl ?? null,
+      description: str(e.description),
+      authors: list(e.authors),
+      works: list(e.works),
+    }))
+    // passati: non servono
+    .filter((e) => (e.ends_on ?? e.starts_on) >= context.today);
+}
+
 export interface ExtractedRelease {
   title: string;
   authors: string[];

@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
 import { slugify } from '../../src/admin/resources.ts';
 
-export type SourcePurpose = 'promotions' | 'releases';
+export type SourcePurpose = 'promotions' | 'releases' | 'events';
 
 export const USER_AGENT = 'IsyBooksBot/1.0 (+https://isybooks.it; radar delle novità sui libri)';
 const LOCAL_SOURCES = new URL('../sources.json', import.meta.url);

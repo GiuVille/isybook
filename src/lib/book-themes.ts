@@ -12,6 +12,8 @@ export interface BookTheme {
 
 export const THEMES = {
   romance: { light: '#dcaecb', dark: '#c184a9', panel: '#ecd6e3', ink: '#1b1418', text: '#2b1d26', cover: '#9c4f7d' },
+  // come il romance ma più cupo: malva-prugna
+  'dark-romance': { light: '#b98aa8', dark: '#966283', panel: '#e3cfdb', ink: '#1b1418', text: '#2b1d26', cover: '#6b2c52' },
   giallo: { light: '#f1d77a', dark: '#dfb83e', panel: '#faefc6', ink: '#1d1709', text: '#2a2210', cover: '#a8761c' },
   horror: { light: '#3b2a2e', dark: '#22181b', panel: '#4b3539', ink: '#f2e6e1', text: '#f2e6e1', cover: '#7a1f2a' },
   fantasy: { light: '#c9b8e6', dark: '#a28dcf', panel: '#e7def5', ink: '#19132e', text: '#251d3d', cover: '#6a52a8' },
@@ -23,6 +25,7 @@ export type ThemeName = keyof typeof THEMES;
 
 export const THEME_OPTIONS: Array<[ThemeName, string]> = [
   ['romance', 'Rosa (romance)'],
+  ['dark-romance', 'Malva scuro (dark romance)'],
   ['giallo', 'Giallo (gialli, thriller)'],
   ['horror', 'Scuro (horror)'],
   ['fantasy', 'Viola (fantasy)'],
@@ -33,6 +36,7 @@ export const THEME_OPTIONS: Array<[ThemeName, string]> = [
 const SLUG_RULES: Array<[RegExp, ThemeName]> = [
   [/horror/, 'horror'],
   [/giallo|thriller|crime|noir|mystery/, 'giallo'],
+  [/dark/, 'dark-romance'],
   [/romance|romantasy|rosa/, 'romance'],
   [/(^|-)ya($|-)|young-adult/, 'ya'],
   [/fantasy/, 'fantasy'],
@@ -44,11 +48,13 @@ function isThemeName(value: unknown): value is ThemeName {
 
 /** Romance o derivati (romantasy, dark romance…): solo per questi si mostra lo spicy. */
 export function isRomance(work: Pick<Work, 'genres'>): boolean {
-  return work.genres.some((g) => g.theme === 'romance' || /romance|romantasy/.test(g.slug));
+  return work.genres.some((g) => g.theme === 'romance' || g.theme === 'dark-romance' || /romance|romantasy/.test(g.slug));
 }
 
 /** Nome del tema: esplicito del primo genere che lo ha, altrimenti dedotto dagli slug dei generi. */
 export function themeNameForWork(work: Pick<Work, 'genres'>): ThemeName {
+  // il dark romance vince sul romance generico: è il più specifico dei due
+  if (work.genres.some((g) => g.theme === 'dark-romance' || /dark/.test(g.slug))) return 'dark-romance';
   const explicit = work.genres.find((g) => isThemeName(g.theme))?.theme;
   if (isThemeName(explicit)) return explicit;
   for (const genre of work.genres) {

@@ -14,7 +14,8 @@ import '../styles/bacheca.css';
 
 const today = new Date().toISOString().slice(0, 10);
 const editions = await getEditionsWithWork();
-const upcoming = groupEditions(editions.filter((e) => (e.release_date ?? '9999') >= today)).slice(0, 6);
+// solo con una data certa: un libro senza data può essere uscito da anni
+const upcoming = groupEditions(editions.filter((e) => e.release_date && e.release_date >= today)).slice(0, 6);
 const special = editions.filter((e) => e.edition_type !== 'standard').slice(0, 6);
 const releases = upcomingReleases(editions, today).slice(0, 8);
 // prima quelle che scadono presto
