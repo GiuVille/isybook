@@ -32,6 +32,8 @@ import '../../styles/global.css';
 
   .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
   aside { background: var(--surface); border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 2px; }
+  /* la colonna delle sezioni resta sempre a portata scorrendo la pagina, e se è più lunga dello schermo scorre da sola */
+  aside { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; overscroll-behavior: contain; }
   aside a { color: var(--text); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
   aside a.active, aside a:hover { background: var(--accent-soft); color: var(--accent); }
   aside .brand { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; margin-bottom: 12px; }
@@ -42,7 +44,8 @@ import '../../styles/global.css';
 
   @media (max-width: 760px) {
     .layout { grid-template-columns: 1fr; }
-    aside { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
+    /* telefono: le sezioni stanno in cima, nel flusso della pagina */
+    aside { position: static; height: auto; overflow: visible; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
     aside .group { width: 100%; margin: 8px 0 0; }
     .content { padding: 16px; }
   }
@@ -66,20 +69,33 @@ import '../../styles/global.css';
   .field input, .field select { width: 100%; }
   .field.wide, .actions.wide { grid-column: 1 / -1; }
   .field label, legend { font-weight: 600; font-size: 0.9rem; }
-  .m2m-new { display: flex; gap: 6px; flex-basis: 100%; margin-top: 4px; }
-  .m2m-new input { max-width: 240px; }
   .proposed { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .proposed .new-name { max-width: 200px; }
   .proposed small { font-weight: 600; }
   .image-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .image-field .image-preview { width: 120px; height: 90px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
   .image-field.is-uploading { opacity: 0.6; pointer-events: none; }
-  fieldset.m2m { border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
-  .m2m-chosen { display: flex; flex-wrap: wrap; gap: 6px; }
-  .m2m-chosen .chip { padding: 3px 10px; font-size: 0.85rem; color: var(--accent); background: var(--accent-soft, #f4e6f0); border: 0; border-radius: 999px; cursor: pointer; }
-  .m2m-search { width: 100%; max-width: 360px; }
-  .m2m-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 16px; max-height: 220px; overflow-y: auto; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
-  .m2m-list label[hidden] { display: none; }
+  /* menu a tendina con ricerca (src/admin/picker.ts): tropes, generi, autori, editore… */
+  fieldset.m2m { border: 0; padding: 0; margin: 0; }
+  .m2m-list[hidden], select[hidden] { display: none; }
+  .picker { position: relative; display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
+  .picker-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .picker-chips[hidden] { display: none; }
+  .picker-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; font-size: 0.95rem; color: var(--accent); background: var(--accent-soft); border-radius: 999px; }
+  .picker-chip button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; font-size: 0.8rem; color: inherit; background: none; border: 0; border-radius: 50%; cursor: pointer; }
+  .picker-chip button:hover { background: rgba(0, 0, 0, 0.08); }
+  .picker-box { position: relative; display: flex; }
+  .picker-input { flex: 1; min-height: 44px; padding-right: 44px; font-size: 1rem; background: var(--surface); }
+  .picker-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .picker-toggle { position: absolute; right: 2px; top: 2px; bottom: 2px; width: 40px; padding: 0; font-size: 1rem; color: var(--muted); background: none; border: 0; cursor: pointer; }
+  .picker-list { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; max-height: 280px; margin: 4px 0 0; padding: 4px; overflow-y: auto; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18); }
+  .picker-list[hidden] { display: none; }
+  .picker-list li { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+  .picker-list li.is-active, .picker-list li:hover { background: var(--accent-soft); }
+  .picker-list li[aria-selected="true"] { font-weight: 600; color: var(--accent); }
+  .picker-check { width: 1em; flex: none; color: var(--accent); }
+  .picker-create { color: var(--accent); font-weight: 600; }
+  .picker-empty { color: var(--muted); cursor: default; }
   .check { font-weight: 400 !important; display: flex; gap: 6px; align-items: center; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 

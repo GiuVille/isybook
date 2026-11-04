@@ -164,8 +164,7 @@ for (const source of sources) {
     }
     if (dryRun) {
       console.log(`- ${label}: cambiata (${text.length} caratteri, impronta ${hash.slice(0, 12)})\n  «${text.slice(0, 160).replace(/\n/g, ' · ')}…»`);
-      await saveRead(source, hash, true);
-      continue;
+      continue; // prova: l'impronta non si salva, altrimenti la lettura vera troverebbe la pagina "invariata"
     }
 
     const extracted = await extractReleases(text, { sourceUrl: source.url, publisher: source.name, today });

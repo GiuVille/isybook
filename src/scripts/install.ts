@@ -3,8 +3,10 @@
 //   apriamo quando si tocca il pulsante.
 // - iPhone e iPad: Safari non ha un'installazione da avviare, quindi il pulsante apre una guida in tre passi.
 //   Nelle app (Instagram, TikTok, Chrome su iOS) l'aggiunta alla Home non c'è: si invita ad aprire il link in Safari.
+// - Android e altri browser che non annunciano l'installazione (anteprime aperte da WhatsApp o Instagram,
+//   Samsung Internet…): guida in due passi dal menu ⋮ del browser.
 // - Già installata (si apre "standalone"): nessun pulsante.
-// Avviso una tantum su telefono dalla seconda visita, chiudibile per sempre (preferenza in localStorage).
+// Avviso una tantum su telefono e tablet dalla seconda visita, chiudibile per sempre (preferenza in localStorage).
 
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
@@ -17,7 +19,8 @@ let deferred: InstallPrompt | null = null;
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 const ios = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const inApp = () => /instagram|fban|fbav|tiktok|crios|fxios|line\//i.test(navigator.userAgent);
-const phone = () => window.matchMedia('(max-width: 760px)').matches;
+// telefoni e tablet: dito come puntatore principale (la sola larghezza escluderebbe i tablet)
+const touchDevice = () => window.matchMedia('(pointer: coarse)').matches;
 
 function readPrefs(): { visits: number; dismissed: boolean } {
   try {
@@ -34,9 +37,9 @@ function savePrefs(p: { visits: number; dismissed: boolean }) {
   }
 }
 
-/** I pulsanti si vedono solo dove l'installazione è possibile (prompt pronto) o spiegabile (iOS). */
+/** I pulsanti si vedono sempre, tranne a sito già installato: dove il browser non offre l'installazione c'è la guida. */
 function showButtons() {
-  const can = !standalone() && (deferred !== null || ios());
+  const can = !standalone();
   document.querySelectorAll<HTMLElement>('[data-install-wrap]').forEach((el) => (el.hidden = !can));
   return can;
 }
@@ -45,6 +48,7 @@ function showButtons() {
 // Guida per iPhone e iPad
 // ---------------------------------------------------------------------------
 const SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1"/></svg>';
+const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8a1.4 1.4 0 1 0 .01 0Z M12 10.6a1.4 1.4 0 1 0 .01 0Z M12 17.4a1.4 1.4 0 1 0 .01 0Z"/></svg>';
 const PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4Z M12 8v8M8 12h8"/></svg>';
 
 function guide() {
@@ -53,7 +57,15 @@ function guide() {
     d = document.createElement('dialog');
     d.className = 'install-guide';
     d.setAttribute('aria-labelledby', 'install-title');
-    d.innerHTML = inApp()
+    d.innerHTML = !ios()
+      ? `<h2 id="install-title">Installa IsyBooks</h2>
+         <ol class="install-steps">
+           <li><span class="install-step-icon">${DOTS}</span><span>Tocca <strong>⋮</strong> in alto a destra nel browser</span></li>
+           <li><span class="install-step-icon">${PLUS}</span><span>Scegli <strong>Installa app</strong> oppure <strong>Aggiungi a schermata Home</strong></span></li>
+         </ol>
+         <p class="install-note">Se hai aperto il link da WhatsApp, Instagram o un'altra app, prima tocca <strong>⋮</strong> e scegli <strong>«Apri in Chrome»</strong> (o nel tuo browser).</p>
+         <button type="button" class="button-strong" data-close>Ho capito</button>`
+      : inApp()
       ? `<h2 id="install-title">Aprilo in Safari</h2>
          <p>Da questa app non si può aggiungere il sito alla schermata Home. Tocca <strong>⋯</strong> o il menu in alto e scegli <strong>«Apri in Safari»</strong> (o «Apri nel browser»), poi tocca di nuovo «Installa l'app».</p>
          <button type="button" class="button-strong" data-close>Ho capito</button>`
@@ -81,7 +93,7 @@ async function install() {
     showButtons();
     return;
   }
-  if (ios()) guide();
+  guide(); // iPhone: guida di Safari; Android e gli altri: guida dal menu ⋮
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +103,7 @@ function maybeNudge() {
   const prefs = readPrefs();
   prefs.visits++;
   savePrefs(prefs);
-  if (prefs.dismissed || prefs.visits < 2 || !phone() || !showButtons()) return;
+  if (prefs.dismissed || prefs.visits < 2 || !touchDevice() || !showButtons()) return;
   const bar = document.createElement('div');
   bar.className = 'install-nudge';
   bar.setAttribute('role', 'region');

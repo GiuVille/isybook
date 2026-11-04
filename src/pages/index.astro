@@ -25,11 +25,18 @@ const events = (await getEvents()).filter((e) => (e.ends_on ?? e.starts_on) >= t
 ---
 
 <Base title="IsyBooks – il radar delle uscite">
-  <div class="section-head first">
-    <h1>In arrivo</h1>
-    <a href="/uscite">Tutte le uscite →</a>
-  </div>
-  <ReleaseCarousel releases={releases} />
+  {/* "In arrivo" solo con almeno un'uscita futura datata: un titolo senza niente sotto sembra un errore */}
+  {releases.length > 0 ? (
+    <>
+      <div class="section-head first">
+        <h1>In arrivo</h1>
+        <a href="/uscite">Tutte le uscite →</a>
+      </div>
+      <ReleaseCarousel releases={releases} />
+    </>
+  ) : (
+    <h1 class="visually-hidden">IsyBooks, il radar delle uscite</h1>
+  )}
   <p class="intro muted">Uscite, edizioni speciali, serie tratte dai libri, book journal ed eventi, in un posto solo.</p>
 
   <ForYou />

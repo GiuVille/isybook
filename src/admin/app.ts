@@ -7,6 +7,7 @@ import type { EditionFormat, EditionType } from '../lib/types';
 import { RESOURCES, STATUS_OPTIONS, getResource, slugify, type Field, type Resource } from './resources';
 import { approveReviewItem } from './review';
 import { bindSocial, socialHtml } from './social';
+import { enhancePickers } from './picker';
 
 const root = document.getElementById('admin')!;
 let session: Session | null = null;
@@ -306,10 +307,11 @@ function fieldInput(field: Field, value: unknown, options: Record<string, Array<
     case 'relation': {
       const opts = field.type === 'select' ? field.options! : options[field.name] ?? [];
       const empty = field.required ? '' : '<option value="">—</option>';
-      const select = `<select ${name} ${required}>${empty}${opts
+      const extra = field.type === 'relation' ? ` data-relation${field.creatable && !field.readonly ? ` data-create="${esc(field.table!)}"` : ''}` : '';
+      const select = `<select ${name} ${required}${extra}>${empty}${opts
         .map(([v, l]) => `<option value="${esc(v)}" ${String(value ?? '') === v ? 'selected' : ''}>${esc(l)}</option>`)
         .join('')}</select>`;
-      return field.type === 'relation' && field.creatable && !field.readonly ? select + newItemBox(field.table!, field.label) : select;
+      return select;
     }
     default:
       return `<input type="text" ${name} ${required} value="${esc(value)}">`;
@@ -418,10 +420,8 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
         ${m2m
           .map(
             ({ rel, all, selected }) => `
-            <fieldset class="field wide m2m" data-join="${rel.joinTable}">
+            <fieldset class="field wide m2m" data-join="${rel.joinTable}" ${rel.creatable ? `data-create="${esc(rel.table)}"` : ''}>
               <legend>${esc(rel.label)}</legend>
-              <div class="m2m-chosen" aria-live="polite"></div>
-              ${all.length === 0 ? '<span class="muted small">Nessuna voce disponibile.</span>' : `<input type="search" class="m2m-search" placeholder="Cerca tra ${all.length} voci…" aria-label="Cerca in ${esc(rel.label)}">`}
               <div class="m2m-list">
                 ${all
                   .map(
@@ -430,7 +430,6 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
                   )
                   .join('')}
               </div>
-              ${rel.creatable ? newItemBox(rel.table, rel.label) : ''}
             </fieldset>`,
           )
           .join('')}
@@ -457,8 +456,12 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   }
 
   bindImageFields(form);
-  bindCreatable(form);
-  bindM2m(form);
+  // tendine e elenchi diventano menu con ricerca; le voci nuove si creano senza doppioni (stesso slug = stessa voce)
+  enhancePickers(form, async (table, name) => {
+    const { row, existed } = await findOrCreate(table, name);
+    flash(existed ? `«${row.name}» c'era già: l'ho scelto` : `«${row.name}» aggiunto`);
+    return { id: row.id, name: row.name };
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -506,11 +509,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   });
 }
 
-// "Aggiungi" nelle relazioni (tropes, generi, ambientazioni, autori) e accanto alle tendine (editore):
-// crea la voce e la spunta o la seleziona subito. Se lo slug esiste già usa quella esistente, senza doppioni.
-const newItemBox = (table: string, label: string) =>
-  `<span class="m2m-new"><input type="text" maxlength="80" placeholder="Nuova voce…" aria-label="Nuova voce in ${esc(label)}"><button type="button" class="secondary" data-create="${esc(table)}">Aggiungi</button></span>`;
-
+// Voce nuova da un menu (tropes, generi, autori, editore…): se lo slug esiste già usa quella, senza doppioni.
 async function findOrCreate(table: string, name: string): Promise<{ row: Row; existed: boolean }> {
   const sb = getSupabase();
   const slug = slugify(name);
@@ -520,82 +519,6 @@ async function findOrCreate(table: string, name: string): Promise<{ row: Row; ex
   const inserted = await sb.from(table).insert({ name, slug }).select('id, name').single();
   if (inserted.error) fail(inserted.error);
   return { row: inserted.data, existed: false };
-}
-
-/**
- * Elenchi molti-a-molti (tropes, generi, autori…): le voci scelte stanno in alto come pillole (si tolgono con ✕),
- * sotto una ricerca e l'elenco completo che scorre. Con un centinaio di tropes non si scorre più tutta la pagina.
- */
-function bindM2m(form: HTMLFormElement) {
-  form.querySelectorAll<HTMLFieldSetElement>('fieldset.m2m').forEach((fieldset) => {
-    const chosen = fieldset.querySelector<HTMLElement>('.m2m-chosen')!;
-    const search = fieldset.querySelector<HTMLInputElement>('.m2m-search');
-    const showChosen = () => {
-      const picked = [...fieldset.querySelectorAll<HTMLInputElement>('.m2m-list input:checked')];
-      chosen.innerHTML = picked.length
-        ? picked
-            .map((i) => `<button type="button" class="chip" data-uncheck="${esc(i.value)}">${esc(i.parentElement!.textContent!.trim())} <span aria-hidden="true">✕</span></button>`)
-            .join('')
-        : '<span class="muted small">Nessuna voce scelta.</span>';
-    };
-    fieldset.addEventListener('change', showChosen);
-    chosen.addEventListener('click', (e) => {
-      const chip = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-uncheck]');
-      if (!chip) return;
-      const input = fieldset.querySelector<HTMLInputElement>(`.m2m-list input[value="${CSS.escape(chip.dataset.uncheck!)}"]`);
-      if (input) input.checked = false;
-      showChosen();
-    });
-    search?.addEventListener('input', () => {
-      const q = search.value.trim().toLowerCase();
-      fieldset.querySelectorAll<HTMLLabelElement>('.m2m-list label').forEach((label) => {
-        label.hidden = q !== '' && !label.textContent!.toLowerCase().includes(q);
-      });
-    });
-    // Invio nella ricerca non invia il modulo: spunta la prima voce trovata
-    search?.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const first = fieldset.querySelector<HTMLInputElement>('.m2m-list label:not([hidden]) input');
-      if (first) {
-        first.checked = !first.checked;
-        showChosen();
-      }
-    });
-    showChosen();
-  });
-}
-
-function bindCreatable(form: HTMLFormElement) {
-  form.querySelectorAll<HTMLButtonElement>('[data-create]').forEach((button) => {
-    const box = button.closest<HTMLElement>('.m2m-new')!;
-    const input = box.querySelector('input')!;
-    const create = async () => {
-      const name = input.value.trim();
-      if (!name) return input.focus();
-      const { row, existed } = await findOrCreate(button.dataset.create!, name);
-      const fieldset = box.closest('fieldset');
-      if (fieldset) {
-        const existing = fieldset.querySelector<HTMLInputElement>(`input[type="checkbox"][value="${CSS.escape(row.id)}"]`);
-        if (existing) existing.checked = true;
-        else (fieldset.querySelector('.m2m-list') ?? box).insertAdjacentHTML(fieldset.querySelector('.m2m-list') ? 'beforeend' : 'beforebegin', `<label class="check"><input type="checkbox" value="${esc(row.id)}" checked> ${esc(row.name)}</label>`);
-        fieldset.dispatchEvent(new Event('change'));
-      } else {
-        const select = box.parentElement!.querySelector('select')!;
-        if (![...select.options].some((o) => o.value === row.id)) select.add(new Option(row.name, row.id));
-        select.value = row.id;
-      }
-      input.value = '';
-      flash(existed ? `«${row.name}» c'era già: l'ho scelto` : `«${row.name}» aggiunto`);
-    };
-    button.addEventListener('click', create);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault(); // non inviare tutto il form
-        create();
-      }
-    });
-  });
 }
 
 // Foto: ridotta a 1600px e convertita in WebP nel browser (meno spazio nello Storage, niente dati EXIF

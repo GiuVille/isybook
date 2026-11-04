@@ -156,7 +156,7 @@ const path = Astro.url.pathname;
 
       // Telefono: l'header resta in cima (sticky), sparisce scendendo e ricompare con una leggera risalita,
       // così il menu è sempre a portata senza tornare a inizio pagina. Col menu aperto non si nasconde mai.
-      const phone = window.matchMedia('(max-width: 700px)');
+      const phone = window.matchMedia('(max-width: 960px)'); // stesso limite del menu a cassetto
       let lastY = window.scrollY;
       let ticking = false;
       const onScroll = () => {
@@ -322,6 +322,11 @@ const path = Astro.url.pathname;
     padding-right: 32px; /* corpo della cartellina oltre la linguetta */
     margin-right: -18px;
   }
+  /* tablet in orizzontale e portatili piccoli: cartelline più strette, così stanno tutte e 7 in fila */
+  @media (min-width: 961px) and (max-width: 1180px) {
+    .folders .folder { min-width: 112px; padding-right: 22px; margin-right: -14px; }
+    .folders :global(.folder-tab .label) { font-size: 1rem; }
+  }
   .folders .folder:nth-child(1) { z-index: 6; }
   .folders .folder:nth-child(2) { z-index: 5; }
   .folders .folder:nth-child(3) { z-index: 4; }
@@ -355,7 +360,8 @@ const path = Astro.url.pathname;
     .insta:focus-visible svg { transform: rotate(-12deg) scale(1.15); }
   }
 
-  @media (max-width: 700px) {
+  /* menu a cassetto fino a 960px: anche i tablet in verticale (le 7 cartelline in fila chiedono circa 1040px) */
+  @media (max-width: 960px) {
     /* header che sparisce scendendo e ricompare risalendo (script sopra) */
     .site-header { position: sticky; top: 0; z-index: 50; }
     .site-header.is-hidden { transform: translateY(-100%); }

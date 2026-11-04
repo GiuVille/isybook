@@ -58,12 +58,12 @@
   .js .spice[data-reveal].is-in svg.on { animation: pop 0.42s var(--ease-spring) forwards; animation-delay: calc(var(--i) * 110ms + 100ms); }
 
   /* ---- cassetto mobile: le cartelline arrivano a cascata ---- */
-  @media (max-width: 700px) {
+  @media (max-width: 960px) {
     .js .menu-open .folders .folder { animation: drop-in 0.5s var(--ease-spring) both; animation-delay: calc(var(--n) * 45ms + 60ms); }
   }
 
   /* ---- cartelline dell'header (su desktop; su mobile stanno ferme nel cassetto) ---- */
-  @media (min-width: 701px) {
+  @media (min-width: 961px) {
     .folders .folder { transition: transform 0.35s var(--ease-spring); }
     .folders .folder.is-active { animation: settle 0.7s var(--ease-out) both 0.15s; }
   }
