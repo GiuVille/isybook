@@ -59,10 +59,19 @@ export function initKonami() {
   // telefono: 7 tocchi veloci sul logo. Con il dito il logo porta alla home dopo una breve pausa,
   // così i tocchi successivi si possono contare; con mouse e tastiera funziona come sempre.
   const logo = document.querySelector<HTMLAnchorElement>('.logo');
+  if (!logo) return;
   let taps = 0;
   let timer = 0;
-  logo?.addEventListener('click', (e) => {
-    if ((e as PointerEvent).pointerType !== 'touch') return;
+  // Safari su iPhone manda il clic come MouseEvent, senza pointerType: il dito si riconosce da pointerdown/touchstart
+  let lastPointer = '';
+  let touched = false;
+  logo.style.touchAction = 'manipulation'; // tocchi ripetuti senza zoom né ritardo
+  logo.addEventListener('pointerdown', (e) => (lastPointer = e.pointerType));
+  logo.addEventListener('touchstart', () => (touched = true), { passive: true });
+  logo.addEventListener('click', (e) => {
+    const pointer = (e as PointerEvent).pointerType;
+    const finger = pointer === 'touch' || (!pointer && (lastPointer === 'touch' || touched));
+    if (!finger) return;
     e.preventDefault();
     clearTimeout(timer);
     taps++;

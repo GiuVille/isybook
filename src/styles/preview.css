@@ -42,8 +42,8 @@
 
 .preview .save-slot { position: absolute; top: 12px; right: 14px; z-index: 2; }
 /* menu delle cartelle aperto: sopra i pulsanti delle anteprime successive (sul telefono è un foglio fisso) */
-.preview .save-slot:has(.pop:not([hidden])) { z-index: 70; }
-.preview:has(.pop:not([hidden])) { position: relative; z-index: 70; }
+.preview .save-slot:has(.pop[open]) { z-index: 70; }
+.preview:has(.pop[open]) { position: relative; z-index: 70; }
 .preview .plot { position: relative; display: flex; flex-direction: column; padding: 16px 28px 28px; min-width: 0; }
 .preview .plot h3 { margin: 0 0 12px; text-align: center; font-family: inherit; font-size: 1.9rem; font-weight: 400; }
 .preview .box { flex: 1; background: var(--panel) var(--grain); padding: 18px 20px; color: var(--text); font-family: var(--font-text); }
