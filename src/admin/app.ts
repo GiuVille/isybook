@@ -735,6 +735,31 @@ function bulkReady(item: Row): boolean {
   return false;
 }
 
+/** Testo in cui cercare: titolo, autrici, editore, fonte (minuscolo, senza accenti). */
+function queueSearchText(item: Row): string {
+  const p = item.payload ?? {};
+  const names = (list: unknown) => (Array.isArray(list) ? list.map((x) => (typeof x === 'string' ? x : x?.name ?? '')) : []);
+  return [
+    reviewTitle(item),
+    p.work_title,
+    ...names(p.authors),
+    p.publisher?.name ?? p.publisher,
+    p.source_url,
+    CONTENT_TYPE_LABELS[item.content_type],
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/** Da completare a mano: trama da scrivere, oppure tropes o generi nuovi da decidere. */
+const queueIncomplete = (item: Row) => {
+  const p = item.payload ?? {};
+  return (item.content_type === 'plot' && !p.plot?.trim()) || Boolean((p.new_tropes ?? []).length || (p.new_genres ?? []).length);
+};
+
 async function renderReviewList() {
   const { data, error } = await getSupabase()
     .from('review_queue')
@@ -747,6 +772,7 @@ async function renderReviewList() {
   const filter = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tipo') ?? '';
   const shown = filter ? rows.filter((r: Row) => r.content_type === filter) : rows;
   const bulkable = shown.filter(bulkReady);
+  const genreSlugs = [...new Set(shown.flatMap((r: Row) => (Array.isArray(r.payload?.genres) ? r.payload.genres : [])))].sort() as string[];
   render(
     shell(`
       <h1>Da approvare</h1>
@@ -757,6 +783,27 @@ async function renderReviewList() {
               <div class="queue-filter">${['', ...types]
                 .map((t) => `<a class="pill ${t === filter ? 'is-on' : ''}" href="#/review${t ? `?tipo=${t}` : ''}">${t ? esc(CONTENT_TYPE_LABELS[t] ?? t) : 'Tutto'} (${t ? rows.filter((r: Row) => r.content_type === t).length : rows.length})</a>`)
                 .join('')}</div>
+              <div class="queue-search">
+                <input type="search" id="q-search" placeholder="Cerca per titolo, autrice, editore…" aria-label="Cerca in Da approvare">
+                <label>Stato
+                  <select id="q-state">
+                    <option value="">Tutte</option>
+                    <option value="ready">Pronte da approvare in blocco</option>
+                    <option value="todo">Da completare (trama o voci nuove)</option>
+                  </select>
+                </label>
+                ${
+                  genreSlugs.length
+                    ? `<label>Genere
+                        <select id="q-genre"><option value="">Tutti</option>${genreSlugs.map((g) => `<option value="${esc(g)}">${esc(humanize(g))}</option>`).join('')}</select>
+                      </label>`
+                    : ''
+                }
+                <label>Ordine
+                  <select id="q-order"><option value="old">Prima le più vecchie</option><option value="new">Prima le più recenti</option></select>
+                </label>
+                <span class="muted small" id="q-count" aria-live="polite"></span>
+              </div>
               ${
                 bulkable.length
                   ? `<div class="queue-bulk">
@@ -774,7 +821,8 @@ async function renderReviewList() {
         ${shown
           .map(
             (item: Row) => `
-            <div class="card queue-item">
+            <div class="card queue-item" data-search="${esc(queueSearchText(item))}" data-ready="${bulkReady(item)}" data-todo="${queueIncomplete(item)}"
+              data-genres="${esc((Array.isArray(item.payload?.genres) ? item.payload.genres : []).join(' '))}" data-time="${esc(item.created_at)}">
               ${bulkReady(item) ? `<input type="checkbox" class="bulk-pick" value="${item.id}" aria-label="Seleziona «${esc(reviewTitle(item))}»">` : '<span class="bulk-space"></span>'}
               ${queueThumb(item)}
               <span class="pill">${esc(CONTENT_TYPE_LABELS[item.content_type] ?? item.content_type)}</span>
@@ -794,9 +842,44 @@ async function renderReviewList() {
     if (approveBtn) approveBtn.disabled = picks().length === 0;
   };
   document.querySelectorAll('.bulk-pick').forEach((i) => i.addEventListener('change', refresh));
+  // ricerca e filtri: tutto nella pagina, senza ricaricare la coda
+  const queue = document.querySelector<HTMLElement>('.queue');
+  const cards = [...document.querySelectorAll<HTMLElement>('.queue-item')];
+  const qSearch = document.getElementById('q-search') as HTMLInputElement | null;
+  const qState = document.getElementById('q-state') as HTMLSelectElement | null;
+  const qGenre = document.getElementById('q-genre') as HTMLSelectElement | null;
+  const qOrder = document.getElementById('q-order') as HTMLSelectElement | null;
+  const qCount = document.getElementById('q-count');
+  const applyFilters = () => {
+    const words = (qSearch?.value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/\s+/).filter(Boolean);
+    let visible = 0;
+    for (const card of cards) {
+      const ok =
+        words.every((w) => card.dataset.search!.includes(w)) &&
+        (!qState?.value || (qState.value === 'ready' ? card.dataset.ready === 'true' : card.dataset.todo === 'true')) &&
+        (!qGenre?.value || card.dataset.genres!.split(' ').includes(qGenre.value));
+      card.hidden = !ok;
+      // una nascosta non resta selezionata per l'approvazione in blocco
+      if (!ok) {
+        const pick = card.querySelector<HTMLInputElement>('.bulk-pick');
+        if (pick) pick.checked = false;
+      }
+      if (ok) visible++;
+    }
+    if (queue && qOrder) {
+      const sorted = [...cards].sort((a, b) => a.dataset.time!.localeCompare(b.dataset.time!) * (qOrder.value === 'new' ? -1 : 1));
+      queue.append(...sorted);
+    }
+    if (qCount) qCount.textContent = visible === cards.length ? `${cards.length} elementi` : `${visible} di ${cards.length}`;
+    refresh();
+  };
+  [qSearch, qState, qGenre, qOrder].forEach((el) => el?.addEventListener(el === qSearch ? 'input' : 'change', applyFilters));
+  applyFilters();
+
   document.getElementById('bulk-all')?.addEventListener('change', (e) => {
     const on = (e.target as HTMLInputElement).checked;
-    document.querySelectorAll<HTMLInputElement>('.bulk-pick').forEach((i) => (i.checked = on));
+    // solo quelle visibili con i filtri attivi
+    document.querySelectorAll<HTMLInputElement>('.queue-item:not([hidden]) .bulk-pick').forEach((i) => (i.checked = on));
     refresh();
   });
   approveBtn?.addEventListener('click', async () => {

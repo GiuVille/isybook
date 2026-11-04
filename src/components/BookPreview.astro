@@ -18,8 +18,11 @@ interface Props {
 const { work } = Astro.props;
 const theme = themeForWork(work);
 const released = releaseDate(work);
-// frecce: tropes, poi ambientazioni
-const arrowLabels = [...work.tropes.map((t) => t.name), ...work.settings.map((s) => s.name)];
+// frecce: tropes, poi ambientazioni, al massimo 5 (le altre sono nella scheda del libro)
+const MAX_ARROWS = 5;
+const allLabels = [...work.tropes.map((t) => t.name), ...work.settings.map((s) => s.name)];
+const arrowLabels = allLabels.slice(0, MAX_ARROWS);
+const hiddenLabels = allLabels.length - arrowLabels.length;
 const arrows = layoutTropeArrows(arrowLabels, work.slug);
 const pages = pageCount(work);
 const cheapest = cheapestEdition(work);
@@ -158,6 +161,9 @@ const plotDoodles = doodles.slice(doodleSpots.length).map((d, i) => ({ ...d, pos
             {pages && <span>{pages} pagine</span>}
             {spice != null && <SpiceMeter level={spice} size={18} />}
           </span>
+        )}
+        {hiddenLabels > 0 && (
+          <a class="more-tropes" href={`/libri/${work.slug}#tropes`}>+{hiddenLabels} {hiddenLabels === 1 ? 'altro' : 'altri'} nella scheda →</a>
         )}
       </p>
       {work.plot ? <p class="text">{work.plot}</p> : <p class="text empty">Trama in arrivo.</p>}

@@ -18,7 +18,8 @@ interface Props {
 
 const { adaptation: a } = Astro.props;
 const theme = themeForWork(a);
-const arrows = layoutTropeArrows(a.tropes.map((t) => t.name), a.slug);
+// al massimo 5 frecce, come per i libri: gli altri tropes sono nella scheda
+const arrows = layoutTropeArrows(a.tropes.slice(0, 5).map((t) => t.name), a.slug);
 const platforms = [...new Set(a.watch_providers.map((p) => p.platform))];
 // al massimo 3 spunte, poi "+N"
 const checks = platforms.length > 3 ? [...platforms.slice(0, 2), `+${platforms.length - 2} piattaforme`] : platforms;

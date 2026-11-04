@@ -96,6 +96,12 @@ import '../../styles/global.css';
   .picker-check { width: 1em; flex: none; color: var(--accent); }
   .picker-create { color: var(--accent); font-weight: 600; }
   .picker-empty { color: var(--muted); cursor: default; }
+  /* Da approvare: ricerca e filtri */
+  .queue-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 4px; }
+  .queue-search input[type='search'] { flex: 1 1 260px; min-height: 40px; }
+  .queue-search label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; color: var(--muted); }
+  .queue-search select { min-height: 40px; color: var(--text); }
+  .queue-item[hidden] { display: none; }
   .check { font-weight: 400 !important; display: flex; gap: 6px; align-items: center; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 

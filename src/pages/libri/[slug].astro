@@ -118,7 +118,7 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
           )}
           {work.tropes.length > 0 && (
             <>
-              <dt>Tropes</dt>
+              <dt id="tropes">Tropes</dt>
               <dd>{work.tropes.map((t) => <a class="tag trope" href={`/libri?tropes=${t.slug}`} title="Altri libri con questo trope">{t.name}</a>)}</dd>
             </>
           )}

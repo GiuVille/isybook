@@ -24,7 +24,7 @@ function shell(placeholder: string, label: string) {
   root.innerHTML = `
     <div class="picker-chips" hidden></div>
     <div class="picker-box">
-      <input type="text" class="picker-input" role="combobox" aria-expanded="false" aria-controls="${id}" aria-autocomplete="list"
+      <input type="search" class="picker-input" role="combobox" aria-expanded="false" aria-controls="${id}" aria-autocomplete="list"
         autocomplete="off" placeholder="${esc(placeholder)}" aria-label="${esc(label)}">
       <button type="button" class="picker-toggle" tabindex="-1" aria-label="Apri l'elenco">▾</button>
     </div>
@@ -57,7 +57,9 @@ function wire(
     ui.list.hidden = true;
     ui.input.setAttribute('aria-expanded', 'false');
   };
-  const draw = () => {
+  /** Ridisegna l'elenco restando dove si era; porta in vista la voce attiva solo se richiesto (frecce della tastiera). */
+  const draw = (scrollToActive = false) => {
+    const top = ui.list.scrollTop;
     const q = norm(ui.input.value);
     const all = opts.options();
     const matches = all.filter((o) => !q || norm(o.label).includes(q));
@@ -74,9 +76,11 @@ function wire(
           )
           .join('')
       : '<li class="picker-empty">Nessun risultato</li>';
-    ui.list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
+    ui.list.scrollTop = top;
+    if (scrollToActive) ui.list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
   };
   const open = () => {
+    if (ui.list.hidden) ui.list.scrollTop = 0; // riaprendo si riparte dall'inizio; mentre è aperto resta dov'è
     draw();
     ui.list.hidden = false;
     ui.input.setAttribute('aria-expanded', 'true');
@@ -86,10 +90,11 @@ function wire(
     if (!item) return;
     if (item.kind === 'create') {
       await opts.create!(item.name);
-      ui.input.value = '';
+      ui.input.value = ''; // la voce nuova è creata: si torna all'elenco completo
     } else {
+      // la ricerca resta com'è: stesso elenco, stessa posizione, con la nuova spunta
       opts.choose(item.option);
-      if (opts.keepOpen) ui.input.value = '';
+      active = i;
     }
     if (opts.keepOpen) {
       open();
@@ -101,6 +106,7 @@ function wire(
   ui.input.addEventListener('click', open);
   ui.input.addEventListener('input', () => {
     active = 0;
+    ui.list.scrollTop = 0; // ricerca nuova: si riparte dai primi risultati
     open();
   });
   ui.toggle.addEventListener('click', () => (ui.list.hidden ? (ui.input.focus(), open()) : close()));
@@ -116,7 +122,7 @@ function wire(
       e.preventDefault();
       if (ui.list.hidden) return open();
       active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % Math.max(items.length, 1);
-      draw();
+      draw(true);
     } else if (e.key === 'Enter') {
       e.preventDefault(); // mai inviare tutto il modulo da qui
       if (!ui.list.hidden) pick(active);

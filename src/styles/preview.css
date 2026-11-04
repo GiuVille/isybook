@@ -50,6 +50,7 @@
 .preview .meta { margin: 0 0 8px; font-size: 0.85rem; opacity: 0.8; }
 .preview .meta a { color: inherit; font-weight: 600; }
 .preview .date { display: block; margin-top: 2px; }
+.preview .more-tropes { display: inline-block; margin-top: 4px; font-weight: 400; }
 .preview .facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 2px; }
 .preview .text {
   margin: 0;
