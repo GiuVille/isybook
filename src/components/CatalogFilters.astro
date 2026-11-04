@@ -5,6 +5,8 @@
 export interface FilterOption {
   slug: string;
   name: string;
+  /** Titoletto sotto cui compare nel menu (es. il genere di un trope). */
+  group?: string | null;
 }
 
 export interface FilterGroup {
@@ -13,6 +15,8 @@ export interface FilterGroup {
   label: string;
   mode: 'all' | 'any'; // all = la card deve avere tutti i valori scelti, any = almeno uno
   options: FilterOption[];
+  /** Ricerca nel menu anche con poche voci (di norma compare oltre le 8). */
+  searchable?: boolean;
 }
 
 /** Filtro numerico "al massimo": la card resta se il suo valore è ≤ di quello scritto. */
@@ -54,6 +58,15 @@ const {
   sectionSelector = '',
 } = Astro.props;
 const visibleGroups = groups.filter((g) => g.options.length > 0);
+
+/** Voci divise per titoletto quando almeno una ne ha uno: in ordine alfabetico, "Altri" in fondo. */
+function sections(options: FilterOption[]): Array<{ title: string | null; options: FilterOption[] }> {
+  if (!options.some((o) => o.group)) return [{ title: null, options }];
+  const byGroup = Map.groupBy(options, (o) => o.group || 'Altri');
+  return [...byGroup.keys()]
+    .sort((a, b) => Number(a === 'Altri') - Number(b === 'Altri') || a.localeCompare(b, 'it'))
+    .map((title) => ({ title, options: byGroup.get(title)! }));
+}
 ---
 
 <section
@@ -68,23 +81,34 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
 >
   <div class="bar">
     <input type="search" class="query" placeholder={placeholder} aria-label={`Cerca tra i ${noun.many}`} autocomplete="off" />
+    {(visibleGroups.length > 0 || maxFilters.length > 0 || sorts.length > 0) && (
+      <button type="button" class="toggle" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+        Filtri <span class="badge" hidden></span>
+      </button>
+    )}
     {visibleGroups.map((g) => (
       <details class="group" data-group={g.key} data-attr={g.attr} data-mode={g.mode}>
         <summary>
           {g.label} <span class="badge" hidden></span>
         </summary>
         <div class="menu">
-          {g.options.length > 8 && <input type="search" class="search" placeholder={`Cerca ${g.label.toLowerCase()}…`} />}
+          {(g.searchable || g.options.length > 8) && <input type="search" class="search" placeholder={`Cerca ${g.label.toLowerCase()}…`} aria-label={`Cerca ${g.label.toLowerCase()}`} />}
           {g.mode === 'all' && <p class="hint">Mostra i {noun.many} che li hanno tutti</p>}
           <ul>
-            {g.options.map((o) => (
-              <li>
-                <label>
-                  <input type="checkbox" value={o.slug} data-label={o.name} />
-                  <span class="name">{o.name}</span>
-                  <span class="count"></span>
-                </label>
-              </li>
+            {sections(g.options).map((section) => (
+              <>
+                {section.title && <li class="head" aria-hidden="true">{section.title}</li>}
+                {section.options.map((o) => (
+                  <li>
+                    <label>
+                      <input type="checkbox" value={o.slug} data-label={o.name} />
+                      <span class="name">{o.name}</span>
+                      <span class="count"></span>
+                    </label>
+                  </li>
+                ))}
+              </>
             ))}
           </ul>
         </div>
@@ -167,6 +191,15 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
       maxDefs.map((d) => [d, root.querySelector<HTMLInputElement>(`input[data-max="${d.key}"]`)!] as const),
     );
     const sortSelect = root.querySelector<HTMLSelectElement>('.sort select');
+
+    // telefono: filtri raccolti dietro "Filtri" (su desktop il pulsante non si vede e tutto resta aperto)
+    const toggle = root.querySelector<HTMLButtonElement>('.toggle');
+    const toggleBadge = toggle?.querySelector<HTMLElement>('.badge');
+    const showFilters = (open: boolean) => {
+      root.classList.toggle('show-all', open);
+      toggle?.setAttribute('aria-expanded', String(open));
+    };
+    toggle?.addEventListener('click', () => showFilters(!root.classList.contains('show-all')));
 
     const selected = (g: Group) => g.inputs.filter((i) => i.checked).map((i) => i.value);
     // tutte le parole cercate devono comparire
@@ -322,6 +355,11 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
 
       const active =
         terms().length > 0 || groups.some((g) => selected(g).length > 0) || [...maxInputs.values()].some((i) => i.value !== '');
+      if (toggleBadge) {
+        const n = groups.reduce((sum, g) => sum + selected(g).length, 0) + [...maxInputs.values()].filter((i) => i.value !== '').length;
+        toggleBadge.hidden = n === 0;
+        toggleBadge.textContent = String(n);
+      }
       total.textContent = `${visible} ${visible === 1 ? nounOne : nounMany}`;
       resetButtons[0].hidden = !active;
       empty.hidden = visible > 0;
@@ -350,8 +388,14 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
     root.querySelectorAll<HTMLInputElement>('input.search').forEach((search) =>
       search.addEventListener('input', () => {
         const q = search.value.trim().toLowerCase();
-        search.closest('details')!.querySelectorAll('li').forEach((li) => {
-          li.hidden = q !== '' && !li.textContent!.toLowerCase().includes(q);
+        const items = [...search.closest('details')!.querySelectorAll<HTMLLIElement>('li')];
+        for (const li of items) if (!li.classList.contains('head')) li.hidden = q !== '' && !li.textContent!.toLowerCase().includes(q);
+        // un titoletto resta solo se sotto ha almeno una voce visibile
+        items.forEach((li, i) => {
+          if (!li.classList.contains('head')) return;
+          const next = items.slice(i + 1);
+          const end = next.findIndex((x) => x.classList.contains('head'));
+          li.hidden = (end < 0 ? next : next.slice(0, end)).every((x) => x.hidden);
         });
       }),
     );
@@ -451,6 +495,8 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
   .menu label.disabled { opacity: 0.45; cursor: default; }
   .menu label.disabled:hover { background: none; }
   .name { flex: 1; }
+  .head { margin: 10px 4px 2px; font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+  .head:first-child { margin-top: 2px; }
   .count { font-size: 0.8rem; color: var(--muted); }
 
   .extra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: 12px; font-size: 0.9rem; }
@@ -500,8 +546,33 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
   .empty { margin-top: 24px; padding: 32px 16px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
   .empty p { margin: 0 0 8px; }
 
+  .toggle { display: none; }
   @media (max-width: 700px) {
     .group { position: static; }
-    .menu { left: 0; right: 0; width: auto; }
+    .menu { left: 0; right: 0; width: auto; max-height: min(360px, 55svh); }
+    /* ricerca a tutta riga, accanto il pulsante "Filtri"; i filtri compaiono toccandolo */
+    .query { flex: 1 1 0; min-height: 44px; font-size: 16px; }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 44px;
+      padding: 0 14px;
+      font: inherit;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+    .toggle[aria-expanded='true'] { color: var(--accent); border-color: var(--accent); }
+    .filters:not(.show-all) .group,
+    .filters:not(.show-all) .extra { display: none; }
+    summary { min-height: 44px; display: flex; align-items: center; gap: 4px; }
+    .menu label { min-height: 44px; }
+    .search { min-height: 44px; font-size: 16px; }
+    .extra { gap: 10px 14px; }
+    .max input, .sort select { min-height: 44px; font-size: 16px; }
   }
 </style>

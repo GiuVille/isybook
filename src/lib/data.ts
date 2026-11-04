@@ -11,10 +11,10 @@ const WORK_SELECT = `
   id, slug, title, plot, series, series_number, origin, spice_level,
   work_authors ( authors ( id, slug, name, bio, social_links ) ),
   work_genres ( genres ( id, slug, name, theme ) ),
-  work_tropes ( tropes ( id, slug, name, doodle ) ),
+  work_tropes ( tropes ( id, slug, name, doodle, genres ( name ) ) ),
   work_settings ( settings ( id, slug, name, doodle ) ),
   editions (
-    id, isbn, format, release_date, price, language, edition_type, first_print, pages, print_run, details, cover_url, purchase_links,
+    id, isbn, format, release_date, release_precision, price, language, edition_type, first_print, pages, print_run, details, cover_url, purchase_links,
     publishers ( id, slug, name, kind, website ),
     merch ( ${MERCH_FIELDS} )
   ),
@@ -69,10 +69,13 @@ function mapWork(row: Row): Work {
     spice_level: row.spice_level,
     authors: (row.work_authors ?? []).map((r: Row) => r.authors).filter(Boolean),
     genres: (row.work_genres ?? []).map((r: Row) => r.genres).filter(Boolean),
-    tropes: (row.work_tropes ?? []).map((r: Row) => r.tropes).filter(Boolean),
+    tropes: (row.work_tropes ?? [])
+      .map((r: Row) => r.tropes)
+      .filter(Boolean)
+      .map(({ genres, ...t }: Row) => ({ ...t, group: genres?.name ?? null })),
     settings: (row.work_settings ?? []).map((r: Row) => r.settings).filter(Boolean),
     editions: (row.editions ?? [])
-      .map((e: Row): Edition => ({ ...e, publisher: e.publishers ?? null, purchase_links: e.purchase_links ?? [] } as Edition))
+      .map((e: Row): Edition => ({ ...e, release_date: editionDate(e), publisher: e.publishers ?? null, purchase_links: e.purchase_links ?? [] } as Edition))
       .sort(byReleaseDate),
     adaptations: [] as Adaptation[],
     merch: uniqueById([
@@ -97,6 +100,17 @@ function mapWork(row: Row): Work {
 
 function uniqueById<T extends { id: string }>(items: Array<T | null | undefined>): T[] {
   return [...new Map(items.filter((i): i is T => Boolean(i)).map((i) => [i.id, i])).values()];
+}
+
+/**
+ * Data dell'edizione come ISO ridotta secondo la precisione (migrazione 0014): "2026-09-29", "2026-09" o "2026".
+ * Confrontata come testo con oggi, un mese o un anno già iniziato risulta uscito, uno futuro in arrivo.
+ */
+function editionDate(e: Row): string | null {
+  if (!e.release_date) return null;
+  if (e.release_precision === 'year') return e.release_date.slice(0, 4);
+  if (e.release_precision === 'month') return e.release_date.slice(0, 7);
+  return e.release_date;
 }
 
 function byReleaseDate(a: Edition, b: Edition) {
@@ -145,6 +159,14 @@ export async function getWorks(): Promise<Work[]> {
     .order('title');
   if (error) throw error;
   return (data ?? []).map(mapWork);
+}
+
+/** Tutto il vocabolario dei tropes, anche quelli non ancora assegnati a un libro, col genere sotto cui stanno nei menu. */
+export async function getTropes(): Promise<Tag[]> {
+  if (!supabaseConfigured) return sample.tropes as Tag[];
+  const { data, error } = await getSupabase().from('tropes').select('id, slug, name, doodle, genres ( name )').order('name');
+  if (error) throw error;
+  return (data ?? []).map(({ genres, ...t }: Row) => ({ ...t, group: genres?.name ?? null }) as Tag);
 }
 
 /** Autori con almeno un libro pubblicato, in ordine alfabetico. */

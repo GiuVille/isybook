@@ -177,4 +177,14 @@
 @media (max-width: 700px) {
   .vhs-shelf { margin: 0 -16px; border-radius: 0; padding: 40px 16px 16px; }
   .vhs-shelf .slot { flex-basis: 136px; }
+  /* etichetta su due righe se serve: "Da vedere" non resta tagliato */
+  .vhs-shelf .label {
+    display: -webkit-box;
+    padding: 2px 5px;
+    font-size: 0.98rem;
+    line-height: 1.15;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
 }

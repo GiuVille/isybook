@@ -9,7 +9,7 @@ import type { Edition, Work } from '../../lib/types';
 export const getStaticPaths: GetStaticPaths = async () => {
   const today = new Date().toISOString().slice(0, 10);
   return (await getEditionsWithWork())
-    .filter((e) => e.release_date && e.release_date > today)
+    .filter((e) => e.release_date && e.release_date.length === 10 && e.release_date > today)
     .map((edition) => ({ params: { id: edition.id }, props: { edition } }));
 };
 

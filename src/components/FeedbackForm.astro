@@ -244,10 +244,25 @@ const KINDS = [
   .plane { position: absolute; left: 50%; top: 40%; width: 64px; height: 40px; margin-left: -32px; opacity: 0; pointer-events: none; }
 
   @media (max-width: 600px) {
-    .sheet { padding: 38px 16px 22px 44px; }
+    /* telefono: foglio più fitto e compatto, campi alti due righe (a misura di pollice e allineati alle righe) */
+    .feedback { margin-top: 40px; }
+    .sheet { --line: 26px; padding: 32px 14px 18px 40px; rotate: -0.5deg; }
     .sheet { background-position: -14px 0, 0 14px, 0 0; }
-    .holes { left: 44px; right: 16px; }
+    .holes { top: 8px; left: 40px; right: 14px; background-size: 24px 12px; }
+    h2 { margin-top: 4px; font-size: 1.6rem; line-height: 1.15; }
+    .lead { margin-bottom: 8px; font-size: 0.9rem; }
+    .kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stamp > span { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 2px 6px; font-size: 1rem; text-align: center; }
+    textarea,
+    input[type='text'],
+    input[type='email'] { font-size: 1.15rem; }
+    textarea { min-height: calc(var(--line) * 4); }
+    input[type='text'],
+    input[type='email'] { height: calc(var(--line) * 2); line-height: calc(var(--line) * 2); }
     .row { grid-template-columns: 1fr; }
+    .privacy { font-size: 0.75rem; line-height: 1.4; margin: 6px 0; }
+    .send { width: 100%; }
+    .thanks-title { font-size: 1.8rem; }
   }
 
   @media (prefers-reduced-motion: no-preference) {

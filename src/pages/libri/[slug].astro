@@ -196,27 +196,27 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
               const extras = included.filter((m) => m.edition_id === e.id);
               return (
                 <tr>
-                  <td>
+                  <td class="kind">
                     <span class={`badge ${e.edition_type}`}>{EDITION_TYPE_LABELS[e.edition_type]}</span>
                     {e.first_print && <div class="badge first">Prima edizione</div>}
                   </td>
-                  <td>{FORMAT_LABELS[e.format]}{e.language !== 'it' && ` (${e.language})`}</td>
-                  <td>{e.publisher?.name ?? '—'}</td>
-                  <td>
+                  <td data-label="Formato">{FORMAT_LABELS[e.format]}{e.language !== 'it' && ` (${e.language})`}</td>
+                  <td data-label="Editore">{e.publisher?.name ?? '—'}</td>
+                  <td data-label="Uscita">
                     {formatDate(e.release_date)}
-                    {isUpcoming(e.release_date) && (
+                    {isUpcoming(e.release_date) && e.release_date!.length === 10 && (
                       <a class="remind-mini" href={`/promemoria/${e.id}.ics`} download aria-label={`Promemoria per l'uscita del ${formatDate(e.release_date)}`} title="Aggiungi al calendario">📅</a>
                     )}
                   </td>
-                  <td>{formatPrice(e.price)}</td>
-                  <td>
+                  <td data-label="Prezzo">{formatPrice(e.price)}</td>
+                  <td data-label="Dettagli">
                     {e.details}
                     {e.pages && <span class="muted"> {e.pages} pagine.</span>}
                     {e.print_run && <span class="muted"> Tiratura: {e.print_run.toLocaleString('it-IT')} copie.</span>}
                     {extras.length > 0 && <div class="small">Incluso: {extras.map((m) => m.name).join(', ')}</div>}
                     {e.isbn && <div class="muted isbn">ISBN {e.isbn}</div>}
                   </td>
-                  <td>
+                  <td data-label="Acquista">
                     {e.purchase_links.length
                       ? e.purchase_links.map((l) => (
                           <a href={l.url} rel={l.affiliate ? 'sponsored noopener' : 'noopener'} target="_blank">{l.label}</a>
@@ -361,6 +361,21 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
   .reason { color: var(--accent); margin-top: 4px; }
 
   @media (max-width: 700px) {
+    /* edizioni: una schedina per edizione invece della tabella che scorre di lato */
+    .table-wrap { overflow: visible; }
+    .table-wrap table,
+    .table-wrap tbody,
+    .table-wrap tr,
+    .table-wrap td { display: block; }
+    .table-wrap thead { display: none; }
+    .table-wrap tr { margin-bottom: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+    /* etichetta fissa a sinistra: il contenuto della cella (data e 📅, dettagli e ISBN) resta tutto insieme a destra */
+    .table-wrap td { position: relative; padding: 4px 0 4px 94px; border: 0; }
+    .table-wrap td::before { content: attr(data-label); position: absolute; left: 0; top: 6px; font-size: 0.82rem; color: var(--muted); }
+    .table-wrap td.kind { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 6px; }
+    .table-wrap td.kind::before { content: none; }
+    .table-wrap td:empty { display: none; }
+    .table-wrap td a { display: inline-block; min-height: 32px; margin-right: 10px; }
     .head :global(.cover) { width: 160px; }
     .step.next { text-align: left; }
     .events { grid-template-columns: minmax(0, 1fr); }

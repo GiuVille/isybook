@@ -10,7 +10,7 @@ const all = await getEditionsWithWork();
 const editions = groupEditions(all.filter((e) => (e.release_date ?? '9999') >= today));
 const releases = upcomingReleases(all, today).slice(0, 8);
 const byMonth = Map.groupBy(editions, (e) =>
-  e.release_date ? new Date(e.release_date).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }) : 'Data da annunciare',
+  !e.release_date ? 'Data da annunciare' : e.release_date.length === 4 ? e.release_date : new Date(e.release_date.slice(0, 7) + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }),
 );
 ---
 

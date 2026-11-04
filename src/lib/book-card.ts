@@ -6,7 +6,10 @@ export function esc(value: unknown): string {
 }
 
 function formatDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  if (!iso) return '';
+  if (/^\d{4}$/.test(iso)) return iso; // si conosce solo l'anno
+  if (/^\d{4}-\d{2}$/.test(iso)) return new Date(`${iso}-01`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /** Copertina: foto se c'è, altrimenti segnaposto nel colore del genere con il titolo. */

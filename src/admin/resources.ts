@@ -287,6 +287,11 @@ export const RESOURCES: Resource[] = [
       { name: 'pages', label: 'Pagine', type: 'number' },
       { name: 'isbn', label: 'ISBN', type: 'text' },
       { name: 'release_date', label: 'Data uscita', type: 'date' },
+      {
+        name: 'release_precision', label: 'La data è', type: 'select', options: [
+          ['day', 'esatta'], ['month', 'solo il mese'], ['year', "solo l'anno"],
+        ],
+      },
       { name: 'price', label: 'Prezzo (€)', type: 'number' },
       { name: 'language', label: 'Lingua', type: 'text', required: true },
       { name: 'print_run', label: 'Tiratura', type: 'number' },
@@ -423,11 +428,12 @@ export const RESOURCES: Resource[] = [
     label: 'Tropes',
     singular: 'trope',
     group: 'Anagrafiche',
-    listColumns: ['name', 'slug', 'doodle'],
+    listColumns: ['name', 'genre_id', 'doodle'],
     orderBy: { column: 'name', ascending: true },
     fields: [
       { name: 'name', label: 'Nome', type: 'text', required: true },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'name', required: true },
+      { name: 'genre_id', label: 'Genere', type: 'relation', table: 'genres', labelColumn: 'name', help: 'Nel menu «Tropes» della pagina Libri il trope compare sotto questo genere. Se vuoto, sotto «Altri».' },
       { name: 'doodle', label: 'Decorazione', type: 'select', options: DOODLE_OPTIONS, help: 'Scarabocchio disegnato sugli sfondi dei libri con questo trope. Se vuoto viene scelto in automatico.' },
       { name: 'description', label: 'Descrizione', type: 'textarea' },
     ],

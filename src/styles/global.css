@@ -2,6 +2,8 @@
   --bg: #fbf8f4;
   --surface: #ffffff;
   --text: #2a2230;
+  /* testo dell'interfaccia: calcolato qui, segue il tema chiaro/scuro ma non il --text locale delle anteprime */
+  --ui-text: var(--text);
   --muted: #6e6474;
   --border: #e6dfe8;
   --accent: #8a3f7a;
@@ -336,3 +338,19 @@ th { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
 }
 @keyframes nudge-in { from { opacity: 0; transform: translateY(24px); } }
 @keyframes nudge-arrow { 50% { transform: translateY(6px); } }
+
+/* ---------- telefono: aree da toccare di almeno 44px (pulsanti a pillola, promemoria) ---------- */
+@media (max-width: 760px) {
+  .button-soft,
+  .button-strong,
+  a.remind {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .button-soft { font-size: 0.95rem; }
+  a.remind { margin-top: 8px; font-size: 0.9rem; }
+}

@@ -10,7 +10,7 @@ export interface BookInput {
   isbn?: string | null;
   format: string; // paperback | hardcover | kindle | audio
   editionType: string; // standard | special | limited
-  releaseDate?: string | null;
+  releaseDate?: string | null; // anche incompleta: YYYY o YYYY-MM
   language?: string | null;
   coverUrl?: string | null;
   pages?: number | null;
@@ -25,6 +25,14 @@ export interface BookInput {
   /** Descrizione dell'editore: solo riferimento in revisione, non si pubblica. */
   description?: string | null;
   meta?: Record<string, unknown>;
+}
+
+/** "2026" → 2026-01-01 con precisione "year"; "2026-09" → 2026-09-01, "month". */
+export function releaseFields(date?: string | null): { release_date: string | null; release_precision: 'day' | 'month' | 'year' } {
+  if (!date) return { release_date: null, release_precision: 'day' };
+  if (/^\d{4}$/.test(date)) return { release_date: `${date}-01-01`, release_precision: 'year' };
+  if (/^\d{4}-\d{2}$/.test(date)) return { release_date: `${date}-01`, release_precision: 'month' };
+  return { release_date: date, release_precision: 'day' };
 }
 
 export function bookPayload(b: BookInput) {
@@ -43,7 +51,7 @@ export function bookPayload(b: BookInput) {
       isbn: b.isbn ?? null,
       format: b.format,
       edition_type: b.editionType,
-      release_date: b.releaseDate ?? null,
+      ...releaseFields(b.releaseDate),
       language: b.language ?? 'it',
       cover_url: b.coverUrl ?? null,
       pages: b.pages ?? null,

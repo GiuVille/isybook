@@ -1,5 +1,7 @@
-// Semina automatica del catalogo: cerca libri su Google Books (in italiano) a partire da scripts/seed.json
-// (ricerche, autrici e autori, editori) e dalle autrici già in catalogo.
+// Semina automatica del catalogo: cerca libri su Google Books (in italiano) a partire da scripts/seed.json e dalle
+// autrici già in catalogo. Ordine: titoli obbligatori, autrici di riferimento (tutti i loro libri), autrici simili
+// suggerite dall'AI a partire da quelle di riferimento (verificate su Google Books: un nome sbagliato non porta nulla),
+// altre autrici, editori, ricerche per genere.
 //
 // Per non lasciare il sito spoglio, i dati del libro (titolo, autrici, editore, edizione, copertina) si pubblicano
 // SUBITO, ma senza trama e senza tropes: la scheda mostra "La trama arriva presto". La trama riscritta in automatico
@@ -15,7 +17,7 @@
 // ci sono candidati, anche dal workflow seed.yml. I libri già in catalogo o già passati dalla coda non tornano.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { aiConfigured, rewritePlot, suggestGenres, suggestTropes } from './lib/ai.ts';
+import { aiConfigured, rewritePlot, similarAuthors, suggestGenres, suggestTropes } from './lib/ai.ts';
 import { bookPayload, genresFromCategories, knownGenres, knownTropes } from './lib/book-payload.ts';
 import { fetchBook, normalizeIsbn } from './lib/books.ts';
 import { notifyEditors } from './lib/notify.ts';
@@ -25,6 +27,12 @@ import { publishBook, type BookPayload } from '../src/admin/review.ts';
 interface SeedConfig {
   perQuery: number;
   batch: number;
+  /** Devono esserci: cercati per primi (titolo + autrice). */
+  titles: Array<{ title: string; author: string }>;
+  /** Riferimento principale: tutti i loro libri, e la base per trovare autrici simili. */
+  reference: string[];
+  /** Quante autrici simili chiedere all'AI (0 = nessuna). */
+  similar: number;
   queries: string[];
   authors: string[];
   publishers: string[];
@@ -36,6 +44,7 @@ interface Candidate {
   authors: string[];
   found: string; // la ricerca che l'ha trovato
   editionType: 'standard' | 'special' | 'limited';
+  publisher: string;
   score: number; // più alto = scheda più completa (trama, copertina, categorie di narrativa)
 }
 
@@ -47,7 +56,16 @@ const { values: flags } = parseArgs({
   },
 });
 const dryRun = flags['dry-run'];
-const config = await readJson<SeedConfig>(new URL('./seed.json', import.meta.url), { perQuery: 20, batch: 40, queries: [], authors: [], publishers: [] });
+const config = await readJson<SeedConfig>(new URL('./seed.json', import.meta.url), {
+  perQuery: 20,
+  batch: 40,
+  titles: [],
+  reference: [],
+  similar: 0,
+  queries: [],
+  authors: [],
+  publishers: [],
+});
 const batch = Number(flags.batch ?? config.batch) || 40;
 const useAi = !flags.raw && !dryRun && aiConfigured();
 if (!flags.raw && !dryRun && !aiConfigured()) {
@@ -89,6 +107,7 @@ interface Volume {
     authors?: string[];
     language?: string;
     description?: string;
+    publisher?: string;
     categories?: string[];
     imageLinks?: unknown;
     industryIdentifiers?: Array<{ type: string; identifier: string }>;
@@ -100,17 +119,12 @@ const FICTION = /fiction|romance|fantasy|young adult|juvenile|narrativa/i;
 const NOT_FICTION = /criticism|biography|philosophy|history|religion|education|self-help|psychology|social science|business|cooking|reference|study aids|language arts/i;
 
 /**
- * Tiene un volume solo se è narrativa: per le ricerche generiche e per editore servono categorie di narrativa,
- * per le autrici di riferimento basta che non sia un saggio. Solo ISBN italiani (978-88, 979-12): quelli esteri
- * (979-8 di Amazon, 978-1 delle piattaforme di traduzione) sono quasi sempre autopubblicazioni o omonimi.
- */
-/**
  * Le special e le limitate arrivano da Google come libri a sé ("Powerless. Limited edition"): si toglie la dicitura
  * dal titolo e diventano un'edizione della stessa opera, con il tipo giusto.
  */
-const VARIANT = /[\s.,:;(\[-]*\b(limited edition|edizione limitata|ediz\.? limitata|special edition|edizione speciale|ediz\.? speciale|deluxe edition|edizione deluxe|ediz\.? deluxe)\b[)\]]*\s*$/i;
+const VARIANT = /[\s.,:;(\[-]*\b(platinum|limited edition|edizione limitata|ediz\.? limitata|special edition|edizione speciale|ediz\.? speciale|deluxe edition|edizione deluxe|ediz\.? deluxe)\b[)\]]*\s*$/i;
 // "Edizione italiana", "Ediz. italiana", "(versione italiana)": sul sito è tutto in italiano, la dicitura non serve
-const ITALIAN = /[s.,:;([-]*(edizione italiana|ediz.? italiana|versione italiana)[)]]*s*$/i;
+const ITALIAN = /[\s.,:;(\[-]*\b(edizione italiana|ediz\.? italiana|versione italiana)\b[)\]]*\s*$/i;
 function variant(title: string): { title: string; editionType: 'standard' | 'special' | 'limited' } {
   const clean = (t: string) => t.replace(ITALIAN, '').trim();
   const t = clean(title);
@@ -119,6 +133,11 @@ function variant(title: string): { title: string; editionType: 'standard' | 'spe
   return { title: clean(t.slice(0, m.index)), editionType: /limit/i.test(m[1]) ? 'limited' : 'special' };
 }
 
+/**
+ * Tiene un volume solo se è narrativa: per le ricerche generiche e per editore servono categorie di narrativa,
+ * per le autrici di riferimento basta che non sia un saggio. Solo ISBN italiani (978-88, 979-12): quelli esteri
+ * (979-8 di Amazon, 978-1 delle piattaforme di traduzione) sono quasi sempre autopubblicazioni o omonimi.
+ */
 function keep(info: NonNullable<Volume['volumeInfo']>, isbn: string, trusted: boolean): boolean {
   if (!/^(97888|97912)/.test(isbn) || !info.authors?.length) return false;
   const cats = (info.categories ?? []).join(' ');
@@ -148,18 +167,12 @@ async function search(q: string, max: number, trusted: boolean): Promise<Candida
     const isbn = normalizeIsbn(id.identifier);
     if (!keep(info, isbn, trusted)) return [];
     const score = (info.description ? 2 : 0) + (info.imageLinks ? 2 : 0) + (FICTION.test((info.categories ?? []).join(' ')) ? 1 : 0);
-    return [{ isbn, ...variant(info.title), authors: info.authors ?? [], found: q, score }];
+    return [{ isbn, ...variant(info.title), authors: info.authors ?? [], publisher: info.publisher ?? '', found: q, score }];
   });
 }
 
 const k = await known();
 // prima le autrici (risultati più sicuri), poi gli editori, infine le ricerche generiche
-const searches: Array<{ q: string; trusted: boolean }> = [
-  ...[...new Set([...config.authors, ...k.authors])].map((a) => ({ q: `inauthor:"${a}"`, trusted: true })),
-  ...config.publishers.map((p) => ({ q: `inpublisher:"${p}" romance OR fantasy`, trusted: false })),
-  ...config.queries.map((q) => ({ q, trusted: false })),
-];
-
 const candidates: Candidate[] = [];
 // stessa opera: titolo simile e stessa autrice (con un catalogo vuoto basta il titolo)
 const sameWork = (a: { title: string; authors: string[] }, b: { title: string; authors: string[] }) =>
@@ -170,25 +183,83 @@ const isNew = (c: Candidate) =>
   !candidates.some((x) => x.isbn === c.isbn || (x.editionType === c.editionType && sameWork(x, c))) &&
   (c.editionType !== 'standard' || !k.titles.some((t) => similar(t, c.title)));
 
-console.log(`Ricerche: ${searches.length} (di cui ${k.authors.length} autrici e autori già in catalogo).`);
-for (const { q, trusted } of searches) {
-  if (!dryRun && candidates.length >= batch * 3) break; // abbastanza per questo lotto e i prossimi due
-  let found = 0;
-  for (const c of await search(q, config.perQuery, trusted)) {
-    if (!isNew(c)) continue; // uno alla volta: anche i doppioni dentro la stessa risposta restano fuori
-    candidates.push(c);
-    found++;
-  }
-  console.log(`- ${q}: ${found} nuovi`);
-  await pause(300); // gentili con l'API pubblica
+interface Search {
+  q: string;
+  trusted: boolean;
+  max: number;
+  /** Solo libri della stessa "scena" delle autrici di riferimento (stessi editori): per i nomi proposti dall'AI. */
+  scene?: boolean;
 }
+const searches: Search[] = [];
+const seen = new Set<string>();
+const once = (name: string) => !seen.has(name.toLowerCase()) && seen.add(name.toLowerCase());
+const byAuthor = (names: string[], max: number, scene = false): Search[] =>
+  names.filter(once).map((a) => ({ q: `inauthor:"${a}"`, trusted: true, max, scene }));
+
+// editori delle autrici di riferimento: per nome e per prefisso dell'ISBN (che identifica l'editore)
+const scenePublishers = new Set<string>();
+const scenePrefixes = new Set<string>();
+const inScene = (c: Candidate) =>
+  (c.publisher && scenePublishers.has(c.publisher.toLowerCase())) || scenePrefixes.has(c.isbn.slice(0, 8));
+
+async function run(list: Search[]) {
+  for (const s of list) {
+    searches.push(s);
+    if (!dryRun && candidates.length >= batch * 3) continue; // abbastanza per questo lotto e i prossimi due
+    let found = 0;
+    for (const c of await search(s.q, s.max, s.trusted)) {
+      if (s.scene && !inScene(c)) continue;
+      if (!isNew(c)) continue; // uno alla volta: anche i doppioni dentro la stessa risposta restano fuori
+      candidates.push(c);
+      found++;
+    }
+    console.log(`- ${s.q}: ${found} nuovi`);
+    await pause(300); // gentili con l'API pubblica
+  }
+}
+
+// 1. titoli obbligatori e autrici di riferimento
+await run([
+  ...config.titles.map((t) => ({ q: `intitle:"${t.title}" inauthor:"${t.author}"`, trusted: true, max: 5 })),
+  ...byAuthor(config.reference, 40),
+]);
+for (const c of candidates) {
+  if (c.publisher) scenePublishers.add(c.publisher.toLowerCase());
+  scenePrefixes.add(c.isbn.slice(0, 8));
+}
+// chi firma antologie e raccolte con le autrici di riferimento è quasi sempre della stessa scena
+const reference = new Set(config.reference.map((a) => a.toLowerCase()));
+const coauthors = [...new Set(candidates.flatMap((c) => c.authors).filter((a) => !reference.has(a.toLowerCase())))];
+if (coauthors.length) console.log(`Coautrici delle autrici di riferimento: ${coauthors.join(', ')}`);
+
+// 2. autrici simili proposte dall'AI, tenute solo con libri degli stessi editori (anche nella prova a secco: una richiesta)
+const lookalikes =
+  config.similar > 0 && aiConfigured()
+    ? await similarAuthors({ authors: config.reference, titles: config.titles.map((t) => t.title) }, config.similar).catch((err) => {
+        console.warn(`Autrici simili non disponibili: ${(err as Error).message}`);
+        return [] as string[];
+      })
+    : [];
+if (lookalikes.length) console.log(`Autrici simili proposte dall'AI: ${lookalikes.join(', ')}`);
+
+// 3. il resto: coautrici, autrici simili, altre autrici, editori, ricerche per genere
+await run([
+  ...byAuthor(coauthors, config.perQuery),
+  ...byAuthor(lookalikes, config.perQuery, true),
+  ...byAuthor([...config.authors, ...k.authors], config.perQuery),
+  // con le parole di genere: senza, gli editori portano soprattutto classici (Dickens, Austen, il Mago di Oz)
+  ...config.publishers.map((p) => ({ q: `inpublisher:"${p}" romance OR young OR thriller OR fantasy`, trusted: false, max: config.perQuery })),
+  ...config.queries.map((q) => ({ q, trusted: false, max: config.perQuery })),
+]);
+console.log(`Ricerche: ${searches.length} (di cui ${k.authors.length} autrici e autori già in catalogo).`);
 
 // a parità di ricerca, prima le schede complete (trama e copertina): l'ordine delle ricerche resta
 candidates.sort((a, b) => searches.findIndex((s) => s.q === a.found) - searches.findIndex((s) => s.q === b.found) || b.score - a.score);
 console.log(`\nCandidati nuovi: ${candidates.length}.`);
 if (dryRun) {
-  for (const c of candidates.slice(0, 60)) console.log(`  ${c.isbn}  ${c.title}${c.editionType === 'standard' ? '' : ` [${c.editionType}]`} — ${c.authors.join(', ')}  (${c.found})`);
-  if (candidates.length > 60) console.log(`  …e altri ${candidates.length - 60}`);
+  for (const c of candidates.slice(0, Number(process.env.SEED_SHOW ?? 60))) console.log(`  ${c.isbn}  ${c.title}${c.editionType === 'standard' ? '' : ` [${c.editionType}]`} — ${c.authors.join(', ')}  (${c.found})`);
+  const shown = Number(process.env.SEED_SHOW ?? 60);
+  if (candidates.length > shown) console.log(`  …e altri ${candidates.length - shown}`);
   console.log('\nProva: nessuna scheda preparata, nessuna scrittura.');
   process.exit(0);
 }

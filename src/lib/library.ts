@@ -210,13 +210,6 @@ export const setInterests = (interests: Interests) =>
 
 export const markOnboardingDone = () => update((l) => (l.onboardingDone = true));
 
-/** Numero di titoli diversi salvati: libri più serie e film. */
-export function savedCount(library = getLibrary()): number {
-  const books = new Set([...library.favorites, ...library.collections.flatMap((c) => c.slugs)]);
-  const screens = new Set([...library.screenFavorites, ...library.screenCollections.flatMap((c) => c.slugs)]);
-  return books.size + screens.size;
-}
-
 export const exportLibrary = () => JSON.stringify(getLibrary(), null, 2);
 
 /** Importa un backup sostituendo i dati attuali. Lancia un errore se il file non è valido. */

@@ -80,6 +80,48 @@ export async function rewritePlot(original: string, meta: { title: string; autho
   return plainText(plot);
 }
 
+/**
+ * Autrici e autori simili a quelli di riferimento, pubblicati in italiano. Solo nomi: i libri si cercano poi su
+ * Google Books, quindi un nome inventato o sbagliato non porta nulla in catalogo.
+ */
+export async function similarAuthors(reference: { authors: string[]; titles: string[] }, count: number): Promise<string[]> {
+  const skip = new Set(reference.authors.map((a) => a.toLowerCase()));
+  const found: string[] = [];
+  // a gruppi di 15: con elenchi lunghi i modelli piccoli si incantano e ripetono lo stesso nome fino a troncare la risposta
+  for (let round = 0; round < 3 && found.length < count; round++) {
+    const answer = await chat(
+      [
+        {
+          role: 'system',
+          content:
+            'Conosci bene il mercato editoriale italiano di romance, new adult, young adult, dark romance, sports romance, ' +
+            'romantasy e storie nate su Wattpad: il pubblico di BookTok, i libri di Salani, Sperling & Kupfer, Newton Compton, ' +
+            'Always Publishing, Hope. Niente narrativa letteraria o saggistica. Indica solo autrici e autori reali con libri ' +
+            'tradotti o pubblicati in Italia, ognuno una volta sola, senza note. ' +
+            'Rispondi in JSON: {"authors": ["Nome Cognome", ...]}',
+        },
+        {
+          role: 'user',
+          content:
+            `Chi legge ama: ${reference.authors.join(', ')}; libri come ${reference.titles.join(', ')}.\n` +
+            `Suggerisci ${Math.min(15, count - found.length)} autrici o autori che scrivono libri simili per tono e pubblico, ` +
+            `italiani e stranieri tradotti, con il nome con cui firmano in Italia.` +
+            (found.length ? `\nNon ripetere: ${found.join(', ')}.` : ''),
+        },
+      ],
+      { temperature: 0.4, json: true, maxTokens: 500 },
+    );
+    // anche da una risposta troncata: si prendono i nomi tra virgolette, senza chiavi, motivazioni e note tra parentesi
+    const names = [...answer.matchAll(/"([^"\n]{3,60})"/g)]
+      .map((m) => m[1].replace(/\s*\(.*$/, '').trim())
+      .filter((a) => !['authors', 'name', 'reason'].includes(a.toLowerCase()) && /^[\p{L}][\p{L}.' -]+$/u.test(a));
+    const before = found.length;
+    for (const a of names) if (!skip.has(a.toLowerCase()) && !found.some((x) => x.toLowerCase() === a.toLowerCase())) found.push(a);
+    if (found.length === before) break; // nessun nome nuovo: inutile insistere
+  }
+  return found.slice(0, count);
+}
+
 /** Sceglie 1 o 2 generi da una lista chiusa di slug (Google per le edizioni italiane dice solo "Fiction"). */
 export async function suggestGenres(
   work: { title: string; description: string },

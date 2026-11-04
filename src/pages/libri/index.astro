@@ -2,20 +2,21 @@
 import Base from '../../layouts/Base.astro';
 import BookPreview from '../../components/BookPreview.astro';
 import CatalogFilters, { type FilterGroup, type FilterOption } from '../../components/CatalogFilters.astro';
-import { getWorks } from '../../lib/data';
+import { getTropes, getWorks } from '../../lib/data';
 
-const works = await getWorks();
+const [works, tropes] = await Promise.all([getWorks(), getTropes()]);
 
 function unique(items: Array<FilterOption | null | undefined>): FilterOption[] {
   const map = new Map<string, FilterOption>();
-  for (const item of items) if (item) map.set(item.slug, { slug: item.slug, name: item.name });
+  for (const item of items) if (item) map.set(item.slug, { slug: item.slug, name: item.name, group: item.group });
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
 }
 
 const ORIGIN_LABELS = { publisher: 'Editore', self: 'Self-publishing', wattpad: 'Wattpad' } as const;
 
 const groups: FilterGroup[] = [
-  { key: 'tropes', attr: 'tropes', label: 'Tropes', mode: 'all', options: unique(works.flatMap((w) => w.tropes)) },
+  // tutti i tropes del vocabolario (anche senza libri: compaiono a 0), divisi per genere e sempre con la ricerca nel menu
+  { key: 'tropes', attr: 'tropes', label: 'Tropes', mode: 'all', searchable: true, options: unique([...tropes, ...works.flatMap((w) => w.tropes)]) },
   { key: 'generi', attr: 'genres', label: 'Generi', mode: 'any', options: unique(works.flatMap((w) => w.genres)) },
   { key: 'ambientazione', attr: 'settings', label: 'Ambientazione', mode: 'any', options: unique(works.flatMap((w) => w.settings)) },
   { key: 'autori', attr: 'authors', label: 'Autori', mode: 'any', options: unique(works.flatMap((w) => w.authors)) },

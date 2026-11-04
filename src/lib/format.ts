@@ -13,8 +13,11 @@ export const EDITION_TYPE_LABELS: Record<EditionType, string> = {
   limited: 'Limitata',
 };
 
+/** Anche date incomplete: "2026" → "2026", "2026-09" → "settembre 2026". */
 export function formatDate(iso?: string | null): string {
   if (!iso) return 'Data da annunciare';
+  if (/^\d{4}$/.test(iso)) return iso;
+  if (/^\d{4}-\d{2}$/.test(iso)) return new Date(`${iso}-01`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 

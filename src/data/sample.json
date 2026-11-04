@@ -97,22 +97,26 @@
     {
       "id": "t1",
       "slug": "enemies-to-lovers",
-      "name": "Enemies to lovers"
+      "name": "Enemies to lovers",
+      "group": "Romance"
     },
     {
       "id": "t2",
       "slug": "slow-burn",
-      "name": "Slow burn"
+      "name": "Slow burn",
+      "group": "Romance"
     },
     {
       "id": "t3",
       "slug": "found-family",
-      "name": "Found family"
+      "name": "Found family",
+      "group": "Fantasy"
     },
     {
       "id": "t4",
       "slug": "fake-relationship",
-      "name": "Fake relationship"
+      "name": "Fake relationship",
+      "group": "Romance"
     },
     {
       "id": "t5",
@@ -122,37 +126,44 @@
     {
       "id": "t6",
       "slug": "he-falls-first",
-      "name": "He falls first"
+      "name": "He falls first",
+      "group": "Romance"
     },
     {
       "id": "t7",
       "slug": "forced-proximity",
-      "name": "Forced proximity"
+      "name": "Forced proximity",
+      "group": "Romance"
     },
     {
       "id": "t8",
       "slug": "locked-room",
-      "name": "Delitto della camera chiusa"
+      "name": "Delitto della camera chiusa",
+      "group": "Giallo"
     },
     {
       "id": "t9",
       "slug": "casa-infestata",
-      "name": "Casa infestata"
+      "name": "Casa infestata",
+      "group": "Horror"
     },
     {
       "id": "t10",
       "slug": "small-town",
-      "name": "Paesino isolato"
+      "name": "Paesino isolato",
+      "group": "Romance"
     },
     {
       "id": "t11",
       "slug": "unreliable-narrator",
-      "name": "Narratore inaffidabile"
+      "name": "Narratore inaffidabile",
+      "group": "Giallo"
     },
     {
       "id": "t12",
       "slug": "rivals-to-lovers",
-      "name": "Rivals to lovers"
+      "name": "Rivals to lovers",
+      "group": "Romance"
     }
   ],
   "works": [

@@ -478,6 +478,19 @@ const slides = releases.map((r, i) => {
     }
   }
 
+  /* telefono: scatto più basso e biglietto compatto, così calendario e informazioni stanno in uno schermo */
+  @media (max-width: 700px) {
+    .shot { aspect-ratio: 5 / 4; --cell: 22cqw; }
+    .info { margin-top: -18px; position: relative; width: calc(100% - 24px); padding: 12px 16px 14px; transform: rotate(-1deg); }
+    .when { font-size: 1.15rem; }
+    .info h3 { font-size: 1.35rem; }
+    .who, .formats { font-size: 0.9rem; }
+    .go { margin-top: 10px; }
+    .controls { gap: 6px; margin-top: 14px; }
+    .nav, .play { width: 44px; height: 44px; }
+    .dot { padding: 3px 8px; }
+  }
+
   /* ---- comandi ---- */
   .controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; }
   .nav, .play { flex-shrink: 0; }

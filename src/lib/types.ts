@@ -26,6 +26,7 @@ export interface Tag {
   name: string;
   theme?: string | null; // solo generi: palette dell'anteprima
   doodle?: string | null; // tropes e ambientazioni: decorazione scelta dal pannello (src/lib/doodles.ts)
+  group?: string | null; // solo tropes: nome del genere sotto cui compare nel menu dei filtri (migrazione 0015)
 }
 
 export interface PurchaseLink {
@@ -39,6 +40,7 @@ export interface Edition {
   isbn?: string | null;
   format: EditionFormat;
   publisher?: Publisher | null;
+  /** YYYY-MM-DD, o ridotta (YYYY-MM, YYYY) quando si conosce solo il mese o l'anno: vedi editionDate in data.ts. */
   release_date?: string | null;
   price?: number | null;
   language: string;

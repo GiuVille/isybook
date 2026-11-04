@@ -489,7 +489,8 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     }
 
     flash('Salvato');
-    go(`#/r/${resource.key}/${savedId}`);
+    // si torna all'elenco: da lì si apre subito la prossima voce da aggiungere
+    go(`#/r/${resource.key}`);
   });
 
   document.getElementById('delete')?.addEventListener('click', async () => {

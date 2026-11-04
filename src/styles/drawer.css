@@ -127,4 +127,8 @@
 @media (max-width: 700px) {
   .lib-drawer { margin: 0 -16px; border-radius: 0; padding: 40px 16px 0; }
   .lib-drawer .wk { flex-basis: 156px; }
+  /* linguetta più larga e testo più piccolo: i nomi ("I miei libri") si leggono interi */
+  .lib-drawer .tab { left: 6px; max-width: calc(100% - 12px); padding: 4px 8px 0; }
+  .lib-drawer .label { padding: 0 5px; font-size: 0.98rem; }
+  .lib-drawer.no-covers .folder-btn { height: 150px; }
 }

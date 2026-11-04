@@ -100,10 +100,7 @@ const path = Astro.url.pathname;
                     aria-current={active ? 'page' : undefined}
                   >
                     <span class="folder-tab">
-                      <span class="label">
-                        {item.label}
-                        {item.href === '/la-mia-libreria' && <span class="saved-count" hidden></span>}
-                      </span>
+                      <span class="label">{item.label}</span>
                     </span>
                   </a>
                 );
@@ -144,7 +141,6 @@ const path = Astro.url.pathname;
     </footer>
 
     <script>
-      import { getLibrary, onLibraryChange, savedCount } from '../lib/library';
       import { initReveal, reducedMotion } from '../scripts/reveal';
       import { initKonami } from '../scripts/konami';
       import { initInstall } from '../scripts/install';
@@ -154,20 +150,38 @@ const path = Astro.url.pathname;
       // animazioni d'ingresso (frecce delle anteprime, peperoncini…)
       initReveal();
 
-      // bollino sulla cartellina "La mia libreria"
-      const badge = document.querySelector<HTMLElement>('.saved-count');
-      const showCount = () => {
-        if (!badge) return;
-        const n = savedCount(getLibrary());
-        badge.hidden = n === 0;
-        badge.textContent = String(n);
-      };
-      showCount();
-      onLibraryChange(showCount);
-
       // Menu hamburger (solo mobile): apre e chiude il cassetto delle sezioni.
       const header = document.querySelector<HTMLElement>('.site-header')!;
       const burger = header.querySelector<HTMLButtonElement>('.burger')!;
+
+      // Telefono: l'header resta in cima (sticky), sparisce scendendo e ricompare con una leggera risalita,
+      // così il menu è sempre a portata senza tornare a inizio pagina. Col menu aperto non si nasconde mai.
+      const phone = window.matchMedia('(max-width: 700px)');
+      let lastY = window.scrollY;
+      let ticking = false;
+      const onScroll = () => {
+        ticking = false;
+        const y = Math.max(0, window.scrollY);
+        const delta = y - lastY;
+        if (!phone.matches || header.classList.contains('menu-open') || y < header.offsetHeight) {
+          header.classList.remove('is-hidden');
+          lastY = y;
+        } else if (delta > 4) {
+          header.classList.add('is-hidden');
+          lastY = y;
+        } else if (delta < -8) {
+          header.classList.remove('is-hidden');
+          lastY = y;
+        }
+      };
+      window.addEventListener(
+        'scroll',
+        () => {
+          if (!ticking) requestAnimationFrame(onScroll);
+          ticking = true;
+        },
+        { passive: true },
+      );
 
 
       // tema chiaro/scuro: la scelta resta salvata; il nuovo tema si allarga come un cerchio dal pulsante
@@ -277,6 +291,7 @@ const path = Astro.url.pathname;
   }
   @media (prefers-reduced-motion: no-preference) {
     .theme-toggle svg { animation: pop 0.45s var(--ease-spring); }
+    .site-header { transition: transform 0.25s ease; }
   }
 
   /* cassetto: interno scuro-caldo, cartelline in fila */
@@ -315,19 +330,6 @@ const path = Astro.url.pathname;
   .folders .folder:nth-child(6) { z-index: 1; }
   .folders .folder:nth-child(7) { z-index: 0; }
   .folders .folder.is-active { z-index: 8; }
-  .saved-count {
-    display: inline-block;
-    min-width: 1.3em;
-    margin-left: 4px;
-    padding: 0 5px;
-    font: 600 0.7rem/1.5 var(--font-text);
-    text-align: center;
-    vertical-align: 2px;
-    color: #fff;
-    background: var(--accent);
-    border-radius: 999px;
-  }
-  .saved-count[hidden] { display: none; }
 
   main { padding-top: 24px; padding-bottom: 48px; }
   .site-footer { border-top: 1px solid var(--border); font-size: 0.85rem; padding-top: 16px; padding-bottom: 32px; }
@@ -354,6 +356,10 @@ const path = Astro.url.pathname;
   }
 
   @media (max-width: 700px) {
+    /* header che sparisce scendendo e ricompare risalendo (script sopra) */
+    .site-header { position: sticky; top: 0; z-index: 50; }
+    .site-header.is-hidden { transform: translateY(-100%); }
+    :global(html) { scroll-padding-top: 72px; }
     .desktop-only { display: none; }
     .mobile-only { display: block; margin-bottom: 18px; }
     .mobile-only input { width: 100%; }

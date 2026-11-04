@@ -6,7 +6,7 @@ export interface BookData {
   subtitle?: string;
   authors: string[];
   publisher?: string;
-  publishedDate?: string; // YYYY-MM-DD quando disponibile
+  publishedDate?: string; // YYYY-MM-DD, oppure YYYY-MM o YYYY quando la fonte non sa di più
   description?: string;
   language?: string;
   pageCount?: number;
@@ -38,7 +38,8 @@ export function isValidIsbn(raw: string): boolean {
 /** Accetta 2026, 2026-11 o 2026-11-12 e restituisce una data ISO solo se completa. */
 function toIsoDate(value?: string): string | undefined {
   if (!value) return undefined;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(value)) return value;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return value.slice(0, 10); // "2022-09-13T00:00:00+02:00" (Salani): il giorno dell'editore
   const d = new Date(`${value} UTC`);
   return /\d{1,2}.*\d{4}/.test(value) && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
 }
@@ -121,6 +122,9 @@ export async function fetchBook(rawIsbn: string): Promise<BookData | null> {
   if (!google && !openLibrary) return null;
 
   const pick = <K extends keyof BookData>(key: K) => (google?.[key] || openLibrary?.[key]) as BookData[K];
+  // la data più precisa tra le due fonti ("2026-09-29" batte "2026")
+  const dates = [google?.publishedDate, openLibrary?.publishedDate].filter((d): d is string => Boolean(d));
+  const publishedDate = dates.sort((a, b) => b.length - a.length)[0];
   const authors = google?.authors?.length ? google.authors : openLibrary?.authors ?? [];
   return {
     isbn,
@@ -128,7 +132,7 @@ export async function fetchBook(rawIsbn: string): Promise<BookData | null> {
     subtitle: pick('subtitle'),
     authors,
     publisher: pick('publisher'),
-    publishedDate: pick('publishedDate'),
+    publishedDate,
     description: pick('description'),
     language: pick('language'),
     pageCount: pick('pageCount'),

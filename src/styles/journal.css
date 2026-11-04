@@ -559,18 +559,35 @@
 
 /* ---------- telefono: pagine una sotto l'altra ---------- */
 @media (max-width: 760px) {
-  /* una pagina alla volta: si sfoglia con le frecce o con il dito */
-  .journal-pages { grid-template-columns: 1fr; grid-template-rows: 620px; height: 620px; }
+  /* chiusa: un quaderno in proporzione (circa 300×430), non un pannello largo quanto lo schermo */
+  .journal { --jcw: min(300px, 82vw); --jch: calc(var(--jcw) * 1.42); }
+  /* una pagina alla volta, alta quanto lo schermo permette: si sfoglia con le frecce o con il dito */
+  .journal-pages { grid-template-columns: 1fr; grid-template-rows: 100%; height: min(560px, calc(100svh - 150px)); min-height: 440px; }
   .journal[data-side='left'] .jright,
   .journal[data-side='right'] .jleft { display: none; }
   .jgo-add { display: inline-block; }
-  .journal-cover { width: 100%; height: 620px; }
-  .journal-band { left: calc(100% - 46px); }
+  .journal-cover { width: var(--jcw); height: var(--jch); }
+  .cover-front { gap: 8px; padding: 24px 52px 24px 34px; } /* i testi restano a sinistra dell'elastico */
+  .cover-name { max-width: 100%; font-size: 1.65rem; }
+  .cover-subtitle { max-width: 100%; font-size: 1rem; }
+  .cover-count { font-size: 0.85rem; }
+  .cover-sticker { width: 58px; height: 58px; }
+  .journal-band { left: calc(50% + var(--jcw) / 2 - 40px); }
+  /* aprendo e chiudendo la copertina gira dal suo posto, sopra le pagine */
+  .journal[data-state='opening'] .journal-cover,
+  .journal[data-state='closing'] .journal-cover { left: calc(50% - var(--jcw) / 2); width: var(--jcw); height: var(--jch); }
+  /* frecce grandi, a portata di pollice */
+  .journal-nav { gap: 10px; margin-top: 14px; }
+  .journal-nav button { min-width: 48px; min-height: 48px; }
+  .jnav-prev,
+  .jnav-next { font-size: 1.5rem; }
   .jleft { border-radius: 4px; box-shadow: inset -10px 0 16px -12px rgba(0, 0, 0, 0.3); }
   .jright { border-radius: 4px; box-shadow: inset 10px 0 16px -12px rgba(0, 0, 0, 0.3); }
   .jpage { padding: 22px 16px 26px; }
-  .journal[data-state='opening'] .journal-cover,
-  .journal[data-state='closing'] .journal-cover { left: 0; width: 100%; }
+  /* campi comodi da compilare col pollice */
+  .jpage input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  .jpage select,
+  .jpage textarea { min-height: 44px; font-size: 16px; } /* 16px: iOS non ingrandisce la pagina sul campo */
   .jsheet-top { grid-template-columns: 80px 1fr; }
   .jsheet-cover img,
   .jsheet-cover .ph { width: 80px; height: 118px; }
