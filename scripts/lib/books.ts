@@ -51,7 +51,12 @@ function toLanguage(code?: string): string | undefined {
 }
 
 async function getJson<T>(url: string): Promise<T | null> {
-  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  // "occupato" (429, 5xx) è spesso questione di secondi: si riprova con attese crescenti prima di arrendersi
+  let res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  for (let attempt = 0; attempt < 3 && (res.status === 429 || res.status >= 500); attempt++) {
+    await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
+    res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  }
   if (res.status === 404) return null;
   // mai la chiave nei log (anche quelli di GitHub Actions sono pubblici)
   if (!res.ok) throw new Error(`${url.replace(/([?&]key=)[^&]+/, '$1…')} → HTTP ${res.status}`);
