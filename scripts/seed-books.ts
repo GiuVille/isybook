@@ -76,26 +76,39 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ---------------------------------------------------------------------------
 // Ciò che conosciamo già: catalogo e coda (anche scartati, così non tornano)
 // ---------------------------------------------------------------------------
-async function known(): Promise<{ isbns: Set<string>; titles: string[]; authors: string[] }> {
+// Edizioni già note come opera + tipo: una special in catalogo non deve bloccare l'edizione normale, e viceversa.
+interface KnownEdition {
+  title: string;
+  type: string;
+}
+
+async function known(): Promise<{ isbns: Set<string>; titles: string[]; editions: KnownEdition[]; authors: string[] }> {
   const isbns = new Set<string>();
   const titles: string[] = [];
+  const known: KnownEdition[] = [];
   const authors: string[] = [];
-  if (!sb) return { isbns, titles, authors };
+  if (!sb) return { isbns, titles, editions: known, authors };
   const [editions, works, queue, people] = await Promise.all([
-    sb.from('editions').select('isbn'),
+    sb.from('editions').select('isbn, edition_type, works ( title )'),
     sb.from('works').select('title'),
     sb.from('review_queue').select('payload').eq('content_type', 'book'),
     sb.from('authors').select('name'),
   ]);
   for (const r of [editions, works, queue, people]) if (r.error) throw r.error;
-  for (const e of editions.data ?? []) if (e.isbn) isbns.add(normalizeIsbn(e.isbn));
+  for (const e of (editions.data ?? []) as unknown as Array<{ isbn: string | null; edition_type: string; works: { title: string } | null }>) {
+    if (e.isbn) isbns.add(normalizeIsbn(e.isbn));
+    if (e.works?.title) known.push({ title: e.works.title, type: e.edition_type });
+  }
   for (const w of works.data ?? []) titles.push(w.title);
   for (const q of queue.data ?? []) {
     if (q.payload?.edition?.isbn) isbns.add(normalizeIsbn(q.payload.edition.isbn));
-    if (q.payload?.work?.title) titles.push(q.payload.work.title);
+    if (q.payload?.work?.title) {
+      titles.push(q.payload.work.title);
+      known.push({ title: q.payload.work.title, type: q.payload.edition?.edition_type ?? 'standard' });
+    }
   }
   for (const a of people.data ?? []) authors.push(a.name);
-  return { isbns, titles, authors };
+  return { isbns, titles, editions: known, authors };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +135,7 @@ const NOT_FICTION = /criticism|biography|philosophy|history|religion|education|s
  * Le special e le limitate arrivano da Google come libri a sé ("Powerless. Limited edition"): si toglie la dicitura
  * dal titolo e diventano un'edizione della stessa opera, con il tipo giusto.
  */
-const VARIANT = /[\s.,:;(\[-]*\b(platinum|limited edition|edizione limitata|ediz\.? limitata|special edition|edizione speciale|ediz\.? speciale|deluxe edition|edizione deluxe|ediz\.? deluxe)\b[)\]]*\s*$/i;
+const VARIANT = /[\s.,:;(\[-]*\b(platinum|limited edition|edizione limitata|ediz\.? limitata|special edition|edizione speciale|ediz\.? speciale|deluxe edition|edizione deluxe|ediz\.? deluxe)\b[)\]]*/i; // anche in mezzo al titolo
 // "Edizione italiana", "Ediz. italiana", "(versione italiana)": sul sito è tutto in italiano, la dicitura non serve
 const ITALIAN = /[\s.,:;(\[-]*\b(edizione italiana|ediz\.? italiana|versione italiana)\b[)\]]*\s*$/i;
 function variant(title: string): { title: string; editionType: 'standard' | 'special' | 'limited' } {
@@ -130,7 +143,10 @@ function variant(title: string): { title: string; editionType: 'standard' | 'spe
   const t = clean(title);
   const m = t.match(VARIANT);
   if (!m) return { title: t, editionType: 'standard' };
-  return { title: clean(t.slice(0, m.index)), editionType: /limit/i.test(m[1]) ? 'limited' : 'special' };
+  // la dicitura può stare anche in mezzo ("Corrupt. Limited edition. Devil's night series"): si toglie e si ricuce
+  const rest = t.slice(m.index! + m[0].length).replace(/^[\s.,:;)\]-]+/, '');
+  const before = clean(t.slice(0, m.index));
+  return { title: rest ? `${before}. ${rest}` : before, editionType: /limit/i.test(m[1]) ? 'limited' : 'special' };
 }
 
 /**
@@ -181,7 +197,7 @@ const sameWork = (a: { title: string; authors: string[] }, b: { title: string; a
 const isNew = (c: Candidate) =>
   !k.isbns.has(c.isbn) &&
   !candidates.some((x) => x.isbn === c.isbn || (x.editionType === c.editionType && sameWork(x, c))) &&
-  (c.editionType !== 'standard' || !k.titles.some((t) => similar(t, c.title)));
+  !k.editions.some((e) => e.type === c.editionType && similar(e.title, c.title));
 
 interface Search {
   q: string;
