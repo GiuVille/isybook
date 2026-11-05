@@ -152,7 +152,8 @@ export function bindWorkSuggestions(form: HTMLFormElement, workId: string | null
     if (b.dataset.series) {
       series.value = b.dataset.series;
       if (seriesNumber && !seriesNumber.value) seriesNumber.value = b.dataset.next ?? '';
-      drawTropes();
+      // input: aggiorna i tropes suggeriti e salva la bozza
+      series.dispatchEvent(new Event('input', { bubbles: true }));
     } else if (b.dataset.trope && tropes) check(tropes, b.dataset.trope);
     else if (b.dataset.allTropes && tropes) b.dataset.allTropes.split(' ').forEach((id) => check(tropes, id));
     else if (b.dataset.genre && genres) check(genres, b.dataset.genre);
@@ -184,7 +185,10 @@ export function bindPriceSuggestion(form: HTMLFormElement) {
     const euro = best.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
     const name = publisher.selectedOptions[0]?.text ?? 'questo editore';
     const filled = !price.value;
-    if (filled) price.value = String(best);
+    if (filled) {
+      price.value = String(best);
+      price.dispatchEvent(new Event('input', { bubbles: true })); // anche nella bozza
+    }
     note.innerHTML = `${filled ? 'Ho messo' : 'Suggerito:'} il prezzo più usato da ${esc(name)} per ${FORMAT_NAMES[format.value] ?? 'questo formato'}: <strong>${esc(euro)}</strong> <small>(${n} ${n === 1 ? 'edizione' : 'edizioni'})</small>${
       filled || Number(price.value) === best ? '' : ` <button type="button" class="suggest-chip" data-price="${best}">Usa questo</button>`
     }`;
@@ -194,6 +198,7 @@ export function bindPriceSuggestion(form: HTMLFormElement) {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-price]');
     if (!b) return;
     price.value = b.dataset.price!;
+    price.dispatchEvent(new Event('input', { bubbles: true }));
     b.remove();
   });
   publisher.addEventListener('change', update);

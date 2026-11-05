@@ -9,6 +9,7 @@ import { approveReviewItem } from './review';
 import { bindSocial, socialHtml } from './social';
 import { enhancePickers } from './picker';
 import { bindPriceSuggestion, bindWorkSuggestions } from './suggest';
+import { clearDraft, formState, pruneDrafts, restoreDraft, watchDraft } from './draft';
 
 const root = document.getElementById('admin')!;
 let session: Session | null = null;
@@ -516,6 +517,12 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     });
   }
 
+  // bozza automatica: quello che si scrive resta nel browser anche cambiando pagina, finché non si salva.
+  // Si rimette nei campi prima dei menu e dei suggerimenti, che leggono i valori.
+  const draftKey = `${resource.key}:${id ?? `new${Object.keys(prefill).length ? `?${new URLSearchParams(prefill as Record<string, string>)}` : ''}`}`;
+  const savedState = formState(form);
+  restoreDraft(form, draftKey, () => renderForm(resource, id, prefill));
+
   bindImageFields(form);
   // tendine e elenchi diventano menu con ricerca; le voci nuove si creano senza doppioni (stesso slug = stessa voce)
   enhancePickers(form, async (table, name) => {
@@ -526,6 +533,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   // suggerimenti dalla stessa autrice (opere) e prezzo più usato dall'editore (edizioni)
   if (resource.key === 'works') bindWorkSuggestions(form, id);
   if (resource.key === 'editions') bindPriceSuggestion(form);
+  watchDraft(form, draftKey, savedState);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -559,6 +567,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
       }
     }
 
+    clearDraft(draftKey);
     flash('Salvato');
     // si torna all'elenco: da lì si apre subito la prossima voce da aggiungere
     go(`#/r/${resource.key}`);
@@ -568,6 +577,7 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     if (!confirm(`Eliminare definitivamente questo ${resource.singular}?`)) return;
     const { error } = await sb.from(resource.table).delete().eq('id', id!);
     if (error) fail(error);
+    clearDraft(draftKey);
     flash('Eliminato');
     go(`#/r/${resource.key}`);
   });
@@ -1247,6 +1257,7 @@ async function checkEditor(): Promise<string | null> {
 }
 
 async function start() {
+  pruneDrafts(); // via le bozze dimenticate da più di 30 giorni
   if (!supabaseConfigured) {
     // in locale, senza Supabase, i post social si possono provare coi dati d'esempio
     if (import.meta.env.DEV && location.hash.startsWith('#/social')) {
