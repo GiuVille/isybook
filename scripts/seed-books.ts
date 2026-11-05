@@ -21,7 +21,7 @@ import { aiConfigured, rewritePlot, similarAuthors, suggestGenres, suggestTropes
 import { bookPayload, genresFromCategories, knownGenres, knownTropes } from './lib/book-payload.ts';
 import { fetchBook, normalizeIsbn } from './lib/books.ts';
 import { notifyEditors } from './lib/notify.ts';
-import { readJson, sb, similar } from './lib/sources.ts';
+import { readJson, sb, similar, today } from './lib/sources.ts';
 import { publishBook, type BookPayload } from '../src/admin/review.ts';
 
 interface SeedConfig {
@@ -45,7 +45,9 @@ interface Candidate {
   found: string; // la ricerca che l'ha trovato
   editionType: 'standard' | 'special' | 'limited';
   publisher: string;
-  score: number; // più alto = scheda più completa (trama, copertina, categorie di narrativa)
+  score: number;
+  /** Data di uscita futura secondo Google Books (preordine): passa davanti a tutto. */
+  upcoming: boolean; // più alto = scheda più completa (trama, copertina, categorie di narrativa)
 }
 
 const { values: flags } = parseArgs({
@@ -121,6 +123,7 @@ interface Volume {
     language?: string;
     description?: string;
     publisher?: string;
+    publishedDate?: string;
     categories?: string[];
     imageLinks?: unknown;
     industryIdentifiers?: Array<{ type: string; identifier: string }>;
@@ -161,9 +164,9 @@ function keep(info: NonNullable<Volume['volumeInfo']>, isbn: string, trusted: bo
   return trusted ? true : FICTION.test(cats);
 }
 
-async function search(q: string, max: number, trusted: boolean): Promise<Candidate[]> {
+async function search(q: string, max: number, trusted: boolean, order: 'relevance' | 'newest' = 'relevance'): Promise<Candidate[]> {
   const key = process.env.GOOGLE_BOOKS_API_KEY;
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&langRestrict=it&printType=books&maxResults=${Math.min(40, max)}&orderBy=relevance${key ? `&key=${key}` : ''}`;
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&langRestrict=it&printType=books&maxResults=${Math.min(40, max)}&orderBy=${order}${key ? `&key=${key}` : ''}`;
   // "troppe richieste": si aspetta sempre di più e si riprova (senza chiave il limite di Google è molto basso)
   let res: Response | null = null;
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -183,7 +186,9 @@ async function search(q: string, max: number, trusted: boolean): Promise<Candida
     const isbn = normalizeIsbn(id.identifier);
     if (!keep(info, isbn, trusted)) return [];
     const score = (info.description ? 2 : 0) + (info.imageLinks ? 2 : 0) + (FICTION.test((info.categories ?? []).join(' ')) ? 1 : 0);
-    return [{ isbn, ...variant(info.title), authors: info.authors ?? [], publisher: info.publisher ?? '', found: q, score }];
+    // "2026-12-02", "2026-12" o "2026": confronto come testo con oggi (un anno o un mese già iniziato non conta come futuro)
+    const upcoming = Boolean(info.publishedDate && info.publishedDate.slice(0, 10) > today);
+    return [{ isbn, ...variant(info.title), authors: info.authors ?? [], publisher: info.publisher ?? '', found: q, score, upcoming }];
   });
 }
 
@@ -205,6 +210,8 @@ interface Search {
   max: number;
   /** Solo libri della stessa "scena" delle autrici di riferimento (stessi editori): per i nomi proposti dall'AI. */
   scene?: boolean;
+  /** Ricerca "In arrivo": ordine per novità e solo libri con uscita futura. */
+  upcoming?: boolean;
 }
 const searches: Search[] = [];
 const seen = new Set<string>();
@@ -223,13 +230,14 @@ async function run(list: Search[]) {
     searches.push(s);
     if (!dryRun && candidates.length >= batch * 3) continue; // abbastanza per questo lotto e i prossimi due
     let found = 0;
-    for (const c of await search(s.q, s.max, s.trusted)) {
+    for (const c of await search(s.q, s.max, s.trusted, s.upcoming ? 'newest' : 'relevance')) {
       if (s.scene && !inScene(c)) continue;
+      if (s.upcoming && !c.upcoming) continue;
       if (!isNew(c)) continue; // uno alla volta: anche i doppioni dentro la stessa risposta restano fuori
       candidates.push(c);
       found++;
     }
-    console.log(`- ${s.q}: ${found} nuovi`);
+    console.log(`- ${s.upcoming ? '[in arrivo] ' : ''}${s.q}: ${found} nuovi`);
     await pause(300); // gentili con l'API pubblica
   }
 }
@@ -269,11 +277,11 @@ await run([
 ]);
 console.log(`Ricerche: ${searches.length} (di cui ${k.authors.length} autrici e autori già in catalogo).`);
 
-// a parità di ricerca, prima le schede complete (trama e copertina): l'ordine delle ricerche resta
-candidates.sort((a, b) => searches.findIndex((s) => s.q === a.found) - searches.findIndex((s) => s.q === b.found) || b.score - a.score);
+// prima i libri in uscita (data futura su Google Books), poi l'ordine delle ricerche; a parità di ricerca, prima le schede complete (trama e copertina): l'ordine delle ricerche resta
+candidates.sort((a, b) => Number(b.upcoming) - Number(a.upcoming) || searches.findIndex((s) => s.q === a.found) - searches.findIndex((s) => s.q === b.found) || b.score - a.score);
 console.log(`\nCandidati nuovi: ${candidates.length}.`);
 if (dryRun) {
-  for (const c of candidates.slice(0, Number(process.env.SEED_SHOW ?? 60))) console.log(`  ${c.isbn}  ${c.title}${c.editionType === 'standard' ? '' : ` [${c.editionType}]`} — ${c.authors.join(', ')}  (${c.found})`);
+  for (const c of candidates.slice(0, Number(process.env.SEED_SHOW ?? 60))) console.log(`  ${c.isbn}  ${c.upcoming ? '[in arrivo] ' : ''}${c.title}${c.editionType === 'standard' ? '' : ` [${c.editionType}]`} — ${c.authors.join(', ')}  (${c.found})`);
   const shown = Number(process.env.SEED_SHOW ?? 60);
   if (candidates.length > shown) console.log(`  …e altri ${candidates.length - shown}`);
   console.log('\nProva: nessuna scheda preparata, nessuna scrittura.');

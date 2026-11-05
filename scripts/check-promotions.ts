@@ -13,7 +13,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { aiConfigured, extractPromotions, type ExtractedPromotion } from './lib/ai.ts';
 import { notifyEditors } from './lib/notify.ts';
-import { OUT_DIR, allowedByRobots, loadSources, readJson, readSource, saveRead, sb, similar, today } from './lib/sources.ts';
+import { OUT_DIR, allowedByRobots, expireQueue, loadSources, readJson, readSource, saveRead, sb, similar, today } from './lib/sources.ts';
 import { slugify } from '../src/admin/resources.ts';
 
 const { values: flags } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false }, hot: { type: 'boolean', default: false } } });
@@ -182,5 +182,9 @@ if (!dryRun) {
   const completed = await completeReports();
   if (completed) console.log(`${completed} segnalazioni dal pannello completate.`);
 }
+
+// coda senza scaduti: promozioni ed eventi in attesa ormai finiti si scartano (con la prova a secco si elencano soltanto)
+const expired = await expireQueue(dryRun);
+if (expired.length) console.log(`\n${dryRun ? 'Da togliere perché scaduti' : 'Tolti perché scaduti'} (${expired.length}):\n  ${expired.join('\n  ')}`);
 
 console.log(`\nFonti lette: ${sources.length}, invariate: ${unchanged}${dryRun ? ' (prova: nessuna estrazione, nessuna scrittura in coda)' : ''}.`);

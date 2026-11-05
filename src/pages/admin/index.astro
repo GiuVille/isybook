@@ -96,6 +96,14 @@ import '../../styles/global.css';
   .picker-check { width: 1em; flex: none; color: var(--accent); }
   .picker-create { color: var(--accent); font-weight: 600; }
   .picker-empty { color: var(--muted); cursor: default; }
+  /* Da approvare: sezioni a cartellina */
+  .queue-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; border-bottom: 2px solid var(--border); }
+  .queue-tab { display: inline-flex; align-items: center; gap: 8px; margin-bottom: -2px; padding: 10px 16px; font-weight: 600; color: var(--muted); text-decoration: none; background: var(--bg); border: 2px solid var(--border); border-radius: 10px 10px 0 0; }
+  .queue-tab:hover { color: var(--accent); }
+  .queue-tab.is-on { color: var(--accent); background: var(--surface); border-bottom-color: var(--surface); }
+  .queue-tab-n { min-width: 1.6em; padding: 1px 7px; font-size: 0.8rem; text-align: center; color: var(--surface); background: var(--accent); border-radius: 999px; }
+  .queue-tab:not(.is-on) .queue-tab-n { background: var(--muted); }
+  .pill.expired { background: #fde3e3; color: #b3261e; }
   /* Da approvare: ricerca e filtri */
   .queue-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 4px; }
   .queue-search input[type='search'] { flex: 1 1 260px; min-height: 40px; }

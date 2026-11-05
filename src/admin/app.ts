@@ -834,6 +834,24 @@ const queueIncomplete = (item: Row) => {
   return (item.content_type === 'plot' && !p.plot?.trim()) || Boolean((p.new_tropes ?? []).length || (p.new_genres ?? []).length);
 };
 
+// Sezioni di "Da approvare": libri, serie e film, promozioni, eventi; il resto (articoli…) in "Altro".
+const QUEUE_SECTIONS: Array<{ key: string; label: string; types: string[] }> = [
+  { key: 'libri', label: '📚 Libri', types: ['plot', 'book'] },
+  { key: 'serie', label: '🎬 Serie e film', types: ['adaptation'] },
+  { key: 'promozioni', label: '🎁 Promozioni', types: ['promotion'] },
+  { key: 'eventi', label: '📅 Eventi', types: ['event'] },
+];
+const sectionOf = (type: string) => QUEUE_SECTIONS.find((s) => s.types.includes(type))?.key ?? 'altro';
+
+/** Promozione o evento già finiti mentre aspettavano in coda: si segnalano, così non si approvano per sbaglio. */
+function queueExpired(item: Row): boolean {
+  const p = item.payload ?? {};
+  const today = new Date().toISOString().slice(0, 10);
+  if (item.content_type === 'promotion') return Boolean(p.ends_on && p.ends_on < today);
+  if (item.content_type === 'event') return Boolean((p.ends_on || p.starts_on) && (p.ends_on || p.starts_on) < today);
+  return false;
+}
+
 async function renderReviewList() {
   const { data, error } = await getSupabase()
     .from('review_queue')
@@ -842,9 +860,12 @@ async function renderReviewList() {
     .order('created_at');
   if (error) fail(error);
   const rows = data ?? [];
-  const types = [...new Set(rows.map((r: Row) => r.content_type))];
-  const filter = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tipo') ?? '';
-  const shown = filter ? rows.filter((r: Row) => r.content_type === filter) : rows;
+  const count = (key: string) => rows.filter((r: Row) => sectionOf(r.content_type) === key).length;
+  const sections = [...QUEUE_SECTIONS, { key: 'altro', label: 'Altro', types: [] as string[] }].filter((s) => s.key !== 'altro' || count('altro') > 0);
+  // si apre sulla sezione scelta (resta nell'indirizzo) o sulla prima che ha qualcosa
+  const asked = new URLSearchParams(location.hash.split('?')[1] ?? '').get('sezione') ?? '';
+  const filter = sections.some((s) => s.key === asked) ? asked : (sections.find((s) => count(s.key) > 0)?.key ?? 'libri');
+  const shown = rows.filter((r: Row) => sectionOf(r.content_type) === filter);
   const bulkable = shown.filter(bulkReady);
   const genreSlugs = [...new Set(shown.flatMap((r: Row) => (Array.isArray(r.payload?.genres) ? r.payload.genres : [])))].sort() as string[];
   render(
@@ -854,9 +875,10 @@ async function renderReviewList() {
       ${
         rows.length
           ? `<div class="queue-tools">
-              <div class="queue-filter">${['', ...types]
-                .map((t) => `<a class="pill ${t === filter ? 'is-on' : ''}" href="#/review${t ? `?tipo=${t}` : ''}">${t ? esc(CONTENT_TYPE_LABELS[t] ?? t) : 'Tutto'} (${t ? rows.filter((r: Row) => r.content_type === t).length : rows.length})</a>`)
-                .join('')}</div>
+              <nav class="queue-tabs" aria-label="Sezioni di Da approvare">${sections
+                .map((s) => `<a class="queue-tab ${s.key === filter ? 'is-on' : ''}" href="#/review?sezione=${s.key}" ${s.key === filter ? 'aria-current="page"' : ''}>${esc(s.label)} <span class="queue-tab-n">${count(s.key)}</span></a>`)
+                .join('')}</nav>
+              ${shown.length === 0 ? '<p class="muted">Niente in coda in questa sezione.</p>' : ''}
               <div class="queue-search">
                 <input type="search" id="q-search" placeholder="Cerca per titolo, autrice, editore…" aria-label="Cerca in Da approvare">
                 <label>Stato
@@ -867,7 +889,7 @@ async function renderReviewList() {
                   </select>
                 </label>
                 ${
-                  genreSlugs.length
+                  genreSlugs.length && filter === 'libri'
                     ? `<label>Genere
                         <select id="q-genre"><option value="">Tutti</option>${genreSlugs.map((g) => `<option value="${esc(g)}">${esc(humanize(g))}</option>`).join('')}</select>
                       </label>`
@@ -902,6 +924,7 @@ async function renderReviewList() {
               <span class="pill">${esc(CONTENT_TYPE_LABELS[item.content_type] ?? item.content_type)}</span>
               <a href="#/review/${item.id}"><strong>${esc(reviewTitle(item))}</strong></a>
               ${item.content_type === 'plot' && !item.payload?.plot ? '<span class="pill draft">trama da scrivere</span>' : ''}
+              ${queueExpired(item) ? '<span class="pill expired">scaduto</span>' : ''}
               <span class="muted small">${esc(new Date(item.created_at).toLocaleString('it-IT'))}</span>
             </div>`,
           )

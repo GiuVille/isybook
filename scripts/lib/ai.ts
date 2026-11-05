@@ -199,6 +199,9 @@ export interface ExtractedPromotion {
   works: string[];
 }
 
+/** Data AAAA-MM-GG di n giorni prima di quella data. */
+const daysAgo = (date: string, n: number) => new Date(Date.parse(date) - n * 86400000).toISOString().slice(0, 10);
+
 const PROMOTION_KINDS = ['gift_with_purchase', 'bundle', 'discount', 'contest', 'preorder'] as const;
 const PROMOTION_CHANNELS = ['online', 'bookstores', 'chain', 'everywhere'] as const;
 
@@ -214,7 +217,7 @@ export async function extractPromotions(
         content:
           'Estrai le promozioni sui libri da un testo in italiano di un editore o di una libreria: omaggi con l\'acquisto ' +
           '(gift_with_purchase), offerte multiple come 3x2 (bundle), sconti (discount), concorsi (contest), bonus per il preordine (preorder). ' +
-          'Includi solo promozioni scritte esplicitamente nel testo, mai supposizioni. Date in formato AAAA-MM-GG; se manca l\'anno ' +
+          'Includi solo promozioni ancora in corso o in arrivo, scritte esplicitamente nel testo, mai supposizioni; ignora i resoconti di iniziative concluse (\"grazie a chi ha partecipato\").  Date in formato AAAA-MM-GG; se manca l\'anno ' +
           `deducilo da oggi (${context.today}); se una data non c'è usa null. ` +
           'channel: online, bookstores (librerie), chain (una catena di librerie) o everywhere. ' +
           'reward è ciò che si ottiene, breve ("Un plaid in omaggio"); conditions come si ottiene ("Acquistando 3 libri della collana X"). ' +
@@ -257,7 +260,8 @@ export async function extractPromotions(
       works: Array.isArray(p.works) ? p.works.map(str).filter((w): w is string => Boolean(w)) : [],
     }))
     // scadute: non servono
-    .filter((p) => !p.ends_on || p.ends_on >= context.today);
+    // scadute, oppure con il solo inizio e di oltre 60 giorni fa: non servono
+    .filter((p) => (p.ends_on ? p.ends_on >= context.today : !p.starts_on || p.starts_on >= daysAgo(context.today, 60)));
 }
 
 export interface ExtractedEvent {
@@ -284,7 +288,7 @@ export async function extractEvents(text: string, context: { sourceUrl?: string 
         content:
           'Estrai gli eventi legati ai libri da un testo in italiano (pagina eventi di una fiera, di una libreria o di un editore): ' +
           'fiere (fair), firmacopie (signing), presentazioni e incontri con autrici e autori (presentation), altro (other). ' +
-          'Includi solo eventi scritti esplicitamente nel testo, con una data, mai supposizioni. Date in formato AAAA-MM-GG; ' +
+          'Includi solo eventi futuri scritti esplicitamente nel testo, con una data, mai supposizioni; ignora i resoconti di eventi già passati.  Date in formato AAAA-MM-GG; ' +
           `se manca l'anno deducilo da oggi (${context.today}). venue è il luogo (libreria, padiglione), city la città. ` +
           'description: una o due frasi scritte da te, senza copiare il testo. authors e works: nomi delle autrici e titoli dei libri citati. ' +
           'Rispondi in JSON: {"events": [{"title","kind","starts_on","ends_on","venue","city","url","description","authors","works"}]}. ' +

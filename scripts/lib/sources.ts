@@ -131,17 +131,53 @@ export const decode = (s: string) =>
 
 const stripTags = (html: string) => decode(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 
+/** Post di un feed più vecchi di così non vanno all'AI: parlano di iniziative ormai concluse ("Grazie SalTo!"). */
+export const FEED_MAX_AGE_DAYS = 60;
+
 function feedText(xml: string): string {
   const items = xml.match(/<(item|entry)[\s>][\s\S]*?<\/\1>/g) ?? [];
+  const oldest = Date.now() - FEED_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
   return items
     .map((item) => {
       const pick = (tag: string) => stripTags(decode(item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1] ?? ''));
+      const date = pick('pubDate') || pick('updated') || pick('published');
+      const time = Date.parse(date);
+      if (!Number.isNaN(time) && time < oldest) return ''; // post vecchio: fuori
       const link = item.match(/<link[^>]*href="([^"]+)"/)?.[1] ?? pick('link');
-      return [pick('title'), pick('pubDate') || pick('updated'), pick('description') || pick('summary') || pick('content'), link]
+      return [pick('title'), date, pick('description') || pick('summary') || pick('content'), link]
         .filter(Boolean)
         .join('\n');
     })
+    .filter(Boolean)
     .join('\n\n');
+}
+
+/**
+ * Coda senza scaduti: le promozioni e gli eventi in attesa ormai finiti si segnano come scartati, con una nota.
+ * Promozione scaduta = fine passata, oppure solo l'inizio e di oltre 60 giorni fa; evento scaduto = finito (o iniziato, se dura un giorno).
+ * Con dryRun elenca soltanto. Restituisce i titoli tolti (o da togliere).
+ */
+export async function expireQueue(dryRun = false): Promise<string[]> {
+  if (!sb) return [];
+  const { data, error } = await sb.from('review_queue').select('id, content_type, payload').in('content_type', ['promotion', 'event']).eq('status', 'pending');
+  if (error) throw error;
+  const longAgo = new Date(Date.now() - FEED_MAX_AGE_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const expired = (data ?? []).filter(({ content_type: type, payload: p }) => {
+    if (!p || p.needs_extraction) return false; // segnalazioni dal pannello ancora da leggere: non si toccano
+    if (type === 'promotion') return (p.ends_on && p.ends_on < today) || (!p.ends_on && p.starts_on && p.starts_on < longAgo);
+    const end = p.ends_on || p.starts_on;
+    return Boolean(end && end < today);
+  });
+  if (!dryRun) {
+    for (const item of expired) {
+      const { error: e } = await sb
+        .from('review_queue')
+        .update({ status: 'rejected', payload: { ...item.payload, expired_note: `Scaduto: tolto in automatico il ${today}` } })
+        .eq('id', item.id);
+      if (e) throw e;
+    }
+  }
+  return expired.map((i) => `${i.content_type === 'event' ? 'evento' : 'promozione'}: ${i.payload?.title ?? i.id} (${i.payload?.ends_on ?? i.payload?.starts_on ?? 'senza data'})`);
 }
 
 function pageText(html: string): string {
