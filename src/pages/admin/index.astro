@@ -143,6 +143,24 @@ import '../../styles/global.css';
   .queue-filter .pill { text-decoration: none; }
   .queue-filter .pill.is-on { outline: 2px solid currentColor; }
   .queue-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  /* elenco con copertina e pallino di stato (Opere, Edizioni) */
+  /* suggerimenti (src/admin/suggest.ts) */
+  .suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; padding: 8px 10px; font-size: 0.88rem; background: #fff8e8; border: 1px dashed #e3c78a; border-radius: 8px; }
+  .suggest[hidden] { display: none; }
+  .suggest-title { color: var(--muted); }
+  .suggest-chip, .suggest-all { padding: 4px 10px; font-size: 0.88rem; color: var(--accent); background: var(--surface); border: 1px solid var(--accent-soft); border-radius: 999px; cursor: pointer; }
+  .suggest-chip:hover, .suggest-all:hover { border-color: var(--accent); }
+  .suggest-all { font-weight: 600; }
+  .form-head { display: flex; align-items: center; gap: 14px; }
+  .form-head h1 { margin: 0; }
+  .form-cover { width: 64px; height: 92px; flex: none; object-fit: cover; border-radius: 3px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+  .list-title { display: inline-flex; align-items: center; gap: 10px; }
+  .dot { width: 12px; height: 12px; flex: none; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px rgba(0, 0, 0, 0.12); }
+  .dot.green { background: #2e9d5b; }
+  .dot.orange { background: #e8902b; }
+  .dot.red { background: #d64545; }
+  .dot-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 10px; font-size: 0.85rem; color: var(--muted); }
+  .dot-legend span { display: inline-flex; align-items: center; gap: 6px; }
   .queue-thumb { width: 32px; height: 46px; flex: none; object-fit: cover; border-radius: 2px; background: var(--border); }
   .bulk-space { width: 13px; }
   .adapt-head { display: flex; gap: 16px; align-items: flex-start; }

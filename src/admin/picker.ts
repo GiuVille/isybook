@@ -155,6 +155,12 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
       .map((o) => `<span class="picker-chip">${esc(o.label)}<button type="button" data-remove="${esc(o.value)}" aria-label="Togli ${esc(o.label)}">✕</button></span>`)
       .join('');
   };
+  // ogni scelta avvisa il modulo (i suggerimenti ascoltano); una spunta arrivata da fuori aggiorna le pillole
+  const changed = () => {
+    showChips();
+    fieldset.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  fieldset.addEventListener('change', showChips);
   const table = fieldset.dataset.create;
   const { draw } = wire(ui, {
     options,
@@ -162,7 +168,7 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
     choose: (o) => {
       const input = find(o.value);
       if (input) input.checked = !input.checked;
-      showChips();
+      changed();
     },
     create:
       table && create
@@ -171,7 +177,7 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
             const existing = find(row.id);
             if (existing) existing.checked = true;
             else box.insertAdjacentHTML('beforeend', `<label class="check"><input type="checkbox" value="${esc(row.id)}" checked> ${esc(row.name)}</label>`);
-            showChips();
+            changed();
           }
         : undefined,
     keepOpen: true,
@@ -179,7 +185,7 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
       const last = options().filter((o) => find(o.value)?.checked).pop();
       if (last) {
         find(last.value)!.checked = false;
-        showChips();
+        changed();
       }
     },
   });
@@ -188,7 +194,7 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
     if (!button) return;
     const input = find(button.dataset.remove!);
     if (input) input.checked = false;
-    showChips();
+    changed();
     draw();
   });
   box.hidden = true;

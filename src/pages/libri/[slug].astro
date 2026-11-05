@@ -361,6 +361,12 @@ const volumeLabel = (w: Work) => (w.series_number != null ? `Vol. ${w.series_num
   .reason { color: var(--accent); margin-top: 4px; }
 
   @media (max-width: 700px) {
+    /* generi, tropes, ambientazione: etichetta sopra e pillole a tutta larghezza, una accanto all'altra
+       (con due colonne la seconda era troppo stretta e i tropes lunghi finivano uno per riga) */
+    .facets { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .facets dt { margin-top: 10px; }
+    .facets dt:first-child { margin-top: 0; }
+    .facets dd :global(.tag) { padding: 2px 9px; font-size: 0.82rem; }
     /* edizioni: una schedina per edizione invece della tabella che scorre di lato */
     .table-wrap { overflow: visible; }
     .table-wrap table,

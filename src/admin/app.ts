@@ -8,6 +8,7 @@ import { RESOURCES, STATUS_OPTIONS, getResource, slugify, type Field, type Resou
 import { approveReviewItem } from './review';
 import { bindSocial, socialHtml } from './social';
 import { enhancePickers } from './picker';
+import { bindPriceSuggestion, bindWorkSuggestions } from './suggest';
 
 const root = document.getElementById('admin')!;
 let session: Session | null = null;
@@ -212,15 +213,50 @@ function displayValue(field: Field | undefined, value: unknown, labels: Record<s
   return esc(value);
 }
 
+/** Copertina di una riga in elenco: per le opere la prima edizione che ne ha una, per le edizioni la sua. */
+function rowCover(resource: Resource, row: Row): string | null {
+  if (resource.key === 'works') return (row.editions ?? []).find((e: Row) => e.cover_url)?.cover_url ?? null;
+  if (resource.key === 'editions') return row.cover_url ?? null;
+  return null;
+}
+
+/**
+ * Pallino di stato di un'opera nel pannello:
+ * rosso = mancano informazioni di base (autrice, genere, edizione o copertina);
+ * arancione = la trama è da scrivere o da approvare (anche se in coda);
+ * verde = tutto a posto, trama approvata.
+ */
+function workDot(row: Row, pendingPlots: Set<string>): { color: 'red' | 'orange' | 'green'; label: string } {
+  const missing = [
+    !(row.work_authors ?? []).length && 'autrice',
+    !(row.work_genres ?? []).length && 'genere',
+    !(row.editions ?? []).length && 'edizione',
+    (row.editions ?? []).length && !(row.editions ?? []).some((e: Row) => e.cover_url) && 'copertina',
+  ].filter(Boolean);
+  if (missing.length) return { color: 'red', label: `Da sistemare: manca ${missing.join(', ')}` };
+  if (!row.plot?.trim() || pendingPlots.has(row.id)) return { color: 'orange', label: 'Trama da scrivere o da approvare' };
+  return { color: 'green', label: 'Tutto a posto' };
+}
+
 async function renderList(resource: Resource) {
+  const listSelect =
+    resource.key === 'works' ? '*, editions(cover_url), work_authors(author_id), work_genres(genre_id)' : '*';
   const { data, error } = await getSupabase()
     .from(resource.table)
-    .select('*')
+    .select(listSelect)
     .order(resource.orderBy.column, { ascending: resource.orderBy.ascending, nullsFirst: false })
     .limit(500);
   if (error) fail(error);
   const rows = data ?? [];
   const labels = await relationLabels(resource);
+  // opere con una trama ancora in "Da approvare": pallino arancione
+  let pendingPlots = new Set<string>();
+  if (resource.key === 'works') {
+    const queued = await getSupabase().from('review_queue').select('payload->>work_id').eq('content_type', 'plot').eq('status', 'pending');
+    if (queued.error) fail(queued.error);
+    pendingPlots = new Set((queued.data ?? []).map((r: Row) => r.work_id).filter(Boolean));
+  }
+  const withThumbs = resource.key === 'works' || resource.key === 'editions';
   const fieldsByName = Object.fromEntries(resource.fields.map((f) => [f.name, f]));
   const hasStatus = resource.fields.some((f) => f.name === 'status');
 
@@ -230,8 +266,18 @@ async function renderList(resource: Resource) {
         <h1>${esc(resource.label)}</h1>
         ${resource.noCreate ? '' : `<a class="button" href="#/r/${resource.key}/new">Nuovo ${esc(resource.singular)}</a>`}
       </div>
+      ${
+        resource.key === 'works'
+          ? `<p class="dot-legend"><span><span class="dot green"></span> tutto a posto</span><span><span class="dot orange"></span> trama da scrivere o da approvare</span><span><span class="dot red"></span> mancano informazioni (autrice, genere, edizione o copertina)</span></p>`
+          : ''
+      }
       <div class="filters">
         <input type="search" id="search" placeholder="Cerca…">
+        ${
+          resource.key === 'works'
+            ? `<select id="dot-filter"><option value="">Tutti i colori</option><option value="red">Solo rosse</option><option value="orange">Solo arancioni</option><option value="green">Solo verdi</option></select>`
+            : ''
+        }
         ${
           hasStatus
             ? `<select id="status-filter"><option value="">Tutti gli stati</option>${STATUS_OPTIONS!.map(
@@ -248,11 +294,17 @@ async function renderList(resource: Resource) {
               .map(
                 (row: Row) => `
                 <tr data-search="${esc(resource.listColumns.map((c) => labels[c]?.[row[c]] ?? row[c] ?? '').join(' ').toLowerCase())}"
-                    data-status="${esc(row.status ?? '')}">
+                    data-status="${esc(row.status ?? '')}" data-dot="${resource.key === 'works' ? workDot(row, pendingPlots).color : ''}">
                   ${resource.listColumns
                     .map((c, i) => {
                       const cell = displayValue(fieldsByName[c], row[c], labels);
-                      return `<td>${i === 0 ? `<a href="#/r/${resource.key}/${row.id}">${cell}</a>` : cell}</td>`;
+                      if (i !== 0) return `<td>${cell}</td>`;
+                      const cover = withThumbs ? rowCover(resource, row) : null;
+                      const thumb = withThumbs ? (cover ? `<img class="queue-thumb" src="${esc(cover)}" alt="" loading="lazy">` : '<span class="queue-thumb"></span>') : '';
+                      const dot = resource.key === 'works' ? workDot(row, pendingPlots) : null;
+                      return `<td><a class="${withThumbs ? 'list-title' : ''}" href="#/r/${resource.key}/${row.id}">${
+                        dot ? `<span class="dot ${dot.color}" title="${esc(dot.label)}" aria-label="${esc(dot.label)}"></span>` : ''
+                      }${thumb}<span>${cell}</span></a></td>`;
                     })
                     .join('')}
                 </tr>`,
@@ -267,15 +319,18 @@ async function renderList(resource: Resource) {
 
   const search = document.getElementById('search') as HTMLInputElement;
   const statusFilter = document.getElementById('status-filter') as HTMLSelectElement | null;
+  const dotFilter = document.getElementById('dot-filter') as HTMLSelectElement | null;
   const applyFilters = () => {
     const q = search.value.trim().toLowerCase();
     const s = statusFilter?.value ?? '';
+    const c = dotFilter?.value ?? '';
     root.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach((tr) => {
-      tr.hidden = (q !== '' && !tr.dataset.search!.includes(q)) || (s !== '' && tr.dataset.status !== s);
+      tr.hidden = (q !== '' && !tr.dataset.search!.includes(q)) || (s !== '' && tr.dataset.status !== s) || (c !== '' && tr.dataset.dot !== c);
     });
   };
   search.addEventListener('input', applyFilters);
   statusFilter?.addEventListener('change', applyFilters);
+  dotFilter?.addEventListener('change', applyFilters);
 }
 
 // ---------------------------------------------------------------------------
@@ -402,10 +457,16 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   }
 
   const title = id ? row[resource.fields[0].name] ?? `Modifica ${resource.singular}` : `Nuovo ${resource.singular}`;
+  // copertina in piccolo accanto al titolo, per riconoscere subito il libro (opere: la prima edizione che ne ha una)
+  let headCover: string | null = resource.key === 'editions' ? row.cover_url ?? null : null;
+  if (resource.key === 'works' && id) {
+    const ed = await sb.from('editions').select('cover_url').eq('work_id', id).not('cover_url', 'is', null).limit(1);
+    headCover = ed.data?.[0]?.cover_url ?? null;
+  }
   render(
     shell(`
       <p class="crumbs"><a href="#/r/${resource.key}">${esc(resource.label)}</a></p>
-      <h1>${esc(title)}</h1>
+      <div class="form-head">${headCover ? `<img class="form-cover" src="${esc(headCover)}" alt="">` : ''}<h1>${esc(title)}</h1></div>
       <form id="edit" class="form card">
         ${resource.fields
           .map(
@@ -462,6 +523,9 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
     flash(existed ? `«${row.name}» c'era già: l'ho scelto` : `«${row.name}» aggiunto`);
     return { id: row.id, name: row.name };
   });
+  // suggerimenti dalla stessa autrice (opere) e prezzo più usato dall'editore (edizioni)
+  if (resource.key === 'works') bindWorkSuggestions(form, id);
+  if (resource.key === 'editions') bindPriceSuggestion(form);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
