@@ -156,7 +156,9 @@ import '../../styles/global.css';
   .notes { margin: 18px 0 6px; }
   .notes summary { margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); cursor: pointer; list-style: none; }
   .notes summary::-webkit-details-marker { display: none; }
+  /* carta chiara in entrambi i temi: testo sempre scuro, altrimenti nel tema scuro sarebbe chiaro su chiaro */
   .notes textarea {
+    color: #2a2230;
     width: 100%;
     min-height: 140px;
     padding: 6px 8px;
@@ -171,6 +173,7 @@ import '../../styles/global.css';
     border-radius: 4px;
   }
   .notes textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .notes textarea::placeholder { color: #8c8496; }
   .notes-status { display: block; min-height: 1.2em; margin-top: 2px; font-size: 0.75rem; }
   @media (max-width: 760px) {
     .notes { width: 100%; }
@@ -178,11 +181,14 @@ import '../../styles/global.css';
     .notes summary::after { content: ' ▾'; }
   }
   /* bozza ripristinata (src/admin/draft.ts) */
-  .draft-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 10px 0 0; padding: 10px 12px; font-size: 0.92rem; background: #fff8e8; border: 1px solid #e3c78a; border-radius: 8px; }
+  .draft-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 10px 0 0; padding: 10px 12px; font-size: 0.92rem; color: #3a2f1a; background: #fff8e8; border: 1px solid #e3c78a; border-radius: 8px; }
+  .draft-note .link { color: #8a3f7a; }
   /* suggerimenti (src/admin/suggest.ts) */
-  .suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; padding: 8px 10px; font-size: 0.88rem; background: #fff8e8; border: 1px dashed #e3c78a; border-radius: 8px; }
+  .suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; padding: 8px 10px; font-size: 0.88rem; color: #3a2f1a; background: #fff8e8; border: 1px dashed #e3c78a; border-radius: 8px; }
   .suggest[hidden] { display: none; }
-  .suggest-title { color: var(--muted); }
+  .suggest-title { color: #6b5a3a; }
+  .suggest .suggest-chip, .suggest .suggest-all { color: #8a3f7a; background: #fff; border-color: #ead6e3; }
+  .suggest small { color: #6b5a3a; }
   .suggest-chip, .suggest-all { padding: 4px 10px; font-size: 0.88rem; color: var(--accent); background: var(--surface); border: 1px solid var(--accent-soft); border-radius: 999px; cursor: pointer; }
   .suggest-chip:hover, .suggest-all:hover { border-color: var(--accent); }
   .suggest-all { font-weight: 600; }
