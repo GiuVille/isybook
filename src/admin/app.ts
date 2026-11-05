@@ -10,6 +10,7 @@ import { bindSocial, socialHtml } from './social';
 import { enhancePickers } from './picker';
 import { bindPriceSuggestion, bindWorkSuggestions } from './suggest';
 import { clearDraft, formState, pruneDrafts, restoreDraft, watchDraft } from './draft';
+import { bindNotes, flushNotes, notesHtml } from './notes';
 
 const root = document.getElementById('admin')!;
 let session: Session | null = null;
@@ -24,6 +25,7 @@ export function esc(value: unknown): string {
 }
 
 function render(html: string) {
+  flushNotes(); // le note in sospeso si salvano prima di ridisegnare la pagina
   root.innerHTML = html;
 }
 
@@ -80,6 +82,7 @@ function shell(content: string): string {
               .join('')}`,
           )
           .join('')}
+        ${notesHtml()}
         <p class="group">Account</p>
         <span class="muted small">${esc(session?.user.email)}</span>
         <button type="button" class="link" id="logout">Esci</button>
@@ -89,6 +92,7 @@ function shell(content: string): string {
 }
 
 function bindShell() {
+  bindNotes(session?.user.id);
   document.getElementById('logout')?.addEventListener('click', async () => {
     await getSupabase().auth.signOut();
   });

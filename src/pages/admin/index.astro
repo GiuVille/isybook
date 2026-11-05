@@ -152,6 +152,31 @@ import '../../styles/global.css';
   .queue-filter .pill.is-on { outline: 2px solid currentColor; }
   .queue-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
   /* elenco con copertina e pallino di stato (Opere, Edizioni) */
+  /* note personali nella colonna (src/admin/notes.ts): foglietto a righe */
+  .notes { margin: 18px 0 6px; }
+  .notes summary { margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); cursor: pointer; list-style: none; }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes textarea {
+    width: 100%;
+    min-height: 140px;
+    padding: 6px 8px;
+    font-size: 0.9rem;
+    line-height: 22px;
+    resize: none;
+    background: repeating-linear-gradient(transparent 0 21px, #d8e4f0 21px 22px), #fffdf7;
+    background-attachment: local;
+    background-position: 0 6px; /* righe allineate al testo (stesso spazio del padding in alto) */
+    border: 1px solid var(--border);
+    border-left: 3px solid #e3a3a3;
+    border-radius: 4px;
+  }
+  .notes textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .notes-status { display: block; min-height: 1.2em; margin-top: 2px; font-size: 0.75rem; }
+  @media (max-width: 760px) {
+    .notes { width: 100%; }
+    .notes summary { font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
+    .notes summary::after { content: ' ▾'; }
+  }
   /* bozza ripristinata (src/admin/draft.ts) */
   .draft-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 10px 0 0; padding: 10px 12px; font-size: 0.92rem; background: #fff8e8; border: 1px solid #e3c78a; border-radius: 8px; }
   /* suggerimenti (src/admin/suggest.ts) */
