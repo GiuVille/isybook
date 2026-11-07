@@ -394,6 +394,7 @@ export function initJournal(section: HTMLElement) {
           ${input('author', 'Autore')}
           ${input('genre', 'Genere')}
           <div class="jrow jdates">${input('startedOn', 'Inizio (facoltativo)', 'date')}${input('finishedOn', 'Fine (facoltativo)', 'date')}</div>
+          <button type="button" class="jclear-dates" data-clear-dates ${e.startedOn || e.finishedOn ? '' : 'hidden'}>✕ Cancella le date</button>
           <label class="jread"><input type="checkbox" data-read ${e.read ? 'checked' : ''}> Letto <small>(anche se non ricordi le date)</small></label>
         </div>
       </div>
@@ -758,6 +759,10 @@ export function initJournal(section: HTMLElement) {
         showSaved();
         // una data di fine segna il libro come letto
         if (field === 'finishedOn' && value) updateEntry(e.id, { read: true });
+        if (field === 'startedOn' || field === 'finishedOn') {
+          const now = entry();
+          left.querySelector<HTMLElement>('[data-clear-dates]')?.toggleAttribute('hidden', !(now?.startedOn || now?.finishedOn));
+        }
         if (['totalPages', 'currentPage', 'finishedOn'].includes(field)) refreshProgress();
       }, 400),
     );
@@ -886,6 +891,12 @@ export function initJournal(section: HTMLElement) {
       if (t.dataset.pick) return addFromCatalog(t.dataset.pick);
       if (!e) return;
       if (t.dataset.finish !== undefined) return finish();
+      if (t.dataset.clearDates !== undefined) {
+        // via inizio e fine; "Letto" resta com'è (si può aver letto un libro senza ricordare quando)
+        updateEntry(e.id, { startedOn: '', finishedOn: '' });
+        showSaved();
+        return render();
+      }
       if (t.dataset.monthPick !== undefined) {
         const j = getJournal();
         const current = monthOf(j, e.id);

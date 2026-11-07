@@ -865,4 +865,7 @@
 /* "Letto" anche senza date (src/scripts/journal.ts) */
 .jread { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; font-family: var(--jfont); font-size: 1.1rem; color: var(--ink); cursor: pointer; }
 .jread input { width: 18px; height: 18px; accent-color: var(--cover); }
+.jclear-dates { align-self: flex-start; min-height: 36px; margin-top: 4px; padding: 4px 12px; font: inherit; font-size: 0.85rem; color: #6e6474; background: none; border: 1px dashed currentColor; border-radius: 999px; cursor: pointer; }
+.jclear-dates:hover { color: var(--ink); }
+.jclear-dates[hidden] { display: none; }
 .jread small { font-family: var(--font-text); font-size: 0.75rem; color: #6e6474; }
