@@ -11,7 +11,7 @@ const WORK_SELECT = `
   id, slug, title, plot, series, series_number, origin, spice_level,
   work_authors ( authors ( id, slug, name, bio, social_links ) ),
   work_genres ( genres ( id, slug, name, theme ) ),
-  work_tropes ( tropes ( id, slug, name, doodle, genres ( name ) ) ),
+  work_tropes ( tropes ( id, slug, name, doodle ) ),
   work_settings ( settings ( id, slug, name, doodle ) ),
   editions (
     id, isbn, format, release_date, release_precision, price, language, edition_type, first_print, pages, print_run, details, cover_url, purchase_links,
@@ -72,7 +72,7 @@ function mapWork(row: Row): Work {
     tropes: (row.work_tropes ?? [])
       .map((r: Row) => r.tropes)
       .filter(Boolean)
-      .map(({ genres, ...t }: Row) => ({ ...t, group: genres?.name ?? null })),
+      .map((t: Row) => ({ ...t, group: null })), // i generi dei tropes per i menu arrivano da getTropes
     settings: (row.work_settings ?? []).map((r: Row) => r.settings).filter(Boolean),
     editions: (row.editions ?? [])
       .map((e: Row): Edition => ({ ...e, release_date: editionDate(e), publisher: e.publishers ?? null, purchase_links: e.purchase_links ?? [] } as Edition))
@@ -173,7 +173,7 @@ export async function getTropes(): Promise<Tag[]> {
     });
   }
   // migrazione 0019 non ancora applicata: un solo genere, dalla colonna tropes.genre_id (0015)
-  const { data, error } = await sb.from('tropes').select('id, slug, name, doodle, genres ( name )').order('name');
+  const { data, error } = await sb.from('tropes').select('id, slug, name, doodle, genres!tropes_genre_id_fkey ( name )').order('name');
   if (error) throw error;
   return (data ?? []).map(({ genres, ...t }: Row) => ({ ...t, group: genres?.name ?? null }) as Tag);
 }
