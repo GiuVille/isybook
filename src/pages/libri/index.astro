@@ -8,7 +8,8 @@ const [works, tropes] = await Promise.all([getWorks(), getTropes()]);
 
 function unique(items: Array<FilterOption | null | undefined>): FilterOption[] {
   const map = new Map<string, FilterOption>();
-  for (const item of items) if (item) map.set(item.slug, { slug: item.slug, name: item.name, group: item.group });
+  // vince la prima: i tropes del vocabolario (coi generi) vengono prima di quelli presi dai libri, che non li hanno
+  for (const item of items) if (item && !map.has(item.slug)) map.set(item.slug, { slug: item.slug, name: item.name, group: item.group, groups: item.groups });
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'it'));
 }
 

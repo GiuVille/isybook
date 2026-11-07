@@ -26,7 +26,8 @@ export interface Tag {
   name: string;
   theme?: string | null; // solo generi: palette dell'anteprima
   doodle?: string | null; // tropes e ambientazioni: decorazione scelta dal pannello (src/lib/doodles.ts)
-  group?: string | null; // solo tropes: nome del genere sotto cui compare nel menu dei filtri (migrazione 0015)
+  group?: string | null; // solo tropes: il primo genere (migrazione 0015)
+  groups?: string[]; // solo tropes: tutti i generi, il trope compare sotto ognuno nel menu dei filtri (migrazione 0019)
 }
 
 export interface PurchaseLink {

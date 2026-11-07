@@ -144,8 +144,10 @@ const path = Astro.url.pathname;
       import { initReveal, reducedMotion } from '../scripts/reveal';
       import { initKonami } from '../scripts/konami';
       import { initInstall } from '../scripts/install';
+      import { initRails } from '../scripts/rail';
       initKonami();
       initInstall();
+      initRails(); // caroselli di card (Per te, edizioni speciali, La mia libreria)
 
       // animazioni d'ingresso (frecce delle anteprime, peperoncini…)
       initReveal();

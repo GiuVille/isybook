@@ -32,8 +32,10 @@ export interface JournalEntry {
   format: JournalFormat | null;
   kind: JournalKind | null;
   source: JournalSource | null;
-  startedOn: string;
-  finishedOn: string;
+  startedOn: string; // facoltativa: un libro letto tempo fa può non averla
+  finishedOn: string; // facoltativa
+  /** Letto, anche senza date (chi non ricorda quando l'ha finito). */
+  read: boolean;
   totalPages: number | null;
   currentPage: number | null;
   favoriteCharacter: string;
@@ -192,6 +194,8 @@ function sanitizeEntry(raw: any, i: number): JournalEntry | null {
     source: oneOf(raw.source, ['bought', 'gift', 'borrowed'] as const),
     startedOn: str(raw.startedOn, 10),
     finishedOn: str(raw.finishedOn, 10),
+    // i libri salvati prima di questo campo: letti se hanno una data di fine
+    read: raw.read === true || Boolean(str(raw.finishedOn, 10)),
     totalPages: num(raw.totalPages),
     currentPage: num(raw.currentPage),
     favoriteCharacter: str(raw.favoriteCharacter, 200),
@@ -301,8 +305,8 @@ function update(change: (journal: Journal) => void): Journal {
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 /** Percentuale di lettura (0–100) o null se mancano le pagine. */
-export function progress(entry: Pick<JournalEntry, 'currentPage' | 'totalPages' | 'finishedOn'>): number | null {
-  if (entry.finishedOn) return 100;
+export function progress(entry: Pick<JournalEntry, 'currentPage' | 'totalPages' | 'finishedOn'> & { read?: boolean }): number | null {
+  if (entry.read || entry.finishedOn) return 100;
   if (!entry.totalPages || entry.currentPage == null) return null;
   return Math.min(100, Math.round((entry.currentPage / entry.totalPages) * 100));
 }
@@ -356,7 +360,8 @@ export function createEntry(data: Partial<JournalEntry> & { title: string }): Jo
   let created!: JournalEntry;
   update((j) => {
     const n = j.entries.reduce((max, e) => Math.max(max, e.n), 0) + 1;
-    created = sanitizeEntry({ ...data, id: newId('j'), n, createdAt: now(), updatedAt: now(), startedOn: data.startedOn ?? now().slice(0, 10) }, n)!;
+    // niente data d'inizio automatica: la si mette solo se la si ricorda
+    created = sanitizeEntry({ ...data, id: newId('j'), n, createdAt: now(), updatedAt: now() }, n)!;
     j.entries.push(created);
   });
   return created;

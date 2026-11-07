@@ -9,7 +9,7 @@ const { level, size = 22 } = Astro.props;
 const label = level === 0 ? 'Nessuna scena spicy' : `Spicy ${level} su 5`;
 ---
 
-<span class="spice" role="img" aria-label={label} title={label} data-reveal>
+<span class="spice" role="img" aria-label={label} title={label} data-reveal style={`--s:${size}px`}>
   {level === 0 ? (
     <span class="none">Nessuna scena spicy</span>
   ) : (
@@ -28,7 +28,8 @@ const label = level === 0 ? 'Nessuna scena spicy' : `Spicy ${level} su 5`;
 
 <style>
   .spice { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
-  svg { stroke-linecap: round; stroke-linejoin: round; }
+  /* misura fissa: nessuna regola esterna (es. le anteprime dei libri) deve poterli allargare */
+  .spice svg { flex: none; display: block; width: var(--s); height: var(--s); stroke-linecap: round; stroke-linejoin: round; }
   .body { stroke-width: 1.4; }
   .on .body { fill: #d23b2c; stroke: #8f2017; }
   .off .body { fill: none; stroke: currentColor; opacity: 0.4; }

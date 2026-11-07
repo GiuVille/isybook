@@ -7,6 +7,8 @@ export interface FilterOption {
   name: string;
   /** Titoletto sotto cui compare nel menu (es. il genere di un trope). */
   group?: string | null;
+  /** Più titoletti: la voce compare sotto ognuno (un trope con più generi). Le caselle doppie restano allineate. */
+  groups?: string[];
 }
 
 export interface FilterGroup {
@@ -61,8 +63,10 @@ const visibleGroups = groups.filter((g) => g.options.length > 0);
 
 /** Voci divise per titoletto quando almeno una ne ha uno: in ordine alfabetico, "Altri" in fondo. */
 function sections(options: FilterOption[]): Array<{ title: string | null; options: FilterOption[] }> {
-  if (!options.some((o) => o.group)) return [{ title: null, options }];
-  const byGroup = Map.groupBy(options, (o) => o.group || 'Altri');
+  if (!options.some((o) => o.group || o.groups?.length)) return [{ title: null, options }];
+  const byGroup = new Map<string, FilterOption[]>();
+  for (const o of options)
+    for (const title of o.groups?.length ? o.groups : [o.group || 'Altri']) byGroup.set(title, [...(byGroup.get(title) ?? []), o]);
   return [...byGroup.keys()]
     .sort((a, b) => Number(a === 'Altri') - Number(b === 'Altri') || a.localeCompare(b, 'it'))
     .map((title) => ({ title, options: byGroup.get(title)! }));
@@ -201,7 +205,8 @@ function sections(options: FilterOption[]): Array<{ title: string | null; option
     };
     toggle?.addEventListener('click', () => showFilters(!root.classList.contains('show-all')));
 
-    const selected = (g: Group) => g.inputs.filter((i) => i.checked).map((i) => i.value);
+    // la stessa voce può comparire sotto più titoletti: si conta una volta sola
+    const selected = (g: Group) => [...new Set(g.inputs.filter((i) => i.checked).map((i) => i.value))];
     // tutte le parole cercate devono comparire
     const terms = () => normalize(query.value).split(/\s+/).filter(Boolean);
     const maxValue = (input: HTMLInputElement) => (input.value === '' ? null : Number(input.value));
@@ -346,7 +351,10 @@ function sections(options: FilterOption[]): Array<{ title: string | null; option
           ? [chip(`“${query.value.trim()}”`, () => ((query.value = ''), changed()))]
           : []),
         ...groups.flatMap((g) =>
-          g.inputs.filter((i) => i.checked).map((input) => chip(input.dataset.label!, () => ((input.checked = false), changed()))),
+          selected(g).map((value) => {
+            const same = g.inputs.filter((i) => i.value === value);
+            return chip(same[0].dataset.label!, () => (same.forEach((i) => (i.checked = false)), changed()));
+          }),
         ),
         ...[...maxInputs]
           .filter(([, input]) => input.value !== '')
@@ -371,7 +379,12 @@ function sections(options: FilterOption[]): Array<{ title: string | null; option
     }
 
     root.addEventListener('change', (e) => {
-      if ((e.target as HTMLElement).matches('input[type=checkbox], select')) changed();
+      const target = e.target as HTMLElement;
+      // voce doppia (trope sotto più generi): spuntarne una spunta anche le altre
+      if (target instanceof HTMLInputElement && target.type === 'checkbox')
+        for (const g of groups)
+          if (g.inputs.includes(target)) for (const i of g.inputs) if (i.value === target.value) i.checked = target.checked;
+      if (target.matches('input[type=checkbox], select')) changed();
     });
     query.addEventListener('input', changed);
     for (const input of maxInputs.values()) input.addEventListener('input', changed);

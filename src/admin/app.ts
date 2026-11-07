@@ -11,6 +11,7 @@ import { enhancePickers } from './picker';
 import { bindPriceSuggestion, bindWorkSuggestions } from './suggest';
 import { clearDraft, formState, pruneDrafts, restoreDraft, watchDraft } from './draft';
 import { bindNotes, flushNotes, notesHtml } from './notes';
+import { bindDateHelpers, bindImageLinkPreview, bindPreview, bindStatusSwitch, checkForm, hasPreview, statusSwitchHtml } from './form-help';
 
 const root = document.getElementById('admin')!;
 let session: Session | null = null;
@@ -226,26 +227,44 @@ function rowCover(resource: Resource, row: Row): string | null {
 }
 
 /**
- * Pallino di stato di un'opera nel pannello:
- * rosso = mancano informazioni di base (autrice, genere, edizione o copertina);
- * arancione = la trama è da scrivere o da approvare (anche se in coda);
- * verde = tutto a posto, trama approvata.
+ * Pallino di stato di un'opera nel pannello, con il motivo scritto in parole (si legge anche da telefono):
+ * rosso = mancano informazioni di base (autrice, genere o edizione);
+ * arancione = manca solo la trama (scritta a mano o approvata da "Da approvare");
+ * verde = tutto a posto.
+ * La copertina non cambia il colore (arriva dalle API, la redazione non può aggiungerla): solo una nota.
  */
-function workDot(row: Row, pendingPlots: Set<string>): { color: 'red' | 'orange' | 'green'; label: string } {
+function workDot(row: Row, pendingPlots: Set<string>): { color: 'red' | 'orange' | 'green'; label: string; note: string } {
   const missing = [
     !(row.work_authors ?? []).length && 'autrice',
     !(row.work_genres ?? []).length && 'genere',
     !(row.editions ?? []).length && 'edizione',
-    (row.editions ?? []).length && !(row.editions ?? []).some((e: Row) => e.cover_url) && 'copertina',
-  ].filter(Boolean);
-  if (missing.length) return { color: 'red', label: `Da sistemare: manca ${missing.join(', ')}` };
-  if (!row.plot?.trim() || pendingPlots.has(row.id)) return { color: 'orange', label: 'Trama da scrivere o da approvare' };
-  return { color: 'green', label: 'Tutto a posto' };
+  ].filter(Boolean) as string[];
+  const noPlot = !row.plot?.trim();
+  const noCover = (row.editions ?? []).length > 0 && !(row.editions ?? []).some((e: Row) => e.cover_url);
+  const extra = noCover ? ' · senza copertina' : '';
+  if (missing.length) return { color: 'red', label: `Da sistemare: manca ${[...missing, ...(noPlot ? ['trama'] : [])].join(', ')}`, note: `manca: ${[...missing, ...(noPlot ? ['trama'] : [])].join(', ')}${extra}` };
+  if (noPlot) {
+    const queued = pendingPlots.has(row.id);
+    return { color: 'orange', label: queued ? 'Trama in "Da approvare"' : 'Trama da scrivere', note: (queued ? 'trama in Da approvare' : 'manca: trama') + extra };
+  }
+  return { color: 'green', label: 'Tutto a posto', note: extra.replace(' · ', '') };
 }
+
+/** Generi di un trope nell'elenco del pannello, in ordine alfabetico. */
+const tropeGenres = (row: Row) =>
+  ((row.trope_genres ?? []) as Row[])
+    .map((tg) => tg.genres?.name)
+    .filter(Boolean)
+    .sort((a: string, b: string) => a.localeCompare(b, 'it'))
+    .join(', ');
 
 async function renderList(resource: Resource) {
   const listSelect =
-    resource.key === 'works' ? '*, editions(cover_url), work_authors(author_id), work_genres(genre_id)' : '*';
+    resource.key === 'works'
+      ? '*, editions(cover_url), work_authors(author_id), work_genres(genre_id)'
+      : resource.key === 'tropes'
+        ? '*, trope_genres(genres(name))'
+        : '*';
   const { data, error } = await getSupabase()
     .from(resource.table)
     .select(listSelect)
@@ -273,7 +292,7 @@ async function renderList(resource: Resource) {
       </div>
       ${
         resource.key === 'works'
-          ? `<p class="dot-legend"><span><span class="dot green"></span> tutto a posto</span><span><span class="dot orange"></span> trama da scrivere o da approvare</span><span><span class="dot red"></span> mancano informazioni (autrice, genere, edizione o copertina)</span></p>`
+          ? `<p class="dot-legend"><span><span class="dot green"></span> tutto a posto</span><span><span class="dot orange"></span> manca solo la trama (da scrivere o in Da approvare)</span><span><span class="dot red"></span> mancano autrice, genere o edizione</span></p>`
           : ''
       }
       <div class="filters">
@@ -307,9 +326,16 @@ async function renderList(resource: Resource) {
                       const cover = withThumbs ? rowCover(resource, row) : null;
                       const thumb = withThumbs ? (cover ? `<img class="queue-thumb" src="${esc(cover)}" alt="" loading="lazy">` : '<span class="queue-thumb"></span>') : '';
                       const dot = resource.key === 'works' ? workDot(row, pendingPlots) : null;
+                      // opera completa ma ancora in bozza: si pubblica da qui, senza aprire la scheda
+                      const publish =
+                        dot?.color === 'green' && row.status === 'draft'
+                          ? `<button type="button" class="row-publish" data-publish="${row.id}">Pubblica</button>`
+                          : '';
                       return `<td><a class="${withThumbs ? 'list-title' : ''}" href="#/r/${resource.key}/${row.id}">${
                         dot ? `<span class="dot ${dot.color}" title="${esc(dot.label)}" aria-label="${esc(dot.label)}"></span>` : ''
-                      }${thumb}<span>${cell}</span></a></td>`;
+                      }${thumb}<span>${cell}${dot?.note ? `<small class="dot-note ${dot.color}">${esc(dot.note)}</small>` : ''}${
+                        resource.key === 'tropes' ? `<small class="dot-note">${esc(tropeGenres(row) || 'senza genere (in «Altri»)')}</small>` : ''
+                      }</span></a>${publish}</td>`;
                     })
                     .join('')}
                 </tr>`,
@@ -333,8 +359,34 @@ async function renderList(resource: Resource) {
       tr.hidden = (q !== '' && !tr.dataset.search!.includes(q)) || (s !== '' && tr.dataset.status !== s) || (c !== '' && tr.dataset.dot !== c);
     });
   };
+  const hash = location.hash;
+  const kept = readListState(hash);
+  if (kept.q) search.value = kept.q;
+  if (statusFilter && kept.s) statusFilter.value = kept.s;
+  if (dotFilter && kept.c) dotFilter.value = kept.c;
+  const remember = () => saveListState(hash, { q: search.value, s: statusFilter?.value ?? '', c: dotFilter?.value ?? '' });
+  search.addEventListener('input', remember);
+  statusFilter?.addEventListener('change', remember);
+  dotFilter?.addEventListener('change', remember);
+  if (kept.q || kept.s || kept.c) applyFilters();
   search.addEventListener('input', applyFilters);
   statusFilter?.addEventListener('change', applyFilters);
+  root.querySelectorAll<HTMLButtonElement>('[data-publish]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      const { error } = await getSupabase().from(resource.table).update({ status: 'published' }).eq('id', b.dataset.publish!);
+      if (error) {
+        b.disabled = false;
+        return fail(error);
+      }
+      const tr = b.closest('tr')!;
+      tr.dataset.status = 'published';
+      const statusCell = tr.children[resource.listColumns.indexOf('status')];
+      if (statusCell) statusCell.innerHTML = displayValue(fieldsByName.status, 'published', labels);
+      b.replaceWith(Object.assign(document.createElement('small'), { className: 'row-published', textContent: '✓ Pubblicato' }));
+      flash('Pubblicato: sul sito al prossimo aggiornamento');
+    }),
+  );
   dotFilter?.addEventListener('change', applyFilters);
 }
 
@@ -362,6 +414,26 @@ function fieldInput(field: Field, value: unknown, options: Record<string, Array<
           <img class="image-preview" alt="" ${value ? `src="${esc(value)}"` : 'hidden'}>
           <input type="file" accept="image/*" aria-label="${esc(field.label)}">
           <button type="button" class="link danger image-remove" ${value ? '' : 'hidden'}>Rimuovi foto</button>
+        </div>`;
+    case 'cover':
+      return `<div class="cover-field" data-bucket="${esc(field.bucket ?? '')}">
+          <input type="hidden" ${name} value="${esc(value)}">
+          <div class="cover-frame"><img class="cover-preview" alt="Copertina attuale" hidden><span class="cover-empty">Nessuna copertina</span></div>
+          <div class="cover-actions">
+            <label class="button secondary cover-btn">📷 Carica una foto<input type="file" accept="image/*" hidden></label>
+            <button type="button" class="button secondary cover-btn" data-cover-isbn>🔍 Cerca con l'ISBN</button>
+            <button type="button" class="button secondary cover-btn" data-cover-link>🔗 Incolla un link</button>
+            <div class="cover-link" hidden>
+              <input type="text" inputmode="url" placeholder="https://… (link dell'immagine)" aria-label="Link dell'immagine">
+              <button type="button" data-cover-use-link>Usa il link</button>
+            </div>
+            <div class="cover-found" hidden>
+              <img alt="Copertina trovata">
+              <button type="button" data-cover-use-found>Usa questa</button>
+            </div>
+            <small class="cover-msg" role="status"></small>
+            <button type="button" class="link danger" data-cover-remove>Rimuovi la copertina</button>
+          </div>
         </div>`;
     case 'select':
     case 'relation': {
@@ -397,6 +469,68 @@ function readField(field: Field, form: HTMLFormElement): unknown {
     default:
       return raw === '' ? null : raw;
   }
+}
+
+type M2mState = { rel: NonNullable<Resource['manyToMany']>[number]; all: Array<[string, string]>; selected: string[] };
+
+function fieldHtml(f: Field, row: Row, options: Record<string, Array<[string, string]>>): string {
+  return `
+    <div class="field ${f.type === 'textarea' || f.type === 'json' || f.type === 'image' || f.type === 'cover' ? 'wide' : ''}">
+      <label for="f-${f.name}">${esc(f.label)}${f.required ? ' <span class="req" title="obbligatorio">*</span>' : ''}</label>
+      ${fieldInput(f, row[f.name], options)}
+      ${f.help ? `<small class="muted">${esc(f.help)}</small>` : ''}
+    </div>`;
+}
+
+function m2mHtml({ rel, all, selected }: M2mState): string {
+  return `
+    <fieldset class="field wide m2m" data-join="${rel.joinTable}" ${rel.creatable ? `data-create="${esc(rel.table)}"` : ''}>
+      <legend>${esc(rel.label)}</legend>
+      <div class="m2m-list">
+        ${all
+          .map(([v, l]) => `<label class="check"><input type="checkbox" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''}> ${esc(l)}</label>`)
+          .join('')}
+      </div>
+    </fieldset>`;
+}
+
+/**
+ * Corpo del modulo: lo stato come interruttore in cima, poi i campi a gruppi con titolo (proprietà section,
+ * nell'ordine in cui compaiono), poi "Altre opzioni" chiuso con slug e campi tecnici.
+ */
+function formSections(resource: Resource, row: Row, options: Record<string, Array<[string, string]>>, m2m: M2mState[]): string {
+  const statusField = resource.fields.find((f) => f.name === 'status' && f.type === 'select' && !f.readonly);
+  const isAdvanced = (f: Field) => f.advanced || f.type === 'slug';
+  const groups = new Map<string, string[]>();
+  const add = (section: string, html: string) => groups.set(section, [...(groups.get(section) ?? []), html]);
+  // un campo senza gruppo resta in quello del campo prima (basta scrivere il gruppo sul primo campo di ogni blocco)
+  let section = '';
+  for (const f of resource.fields) {
+    section = f.section ?? section;
+    if (f === statusField || isAdvanced(f)) continue;
+    add(section, fieldHtml(f, row, options));
+  }
+  for (const m of m2m) add(m.rel.section ?? (groups.size > 1 ? 'Collegamenti' : ''), m2mHtml(m));
+  const advanced = resource.fields.filter(isAdvanced);
+  return `
+    ${statusField ? statusSwitchHtml(statusField, row[statusField.name]) : ''}
+    ${[...groups]
+      .map(
+        ([title, items]) => `
+        <section class="form-group">
+          ${title ? `<h2>${esc(title)}</h2>` : ''}
+          <div class="form-grid">${items.join('')}</div>
+        </section>`,
+      )
+      .join('')}
+    ${
+      advanced.length
+        ? `<details class="form-more">
+            <summary>Altre opzioni <small class="muted">(${esc(advanced.map((f) => f.label.toLowerCase()).join(', '))})</small></summary>
+            <div class="form-grid">${advanced.map((f) => fieldHtml(f, row, options)).join('')}</div>
+          </details>`
+        : ''
+    }`;
 }
 
 async function renderForm(resource: Resource, id: string | null, prefill: Row = {}) {
@@ -451,7 +585,15 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
                 `<tr>${cols
                   .map((c, i) => {
                     const cell = displayValue(fieldsByName[c], r[c], childLabels);
-                    return `<td>${i === 0 ? `<a href="#/r/${child.key}/${r.id}">${cell}</a>` : cell}</td>`;
+                    if (i !== 0) return `<td>${cell}</td>`;
+                    // edizioni: la miniatura, per vedere subito quale copertina è sbagliata
+                    const thumb =
+                      child.key === 'editions'
+                        ? r.cover_url
+                          ? `<img class="queue-thumb" src="${esc(r.cover_url)}" alt="" loading="lazy">`
+                          : '<span class="queue-thumb"></span>'
+                        : '';
+                    return `<td><a class="${thumb ? 'list-title' : ''}" href="#/r/${child.key}/${r.id}">${thumb}<span>${cell}</span></a></td>`;
                   })
                   .join('')}</tr>`,
             )
@@ -464,46 +606,29 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   const title = id ? row[resource.fields[0].name] ?? `Modifica ${resource.singular}` : `Nuovo ${resource.singular}`;
   // copertina in piccolo accanto al titolo, per riconoscere subito il libro (opere: la prima edizione che ne ha una)
   let headCover: string | null = resource.key === 'editions' ? row.cover_url ?? null : null;
+  let coverEdition: string | null = null; // opera: l'edizione a cui porta «Cambia copertina» (quella con la copertina, o la prima)
   if (resource.key === 'works' && id) {
-    const ed = await sb.from('editions').select('cover_url').eq('work_id', id).not('cover_url', 'is', null).limit(1);
+    const ed = await sb.from('editions').select('id, cover_url').eq('work_id', id).order('cover_url', { nullsFirst: false }).limit(1);
     headCover = ed.data?.[0]?.cover_url ?? null;
+    coverEdition = ed.data?.[0]?.id ?? null;
   }
   render(
     shell(`
       <p class="crumbs"><a href="#/r/${resource.key}">${esc(resource.label)}</a></p>
-      <div class="form-head">${headCover ? `<img class="form-cover" src="${esc(headCover)}" alt="">` : ''}<h1>${esc(title)}</h1></div>
-      <form id="edit" class="form card">
-        ${resource.fields
-          .map(
-            (f) => `
-            <div class="field ${f.type === 'textarea' || f.type === 'json' ? 'wide' : ''}">
-              <label for="f-${f.name}">${esc(f.label)}${f.required ? ' *' : ''}</label>
-              ${fieldInput(f, row[f.name], options)}
-              ${f.help ? `<small class="muted">${esc(f.help)}</small>` : ''}
-            </div>`,
-          )
-          .join('')}
-        ${m2m
-          .map(
-            ({ rel, all, selected }) => `
-            <fieldset class="field wide m2m" data-join="${rel.joinTable}" ${rel.creatable ? `data-create="${esc(rel.table)}"` : ''}>
-              <legend>${esc(rel.label)}</legend>
-              <div class="m2m-list">
-                ${all
-                  .map(
-                    ([v, l]) =>
-                      `<label class="check"><input type="checkbox" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''}> ${esc(l)}</label>`,
-                  )
-                  .join('')}
-              </div>
-            </fieldset>`,
-          )
-          .join('')}
-        <div class="actions wide">
-          <button type="submit">Salva</button>
-          ${id ? '<button type="button" class="danger" id="delete">Elimina</button>' : ''}
-        </div>
-      </form>
+      <div class="form-head">${headCover ? `<img class="form-cover" src="${esc(headCover)}" alt="">` : ''}<div><h1>${esc(title)}</h1>${
+        coverEdition ? `<a class="button secondary change-cover" href="#/r/editions/${coverEdition}?copertina">🖼️ ${headCover ? 'Cambia copertina' : 'Aggiungi la copertina'}</a>` : ''
+      }</div></div>
+      <div class="form-layout${hasPreview(resource) ? ' with-preview' : ''}">
+        ${hasPreview(resource) ? '<div class="form-preview" role="region" aria-label="Anteprima"><p class="muted small">Anteprima (più o meno come sul sito)</p><div data-form-preview></div></div>' : ''}
+        <form id="edit" class="form-sections" novalidate>
+          ${formSections(resource, row, options, m2m)}
+          <div class="actions form-save">
+            <button type="submit">Salva</button>
+            ${id ? '<button type="button" class="danger" id="delete">Elimina</button>' : ''}
+            <small class="muted"><span class="req">*</span> obbligatorio</small>
+          </div>
+        </form>
+      </div>
       ${childrenHtml}`),
   );
   bindShell();
@@ -526,8 +651,14 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   const draftKey = `${resource.key}:${id ?? `new${Object.keys(prefill).length ? `?${new URLSearchParams(prefill as Record<string, string>)}` : ''}`}`;
   const savedState = formState(form);
   restoreDraft(form, draftKey, () => renderForm(resource, id, prefill));
+  bindStatusSwitch(form);
+  bindDateHelpers(form, resource);
+  bindImageLinkPreview(form);
 
   bindImageFields(form);
+  bindCoverFields(form);
+  // arrivando da «Cambia copertina» dell'opera: dritti al riquadro della copertina
+  if (location.hash.endsWith('?copertina')) form.querySelector('.cover-field')?.closest('.form-group')?.scrollIntoView({ block: 'start' });
   // tendine e elenchi diventano menu con ricerca; le voci nuove si creano senza doppioni (stesso slug = stessa voce)
   enhancePickers(form, async (table, name) => {
     const { row, existed } = await findOrCreate(table, name);
@@ -538,10 +669,13 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
   if (resource.key === 'works') bindWorkSuggestions(form, id);
   if (resource.key === 'editions') bindPriceSuggestion(form);
   watchDraft(form, draftKey, savedState);
+  bindPreview(form, resource);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (form.querySelector('.image-field.is-uploading')) return flash('Attendi la fine del caricamento della foto', 'error');
+    if (form.querySelector('.image-field.is-uploading, .cover-field.is-uploading')) return flash('Attendi la fine del caricamento della foto', 'error');
+    const problem = checkForm(form, resource);
+    if (problem) return flash(problem, 'error');
     let values: Row;
     try {
       values = Object.fromEntries(resource.fields.filter((f) => !f.readonly).map((f) => [f.name, readField(f, form)]));
@@ -569,6 +703,17 @@ async function renderForm(resource: Resource, id: string | null, prefill: Row = 
         const ins = await sb.from(rel.joinTable).insert(checked.map((v) => ({ [rel.ownKey]: savedId, [rel.otherKey]: v })));
         if (ins.error) fail(ins.error);
       }
+    }
+
+    // trama scritta a mano: le trame proposte per quest'opera in "Da approvare" non servono più
+    if (resource.key === 'works' && String(values.plot ?? '').trim()) {
+      const closed = await sb
+        .from('review_queue')
+        .update({ status: 'approved' })
+        .eq('content_type', 'plot')
+        .eq('status', 'pending')
+        .eq('payload->>work_id', savedId);
+      if (closed.error) fail(closed.error);
     }
 
     clearDraft(draftKey);
@@ -616,6 +761,112 @@ async function toWebp(file: File): Promise<Blob> {
   );
 }
 
+/** Foto ridotta e convertita in WebP, caricata nel bucket; restituisce l'URL pubblico. */
+async function uploadImage(bucket: string, chosen: File): Promise<string> {
+  const blob = await toWebp(chosen);
+  const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.webp`;
+  const storage = getSupabase().storage.from(bucket);
+  const { error } = await storage.upload(path, blob, { contentType: 'image/webp' });
+  if (error) fail(error);
+  return storage.getPublicUrl(path).data.publicUrl;
+}
+
+/** Prova a caricare un'immagine nel browser: true se è una foto vera (non il segnaposto da 1 pixel). */
+function imageLoads(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth > 10);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+// Copertina dell'edizione: tre strade (foto, Open Library per ISBN, link) che scrivono nello stesso campo nascosto.
+function bindCoverFields(form: HTMLFormElement) {
+  for (const box of form.querySelectorAll<HTMLElement>('.cover-field')) {
+    const value = box.querySelector<HTMLInputElement>('input[type="hidden"]')!;
+    const preview = box.querySelector<HTMLImageElement>('.cover-preview')!;
+    const empty = box.querySelector<HTMLElement>('.cover-empty')!;
+    const msg = box.querySelector<HTMLElement>('.cover-msg')!;
+    const remove = box.querySelector<HTMLButtonElement>('[data-cover-remove]')!;
+    const linkBox = box.querySelector<HTMLElement>('.cover-link')!;
+    const linkInput = linkBox.querySelector('input')!;
+    const found = box.querySelector<HTMLElement>('.cover-found')!;
+    const foundImg = found.querySelector('img')!;
+    const say = (text: string, error = false) => {
+      msg.textContent = text;
+      msg.classList.toggle('field-error', error);
+    };
+    const show = (url: string, note = '') => {
+      const changed = value.value !== url;
+      value.value = url;
+      preview.hidden = !url;
+      empty.hidden = Boolean(url);
+      remove.hidden = !url;
+      if (url) preview.src = url;
+      else preview.removeAttribute('src');
+      if (note) say(note);
+      // la bozza automatica ascolta il modulo: va avvisata anche del campo nascosto
+      if (changed) value.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    preview.addEventListener('error', () => say('La copertina attuale non si carica: sostituiscila.', true));
+    show(value.value);
+
+    const file = box.querySelector<HTMLInputElement>('input[type="file"]')!;
+    file.addEventListener('change', async () => {
+      const chosen = file.files?.[0];
+      if (!chosen) return;
+      box.classList.add('is-uploading');
+      say('Caricamento…');
+      try {
+        show(await uploadImage(box.dataset.bucket!, chosen), 'Foto caricata: premi «Salva» per tenerla.');
+      } finally {
+        box.classList.remove('is-uploading');
+        file.value = '';
+      }
+    });
+
+    box.querySelector('[data-cover-isbn]')!.addEventListener('click', async () => {
+      const isbn = String((form.elements.namedItem('isbn') as HTMLInputElement | null)?.value ?? '').replace(/[^0-9Xx]/g, '');
+      found.hidden = true;
+      if (isbn.length < 10) return say("Scrivi prima l'ISBN dell'edizione (nel gruppo «Edizione»).", true);
+      say('Cerco…');
+      const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
+      if (!(await imageLoads(url))) return say('Nessuna copertina trovata per questo ISBN: prova con una foto o un link.', true);
+      foundImg.src = url;
+      found.hidden = false;
+      say('Trovata su Open Library: controlla che sia quella giusta.');
+    });
+    box.querySelector('[data-cover-use-found]')!.addEventListener('click', () => {
+      show(foundImg.src, 'Copertina scelta: premi «Salva» per tenerla.');
+      found.hidden = true;
+    });
+
+    box.querySelector('[data-cover-link]')!.addEventListener('click', () => {
+      linkBox.hidden = !linkBox.hidden;
+      if (!linkBox.hidden) linkInput.focus();
+    });
+    const useLink = async () => {
+      const url = linkInput.value.trim();
+      if (!/^https?:\/\/\S+$/i.test(url)) return say('Il link deve iniziare con https://', true);
+      say('Controllo il link…');
+      if (!(await imageLoads(url))) return say("Non riesco ad aprire l'immagine: il link deve portare alla foto (di solito finisce con .jpg, .png o .webp).", true);
+      show(url, 'Copertina scelta: premi «Salva» per tenerla.');
+      linkInput.value = '';
+      linkBox.hidden = true;
+    };
+    box.querySelector('[data-cover-use-link]')!.addEventListener('click', useLink);
+    linkInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        useLink();
+      }
+    });
+
+    remove.addEventListener('click', () => show('', 'Copertina tolta: premi «Salva» per confermare.'));
+  }
+}
+
 function bindImageFields(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLElement>('.image-field')) {
     const value = box.querySelector<HTMLInputElement>('input[type="hidden"]')!;
@@ -635,12 +886,7 @@ function bindImageFields(form: HTMLFormElement) {
       if (!chosen) return;
       box.classList.add('is-uploading');
       try {
-        const blob = await toWebp(chosen);
-        const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.webp`;
-        const storage = getSupabase().storage.from(box.dataset.bucket!);
-        const { error } = await storage.upload(path, blob, { contentType: 'image/webp' });
-        if (error) fail(error);
-        show(storage.getPublicUrl(path).data.publicUrl);
+        show(await uploadImage(box.dataset.bucket!, chosen));
         flash('Foto caricata');
       } finally {
         box.classList.remove('is-uploading');
@@ -738,64 +984,112 @@ function approvedPublisher(): Row | null | undefined {
   return items[0] ? { name: items[0].name, slug: items[0].slug } : null;
 }
 
-/** Campi di una promozione proposta, modificabili prima di approvare. */
+/** Campo di una proposta in coda: name per anteprima e scorciatoie delle date, data-field per l'approvazione. */
+function reviewInput(name: string, label: string, value: unknown, opts: { type?: string; help?: string; required?: boolean; wide?: boolean } = {}): string {
+  const control =
+    opts.type === 'textarea'
+      ? `<textarea id="rv-${name}" name="${name}" data-field="${name}" rows="4">${esc(value ?? '')}</textarea>`
+      : `<input id="rv-${name}" name="${name}" data-field="${name}" type="${opts.type === 'url' ? 'text' : opts.type ?? 'text'}" ${opts.type === 'url' ? 'inputmode="url"' : ''} value="${esc(value ?? '')}">`;
+  return `<div class="field${opts.wide || opts.type === 'textarea' ? ' wide' : ''}">
+      <label for="rv-${name}">${esc(label)}${opts.required ? ' <span class="req">*</span>' : ''}</label>
+      ${control}
+      ${opts.help ? `<small class="muted">${esc(opts.help)}</small>` : ''}
+    </div>`;
+}
+
+function reviewSelect(name: string, label: string, options: Array<[string, string]>, value: unknown): string {
+  return `<div class="field">
+      <label for="rv-${name}">${esc(label)} <span class="req">*</span></label>
+      <select id="rv-${name}" name="${name}" data-field="${name}">${options
+        .map(([v, l]) => `<option value="${v}" ${v === value ? 'selected' : ''}>${esc(l)}</option>`)
+        .join('')}</select>
+    </div>`;
+}
+
+const reviewGroup = (title: string, body: string) =>
+  `<section class="form-group"><h2>${esc(title)}</h2><div class="form-grid">${body}</div></section>`;
+
+function sourceLink(url: unknown): string {
+  if (!url) return '—';
+  let host = String(url);
+  try {
+    host = new URL(host).hostname.replace(/^www\./, '');
+  } catch {
+    // link scritto male: si mostra com'è
+  }
+  return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(host)} ↗</a>`;
+}
+
+/** Promozione proposta: a gruppi come il modulo, con tutto correggibile prima di approvare. */
 function promotionSummary(p: Row, publisherHtml: string): string {
-  const input = (name: string, label: string, value: unknown, type = 'text') =>
-    `<label for="pr-${name}">${label}</label><input id="pr-${name}" data-field="${name}" type="${type}" value="${esc(value ?? '')}">`;
   return `
-    <dl class="summary">
-      ${publisherHtml || '<dt>Editore</dt><dd>—</dd>'}
-      <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
-      <dt>Fonte</dt><dd>${p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a>` : '—'}</dd>
-      ${p.note ? `<dt>Nota</dt><dd>${esc(p.note)}</dd>` : ''}
-    </dl>
-    ${p.needs_extraction ? '<p class="muted">Segnalazione in attesa della lettura notturna: puoi aspettare oppure compilare i campi qui sotto.</p>' : ''}
-    ${p.extraction_note ? `<p class="muted">${esc(p.extraction_note)}</p>` : ''}
-    ${p.raw_text ? `<details><summary>Testo incollato</summary><p class="muted">${esc(p.raw_text)}</p></details>` : ''}
-    ${input('title', 'Titolo', p.title)}
-    <label for="pr-kind">Tipo</label>
-    <select id="pr-kind" data-field="kind">${PROMOTION_KINDS.map(([v, l]) => `<option value="${v}" ${v === p.kind ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-    ${input('reward', 'Cosa si ottiene', p.reward)}
-    ${input('conditions', 'Condizioni', p.conditions)}
-    ${input('starts_on', 'Inizio', p.starts_on, 'date')}
-    ${input('ends_on', 'Fine', p.ends_on, 'date')}
-    ${input('where_note', 'Dove, in dettaglio', p.where_note)}
-    <label for="pr-description">Descrizione (scritta da noi)</label>
-    <textarea id="pr-description" data-field="description" rows="4">${esc(p.description)}</textarea>
-    <fieldset class="promo-image">
-      <legend>Grafica ufficiale</legend>
+    <section class="form-group review-origin">
+      <h2>Da dove arriva</h2>
+      ${p.needs_extraction ? '<p class="hint">⏳ Segnalazione in attesa della lettura notturna: puoi aspettare domani oppure compilare tu i campi qui sotto.</p>' : ''}
+      ${p.extraction_note ? `<p class="muted">${esc(p.extraction_note)}</p>` : ''}
+      <dl class="summary">
+        ${publisherHtml || '<dt>Editore</dt><dd>—</dd>'}
+        <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
+        <dt>Fonte</dt><dd>${sourceLink(p.source_url)}</dd>
+        ${p.note ? `<dt>Nota</dt><dd>${esc(p.note)}</dd>` : ''}
+      </dl>
+      ${p.raw_text ? `<details><summary>Testo incollato</summary><p class="muted">${esc(p.raw_text)}</p></details>` : ''}
+    </section>
+    ${reviewGroup(
+      'Cosa',
+      reviewInput('title', 'Titolo', p.title, { required: true }) +
+        reviewSelect('kind', 'Tipo', PROMOTION_KINDS, p.kind) +
+        reviewInput('reward', 'Cosa si ottiene', p.reward, { help: 'Scritto grande sul buono: «Un plaid in omaggio».' }) +
+        reviewInput('conditions', 'Condizioni', p.conditions, { help: '«Acquistando 2 libri della collana».' }) +
+        reviewInput('description', 'Descrizione (scritta da noi)', p.description, { type: 'textarea' }),
+    )}
+    ${reviewGroup(
+      'Quando',
+      reviewInput('starts_on', 'Dal', p.starts_on, { type: 'date', help: 'Vuoto se è già in corso.' }) +
+        reviewInput('ends_on', 'Fino al', p.ends_on, { type: 'date', help: "Vuoto se non c'è una scadenza." }),
+    )}
+    ${reviewGroup('Dove', reviewInput('where_note', 'Dove, in dettaglio', p.where_note, { help: "«Nelle librerie aderenti», «Sul sito dell'editore».", wide: true }))}
+    <section class="form-group promo-image">
+      <h2>Grafica ufficiale</h2>
       ${p.image_url
-        ? `<img src="${esc(p.image_url)}" alt="" style="max-width: 260px; max-height: 260px; display: block; margin-bottom: 8px;">
-           <label><input type="checkbox" id="pr-use-image" checked> Usa questa immagine (solo se pubblicata dall'editore per la promozione)</label>`
-        : '<p class="muted small">Nessuna grafica trovata: puoi incollare il link qui sotto.</p>'}
-      ${input('image_url', 'Link dell\'immagine', p.image_url, 'url')}
-      ${input('image_credit', 'Credito', p.image_credit ?? p.publisher?.name)}
-      ${input('image_alt', 'Testo alternativo (cosa mostra e cosa c\'è scritto)', p.image_alt)}
-    </fieldset>`;
+        ? `<label class="check big-check"><input type="checkbox" id="pr-use-image" checked> Usa la grafica (solo se pubblicata dall'editore per la promozione)</label>`
+        : `<p class="muted small">Nessuna grafica trovata: se c'è, incolla qui il link dell'immagine.</p>`}
+      <div class="form-grid">
+        ${reviewInput('image_url', "Link dell'immagine", p.image_url, { type: 'url', wide: true })}
+        ${reviewInput('image_credit', 'Credito', p.image_credit ?? p.publisher?.name)}
+        ${reviewInput('image_alt', 'Testo alternativo', p.image_alt, { help: "Cosa mostra e cosa c'è scritto, per chi non vede l'immagine." })}
+      </div>
+    </section>`;
 }
 
 const EVENT_KINDS = getResource('events')!.fields.find((f) => f.name === 'kind')!.options!;
 
-/** Evento proposto dalle fonti: campi correggibili prima di approvare. */
+/** Evento proposto dalle fonti: a gruppi come il modulo, campi correggibili prima di approvare. */
 function eventSummary(p: Row): string {
-  const input = (name: string, label: string, value: unknown, type = 'text') =>
-    `<label for="ev-${name}">${label}</label><input id="ev-${name}" data-field="${name}" type="${type}" value="${esc(value ?? '')}">`;
   return `
-    <dl class="summary">
-      <dt>Autrici e autori citati</dt><dd>${esc((p.authors ?? []).join(', ') || '—')} <small class="muted">(si collegano quelli già in catalogo)</small></dd>
-      <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
-      <dt>Fonte</dt><dd>${p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">${esc(p.source_url)}</a>` : '—'}</dd>
-    </dl>
-    ${input('title', 'Titolo', p.title)}
-    <label for="ev-kind">Tipo</label>
-    <select id="ev-kind" data-field="kind">${EVENT_KINDS.map(([v, l]) => `<option value="${v}" ${v === p.kind ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-    ${input('starts_on', 'Inizio', p.starts_on, 'date')}
-    ${input('ends_on', 'Fine (se dura più giorni)', p.ends_on, 'date')}
-    ${input('venue', 'Luogo', p.venue)}
-    ${input('city', 'Città', p.city)}
-    ${input('url', 'Link', p.url, 'url')}
-    <label for="ev-description">Descrizione (scritta da noi)</label>
-    <textarea id="ev-description" data-field="description" rows="3">${esc(p.description)}</textarea>`;
+    <section class="form-group review-origin">
+      <h2>Da dove arriva</h2>
+      <dl class="summary">
+        <dt>Autrici e autori</dt><dd>${esc((p.authors ?? []).join(', ') || '—')} <small class="muted">(si collegano quelli già in catalogo)</small></dd>
+        <dt>Libri citati</dt><dd>${esc((p.works ?? []).join(', ') || '—')}</dd>
+        <dt>Fonte</dt><dd>${sourceLink(p.source_url)}</dd>
+      </dl>
+    </section>
+    ${reviewGroup(
+      'Cosa',
+      reviewInput('title', 'Titolo', p.title, { required: true }) +
+        reviewSelect('kind', 'Tipo', EVENT_KINDS, p.kind) +
+        reviewInput('description', 'Descrizione (scritta da noi)', p.description, { type: 'textarea' }),
+    )}
+    ${reviewGroup(
+      'Quando',
+      reviewInput('starts_on', 'Giorno (o primo giorno)', p.starts_on, { type: 'date', required: true }) +
+        reviewInput('ends_on', 'Ultimo giorno', p.ends_on, { type: 'date', help: 'Solo se dura più di un giorno.' }),
+    )}
+    ${reviewGroup(
+      'Dove',
+      reviewInput('venue', 'Luogo', p.venue) + reviewInput('city', 'Città', p.city) + reviewInput('url', 'Link per informazioni o biglietti', p.url, { type: 'url' }),
+    )}`;
 }
 
 function reviewTitle(item: Row): string {
@@ -1100,24 +1394,44 @@ async function renderReviewItem(id: string) {
               ? eventSummary(p)
               : '';
 
+  const actions =
+    item.status === 'pending'
+      ? `<div class="actions form-save">
+          ${['book', 'promotion', 'plot', 'adaptation', 'event'].includes(item.content_type) ? `<button type="button" id="approve">${item.content_type === 'plot' ? 'Approva la trama' : 'Approva e pubblica'}</button>` : ''}
+          <button type="button" class="danger" id="reject">Scarta</button>
+        </div>`
+      : `<p class="muted">Stato: ${esc(item.status)}</p>`;
+  const raw = `<details class="raw-data" ${summary ? '' : 'open'}><summary>Dati completi</summary><pre>${esc(JSON.stringify(p, null, 2))}</pre></details>`;
+  // promozioni ed eventi: stesso aspetto del modulo (gruppi, scorciatoie delle date, anteprima dal vivo)
+  const asForm = item.content_type === 'promotion' || item.content_type === 'event';
+  const formResource = getResource(item.content_type === 'event' ? 'events' : 'promotions')!;
   render(
     shell(`
       <p class="crumbs"><a href="#/review">Da approvare</a></p>
       <h1>${esc(reviewTitle(item))}</h1>
-      <div class="card">
-        ${summary}
-        <details ${summary ? '' : 'open'}><summary>Dati completi</summary><pre>${esc(JSON.stringify(p, null, 2))}</pre></details>
-        ${item.status === 'pending'
-          ? `<div class="actions">
-              ${['book', 'promotion', 'plot', 'adaptation', 'event'].includes(item.content_type) ? `<button id="approve">${item.content_type === 'plot' ? 'Approva la trama' : 'Approva e pubblica'}</button>` : ''}
-              <button class="danger" id="reject">Scarta</button>
+      ${
+        asForm
+          ? `<div class="form-layout with-preview">
+              <div class="form-preview" role="region" aria-label="Anteprima"><p class="muted small">Anteprima (più o meno come sul sito)</p><div data-form-preview></div></div>
+              <form id="review-form" class="form-sections" novalidate>${summary}${raw}${actions}</form>
             </div>`
-          : `<p class="muted">Stato: ${esc(item.status)}</p>`}
-      </div>`),
+          : `<div class="card">${summary}${raw}${actions}</div>`
+      }`),
   );
   bindShell();
+  const reviewForm = asForm ? (document.getElementById('review-form') as HTMLFormElement) : null;
+  if (reviewForm) {
+    reviewForm.addEventListener('submit', (e) => e.preventDefault());
+    bindDateHelpers(reviewForm, formResource);
+    bindImageLinkPreview(reviewForm);
+    bindPreview(reviewForm, formResource);
+  }
 
   document.getElementById('approve')?.addEventListener('click', async () => {
+    if (reviewForm) {
+      const problem = checkForm(reviewForm, formResource);
+      if (problem) return flash(problem, 'error');
+    }
     let payload: Row;
     const text = (document.getElementById('plot') as HTMLTextAreaElement | null)?.value.trim() ?? '';
     if (item.content_type === 'plot') {
@@ -1246,7 +1560,37 @@ async function renderSocial() {
 // messaggio da mostrare sul modulo di accesso dopo un'uscita forzata (l'evento SIGNED_OUT ridisegna il modulo)
 let loginMessage = '';
 
+// Elenchi: ricerca, filtri e posizione restano (sessionStorage, solo in questa scheda) cambiando pagina e tornando.
+const LIST_STATE = 'isybook:admin-list:';
+type ListState = { q?: string; s?: string; c?: string; y?: number };
+function readListState(hash: string): ListState {
+  try {
+    return JSON.parse(sessionStorage.getItem(LIST_STATE + hash) ?? '{}') as ListState;
+  } catch {
+    return {};
+  }
+}
+function saveListState(hash: string, patch: ListState): void {
+  try {
+    sessionStorage.setItem(LIST_STATE + hash, JSON.stringify({ ...readListState(hash), ...patch }));
+  } catch {
+    // niente da fare: si riparte dall'inizio dell'elenco
+  }
+}
+
+// mentre una pagina si sta disegnando lo scorrimento non conta (la pagina vuota riporterebbe la posizione a 0)
+let routing = false;
+
 async function route() {
+  routing = true;
+  try {
+    await routeNow();
+  } finally {
+    setTimeout(() => (routing = false), 300);
+  }
+}
+
+async function routeNow() {
   if (!session) {
     renderLogin(loginMessage);
     loginMessage = '';
@@ -1258,12 +1602,17 @@ async function route() {
     if (parts[0] === 'segnala') return renderReport();
     if (parts[0] === 'social') return await renderSocial();
     if (parts[0] === 'review') {
-      return parts[1] ? await renderReviewItem(parts[1]) : await renderReviewList();
+      if (parts[1]) return await renderReviewItem(parts[1]);
+      await renderReviewList();
+      return window.scrollTo(0, readListState(location.hash).y ?? 0);
     }
     if (parts[0] === 'r') {
       const resource = getResource(parts[1]);
       if (!resource) return go('#/');
-      if (!parts[2]) return await renderList(resource);
+      if (!parts[2]) {
+        await renderList(resource);
+        return window.scrollTo(0, readListState(location.hash).y ?? 0);
+      }
       if (parts[2] === 'new') return await renderForm(resource, null, Object.fromEntries(new URLSearchParams(query)));
       return await renderForm(resource, parts[2]);
     }
@@ -1308,8 +1657,27 @@ async function start() {
     route();
   };
   sb.auth.onAuthStateChange((event, s) => {
+    // tornando sulla scheda del browser Supabase rimanda SIGNED_IN: se l'utente è lo stesso non si ridisegna nulla,
+    // altrimenti la pagina aperta (con ricerca, filtri e campi a metà) ripartirebbe da capo
+    if (event === 'SIGNED_IN' && session && s?.user.id === session.user.id) {
+      session = s;
+      return;
+    }
     if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') apply(s);
+    else if (s) session = s;
   });
+  // posizione nella pagina, per ritrovarla tornando a un elenco
+  let scrollTimer = 0;
+  window.addEventListener(
+    'scroll',
+    () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => {
+        if (!routing) saveListState(location.hash, { y: window.scrollY });
+      }, 150);
+    },
+    { passive: true },
+  );
   const { data } = await sb.auth.getSession();
   await apply(data.session);
   window.addEventListener('hashchange', route);

@@ -5,6 +5,10 @@
 // Pensato per chi non usa spesso il computer: le voci scelte si vedono come pillole grandi con la ✕, si scrive per
 // filtrare, un clic aggiunge; se la voce non c'è compare «➕ Aggiungi …». Tastiera: ↑ ↓ per scorrere, Invio per
 // scegliere, Esc per chiudere, Backspace a campo vuoto toglie l'ultima pillola.
+//
+// Su telefono (schermo touch) l'elenco non sta più sotto il campo: il campo fa da pulsante e apre un foglio a tutto
+// schermo con «Fatto», la ricerca e l'elenco. La tastiera sale solo toccando «Cerca…» e abbassarla non chiude niente
+// (prima menu e tastiera si aprivano e chiudevano insieme). Il foglio segue l'area sopra la tastiera (visualViewport).
 
 type Create = (table: string, name: string) => Promise<{ id: string; name: string }>;
 interface Option {
@@ -38,9 +42,51 @@ function shell(placeholder: string, label: string) {
   };
 }
 
+/** Foglio a tutto schermo per il telefono: «Fatto» in cima (prende il focus, così la tastiera non sale da sola). */
+function sheet(title: string) {
+  const id = `picker-${++uid}`;
+  const dialog = document.createElement('dialog');
+  dialog.className = 'picker-sheet';
+  dialog.setAttribute('aria-label', title);
+  dialog.innerHTML = `
+    <div class="picker-sheet-head"><strong>${esc(title)}</strong><button type="button" class="picker-done" autofocus>Fatto</button></div>
+    <input type="search" class="picker-input" role="combobox" aria-expanded="true" aria-controls="${id}" aria-autocomplete="list"
+      autocomplete="off" placeholder="Cerca…" aria-label="Cerca in ${esc(title)}">
+    <ul class="picker-list" id="${id}" role="listbox"></ul>`;
+  const fit = () => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    dialog.style.setProperty('--vvh', `${vv.height}px`);
+    dialog.style.setProperty('--vvt', `${vv.offsetTop}px`);
+  };
+  dialog.addEventListener('close', () => {
+    window.visualViewport?.removeEventListener('resize', fit);
+    window.visualViewport?.removeEventListener('scroll', fit);
+  });
+  // tocco sullo sfondo (fuori dal foglio): chiude
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+  dialog.querySelector('.picker-done')!.addEventListener('click', () => dialog.close());
+  return {
+    dialog,
+    input: dialog.querySelector<HTMLInputElement>('.picker-input')!,
+    list: dialog.querySelector<HTMLUListElement>('.picker-list')!,
+    show: () => {
+      fit();
+      window.visualViewport?.addEventListener('resize', fit);
+      window.visualViewport?.addEventListener('scroll', fit);
+      dialog.showModal();
+    },
+  };
+}
+
+const touch = () => window.matchMedia('(pointer: coarse)').matches;
+const EMPTY = () => (touch() ? 'Tocca per scegliere…' : 'Scrivi per cercare…');
+
 /** Comportamento condiviso da scelta multipla e singola. */
 function wire(
-  ui: ReturnType<typeof shell>,
+  ui: { input: HTMLInputElement; list: HTMLUListElement; toggle?: HTMLButtonElement },
   opts: {
     options: () => Option[];
     isChosen: (value: string) => boolean;
@@ -48,12 +94,16 @@ function wire(
     create?: (name: string) => Promise<void>;
     keepOpen: boolean;
     onBackspace?: () => void;
+    /** nel foglio del telefono: elenco sempre visibile, niente chiusura sul blur; "chiudere" chiude il foglio */
+    onSheetClose?: () => void;
   },
 ) {
+  const inSheet = Boolean(opts.onSheetClose);
   let active = 0;
   let items: Array<{ kind: 'option'; option: Option } | { kind: 'create'; name: string }> = [];
 
   const close = () => {
+    if (inSheet) return opts.onSheetClose!();
     ui.list.hidden = true;
     ui.input.setAttribute('aria-expanded', 'false');
   };
@@ -98,18 +148,20 @@ function wire(
     }
     if (opts.keepOpen) {
       open();
-      ui.input.focus();
+      if (!inSheet) ui.input.focus(); // nel foglio niente focus: la tastiera resta com'era
     } else close();
   };
 
-  ui.input.addEventListener('focus', open);
-  ui.input.addEventListener('click', open);
+  if (!inSheet) {
+    ui.input.addEventListener('focus', open);
+    ui.input.addEventListener('click', open);
+  }
   ui.input.addEventListener('input', () => {
     active = 0;
     ui.list.scrollTop = 0; // ricerca nuova: si riparte dai primi risultati
     open();
   });
-  ui.toggle.addEventListener('click', () => (ui.list.hidden ? (ui.input.focus(), open()) : close()));
+  ui.toggle?.addEventListener('click', () => (ui.list.hidden ? (ui.input.focus(), open()) : close()));
   // mousedown: si sceglie prima che il campo perda il fuoco
   ui.list.addEventListener('mousedown', (e) => {
     const li = (e.target as HTMLElement).closest<HTMLElement>('[data-i]');
@@ -132,8 +184,26 @@ function wire(
       opts.onBackspace?.();
     }
   });
-  ui.input.addEventListener('blur', () => setTimeout(close, 120));
-  return { draw };
+  if (!inSheet) ui.input.addEventListener('blur', () => setTimeout(close, 120));
+  return { draw, open };
+}
+
+/** Telefono: il campo del modulo non si scrive (niente tastiera), un tocco apre il foglio. */
+function asTrigger(ui: ReturnType<typeof shell>, sh: ReturnType<typeof sheet>, openSheet: () => void) {
+  // dentro il campo: sparisce con il modulo (il foglio aperto con showModal sta comunque sopra a tutto)
+  ui.root.append(sh.dialog);
+  ui.input.readOnly = true;
+  ui.input.classList.add('is-trigger');
+  ui.input.setAttribute('aria-haspopup', 'dialog');
+  ui.input.setAttribute('aria-expanded', 'false');
+  ui.input.addEventListener('click', openSheet);
+  ui.input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      openSheet();
+    }
+  });
+  ui.toggle.addEventListener('click', openSheet);
 }
 
 /** Scelta multipla: un fieldset.m2m con le caselle in .m2m-list (nascoste) e, se si possono creare voci, data-create. */
@@ -141,7 +211,7 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
   const box = fieldset.querySelector<HTMLElement>('.m2m-list');
   if (!box) return;
   const label = fieldset.querySelector('legend')?.textContent?.trim() ?? '';
-  const ui = shell(`Scrivi per cercare in ${label.toLowerCase()}…`, `Cerca in ${label}`);
+  const ui = shell(touch() ? 'Tocca per scegliere…' : `Scrivi per cercare in ${label.toLowerCase()}…`, `Cerca in ${label}`);
   const inputs = () => [...box.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
   const options = () =>
     inputs()
@@ -162,7 +232,9 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
   };
   fieldset.addEventListener('change', showChips);
   const table = fieldset.dataset.create;
-  const { draw } = wire(ui, {
+  const sh = touch() ? sheet(label) : null;
+  const { draw, open } = wire(sh ?? ui, {
+    onSheetClose: sh ? () => sh.dialog.close() : undefined,
     options,
     isChosen: (v) => Boolean(find(v)?.checked),
     choose: (o) => {
@@ -197,6 +269,13 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
     changed();
     draw();
   });
+  if (sh)
+    asTrigger(ui, sh, () => {
+      sh.input.value = '';
+      sh.show();
+      sh.list.scrollTop = 0;
+      open();
+    });
   box.hidden = true;
   box.after(ui.root);
   showChips();
@@ -205,19 +284,21 @@ function multi(fieldset: HTMLFieldSetElement, create?: Create) {
 /** Scelta singola: una <select> (nascosta) con le sue opzioni; data-create sulla select se si possono creare voci. */
 function single(select: HTMLSelectElement, create?: Create) {
   const label = select.closest('.field')?.querySelector('label')?.textContent?.replace('*', '').trim() ?? '';
-  const ui = shell('Scrivi per cercare…', label);
+  const ui = shell(EMPTY(), label);
   const options = () => [...select.options].map((o) => ({ value: o.value, label: o.value ? o.text : '— nessuno —' }));
   const current = () => select.selectedOptions[0];
   const showValue = () => {
     const o = current();
     ui.input.value = o && o.value ? o.text : '';
-    ui.input.placeholder = o && o.value ? o.text : 'Scrivi per cercare…';
+    ui.input.placeholder = o && o.value ? o.text : EMPTY();
   };
   const table = select.dataset.create;
   // aprendo si vede tutto l'elenco (la voce scelta resta nel suggerimento grigio); registrato prima di wire,
   // così il campo è già vuoto quando l'elenco si disegna
-  ui.input.addEventListener('focus', () => (ui.input.value = ''));
-  wire(ui, {
+  const sh = touch() ? sheet(label) : null;
+  if (!sh) ui.input.addEventListener('focus', () => (ui.input.value = ''));
+  const { open } = wire(sh ?? ui, {
+    onSheetClose: sh ? () => sh.dialog.close() : undefined,
     options,
     isChosen: (v) => select.value === v,
     choose: (o) => {
@@ -236,8 +317,15 @@ function single(select: HTMLSelectElement, create?: Create) {
         : undefined,
     keepOpen: false,
   });
+  if (sh)
+    asTrigger(ui, sh, () => {
+      sh.input.value = '';
+      sh.show();
+      sh.list.scrollTop = 0;
+      open();
+    });
   // chiudendo senza scegliere torna il valore di prima
-  ui.input.addEventListener('blur', () => setTimeout(showValue, 150));
+  else ui.input.addEventListener('blur', () => setTimeout(showValue, 150));
   select.hidden = true;
   select.after(ui.root);
   showValue();

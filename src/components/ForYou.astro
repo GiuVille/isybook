@@ -46,7 +46,7 @@
       const catalog = await loadCatalog();
       const picks = recommend(catalog.books, library);
       body.innerHTML = picks.length
-        ? `<div class="mini-books">${picks.map((p) => bookCard(p.book, { note: p.reason })).join('')}</div>`
+        ? `<div class="mini-books rail-mobile">${picks.map((p) => bookCard(p.book, { note: p.reason })).join('')}</div>`
         : `<p class="muted">Per ora nessun libro corrisponde ai tuoi interessi. <a href="/libri">Sfoglia tutti i libri</a> o prova ad ampliarli.</p>`;
       // ingresso come i blocchi delle uscite: le card salgono una dopo l'altra quando arrivano nello schermo
       body.querySelectorAll<HTMLElement>('.mini-book').forEach((card, i) => {

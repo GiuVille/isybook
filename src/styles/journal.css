@@ -861,3 +861,8 @@
 .jc-opacity span { grid-column: 1 / -1; font-weight: 600; }
 .jc-opacity input[type='range'] { width: 100%; accent-color: var(--accent); }
 .jc-opacity output { min-width: 3.5ch; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* "Letto" anche senza date (src/scripts/journal.ts) */
+.jread { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; font-family: var(--jfont); font-size: 1.1rem; color: var(--ink); cursor: pointer; }
+.jread input { width: 18px; height: 18px; accent-color: var(--cover); }
+.jread small { font-family: var(--font-text); font-size: 0.75rem; color: #6e6474; }

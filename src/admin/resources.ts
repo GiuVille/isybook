@@ -13,7 +13,8 @@ export type FieldType =
   | 'select'
   | 'relation'
   | 'json'
-  | 'image';
+  | 'image'
+  | 'cover'; // copertina: foto caricata, copertina di Open Library per ISBN o link (bindCoverFields in app.ts)
 
 export interface Field {
   name: string;
@@ -30,11 +31,16 @@ export interface Field {
   readonly?: boolean; // mostrato ma non modificabile, e mai salvato
   creatable?: boolean; // relation: "Aggiungi" accanto alla tendina per creare una nuova voce (nome + slug)
   help?: string;
+  /** Gruppo del modulo ("Cosa", "Quando", "Dove"…): i campi con lo stesso gruppo stanno insieme sotto un titolo. */
+  section?: string;
+  /** Campo che serve di rado: va in "Altre opzioni", chiuso di partenza (lo slug ci va sempre). */
+  advanced?: boolean;
 }
 
 /** Relazione molti-a-molti gestita con una lista di checkbox. */
 export interface ManyToMany {
   label: string;
+  section?: string; // gruppo del modulo, come per i campi
   joinTable: string;
   ownKey: string; // colonna della join che punta a questa risorsa
   otherKey: string; // colonna della join che punta all'altra tabella
@@ -114,23 +120,23 @@ export const RESOURCES: Resource[] = [
     listColumns: ['title', 'kind', 'starts_on', 'city', 'status'],
     orderBy: { column: 'starts_on', ascending: false },
     fields: [
-      { name: 'title', label: 'Titolo', type: 'text', required: true },
+      { name: 'title', label: 'Titolo', type: 'text', required: true, section: 'Cosa', help: '«Firmacopie di Erin Doom», «Salone del Libro 2027».' },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'title', required: true },
       {
-        name: 'kind', label: 'Tipo', type: 'select', required: true,
+        name: 'kind', label: 'Tipo', type: 'select', required: true, section: 'Cosa',
         options: [['fair', 'Fiera'], ['signing', 'Firmacopie'], ['presentation', 'Presentazione'], ['other', 'Altro']],
       },
-      { name: 'starts_on', label: 'Inizio', type: 'date', required: true },
-      { name: 'ends_on', label: 'Fine', type: 'date' },
-      { name: 'venue', label: 'Luogo', type: 'text' },
-      { name: 'city', label: 'Città', type: 'text' },
-      { name: 'url', label: 'Link', type: 'text' },
-      { name: 'description', label: 'Descrizione', type: 'textarea' },
+      { name: 'description', label: 'Descrizione', type: 'textarea', section: 'Cosa', help: 'Due righe scritte da noi.' },
+      { name: 'starts_on', label: 'Giorno (o primo giorno)', type: 'date', required: true, section: 'Quando' },
+      { name: 'ends_on', label: 'Ultimo giorno', type: 'date', section: 'Quando', help: 'Solo se dura più di un giorno.' },
+      { name: 'venue', label: 'Luogo', type: 'text', section: 'Dove', help: '«Libreria Feltrinelli, piazza Duomo», «Padiglione 2».' },
+      { name: 'city', label: 'Città', type: 'text', section: 'Dove' },
+      { name: 'url', label: 'Link per informazioni o biglietti', type: 'text', section: 'Dove' },
       status,
     ],
     manyToMany: [
-      { label: 'Autori', joinTable: 'event_authors', ownKey: 'event_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true },
-      { label: 'Libri', joinTable: 'event_works', ownKey: 'event_id', otherKey: 'work_id', table: 'works', labelColumn: 'title' },
+      { label: 'Autori', joinTable: 'event_authors', ownKey: 'event_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true, section: 'Chi e quali libri' },
+      { label: 'Libri', joinTable: 'event_works', ownKey: 'event_id', otherKey: 'work_id', table: 'works', labelColumn: 'title', section: 'Chi e quali libri' },
     ],
   },
   {
@@ -187,11 +193,11 @@ export const RESOURCES: Resource[] = [
     listColumns: ['title', 'kind', 'ends_on', 'status'],
     orderBy: { column: 'ends_on', ascending: false },
     fields: [
-      { name: 'title', label: 'Titolo', type: 'text', required: true },
+      { name: 'title', label: 'Titolo', type: 'text', required: true, section: 'Cosa' },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'title', required: true },
-      { name: 'publisher_id', label: 'Editore', type: 'relation', table: 'publishers', labelColumn: 'name', creatable: true },
+      { name: 'publisher_id', label: 'Editore', type: 'relation', table: 'publishers', labelColumn: 'name', creatable: true, section: 'Cosa' },
       {
-        name: 'kind', label: 'Tipo', type: 'select', required: true,
+        name: 'kind', label: 'Tipo', type: 'select', required: true, section: 'Cosa',
         options: [
           ['gift_with_purchase', 'Omaggio con l\'acquisto'],
           ['bundle', 'Offerta multipla (3x2…)'],
@@ -200,25 +206,25 @@ export const RESOURCES: Resource[] = [
           ['preorder', 'Bonus preordine'],
         ],
       },
-      { name: 'reward', label: 'Cosa si ottiene', type: 'text', help: 'Scritto grande sul buono: «Un plaid in omaggio», «Il terzo libro è gratis».' },
-      { name: 'conditions', label: 'Condizioni', type: 'text', help: '«Acquistando 3 libri della collana X».' },
-      { name: 'description', label: 'Descrizione', type: 'textarea', help: 'Scritta da noi, non copiata dal comunicato.' },
-      { name: 'starts_on', label: 'Inizio', type: 'date' },
-      { name: 'ends_on', label: 'Fine', type: 'date' },
+      { name: 'reward', label: 'Cosa si ottiene', type: 'text', section: 'Cosa', help: 'Scritto grande sul buono: «Un plaid in omaggio», «Il terzo libro è gratis».' },
+      { name: 'conditions', label: 'Condizioni', type: 'text', section: 'Cosa', help: '«Acquistando 3 libri della collana X».' },
+      { name: 'description', label: 'Descrizione', type: 'textarea', section: 'Cosa', help: 'Scritta da noi, non copiata dal comunicato.' },
+      { name: 'starts_on', label: 'Dal', type: 'date', section: 'Quando', help: 'Vuoto se è già in corso.' },
+      { name: 'ends_on', label: 'Fino al', type: 'date', section: 'Quando', help: 'Vuoto se non c\'è una scadenza (fino a esaurimento).' },
       {
-        name: 'channel', label: 'Dove', type: 'select', required: true,
+        name: 'channel', label: 'Dove', type: 'select', required: true, section: 'Dove',
         options: [['everywhere', 'Online e in libreria'], ['online', 'Online'], ['bookstores', 'In libreria'], ['chain', 'In una catena']],
       },
-      { name: 'where_note', label: 'Dove, in dettaglio', type: 'text', help: '«Nelle librerie aderenti», «Sul sito dell\'editore».' },
-      { name: 'url', label: 'Link alla promozione', type: 'text' },
-      { name: 'image_url', label: 'Grafica ufficiale', type: 'text', help: 'Solo grafiche pubblicate dall\'editore per la promozione. In build viene scaricata e ottimizzata.' },
-      { name: 'image_credit', label: 'Credito della grafica', type: 'text', help: '«Editrice Esempio»: compare sotto la grafica.' },
-      { name: 'image_alt', label: 'Testo alternativo', type: 'text', help: 'Cosa mostra la grafica e cosa c\'è scritto, per chi usa un lettore di schermo.' },
-      { name: 'source_url', label: 'Fonte', type: 'text', help: 'Pagina da cui è stata ricavata, per controllarla.' },
+      { name: 'where_note', label: 'Dove, in dettaglio', type: 'text', section: 'Dove', help: '«Nelle librerie aderenti», «Sul sito dell\'editore».' },
+      { name: 'url', label: 'Link alla promozione', type: 'text', section: 'Dove' },
+      { name: 'image_url', label: 'Grafica ufficiale (link)', type: 'text', section: 'Grafica', help: 'Solo grafiche pubblicate dall\'editore per la promozione. In build viene scaricata e ottimizzata.' },
+      { name: 'image_credit', label: 'Credito della grafica', type: 'text', section: 'Grafica', help: '«Editrice Esempio»: compare sotto la grafica.' },
+      { name: 'image_alt', label: 'Testo alternativo', type: 'text', advanced: true, help: 'Cosa mostra la grafica e cosa c\'è scritto, per chi usa un lettore di schermo.' },
+      { name: 'source_url', label: 'Fonte', type: 'text', advanced: true, help: 'Pagina da cui è stata ricavata, per controllarla.' },
       status,
     ],
     manyToMany: [
-      { label: 'Libri coinvolti', joinTable: 'promotion_works', ownKey: 'promotion_id', otherKey: 'work_id', table: 'works', labelColumn: 'title' },
+      { label: 'Libri coinvolti', joinTable: 'promotion_works', ownKey: 'promotion_id', otherKey: 'work_id', table: 'works', labelColumn: 'title', section: 'Libri coinvolti' },
     ],
   },
   {
@@ -230,17 +236,17 @@ export const RESOURCES: Resource[] = [
     listColumns: ['title', 'series', 'origin', 'status'],
     orderBy: { column: 'title', ascending: true },
     fields: [
-      { name: 'title', label: 'Titolo', type: 'text', required: true },
+      { name: 'title', label: 'Titolo', type: 'text', required: true, section: 'Libro' },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'title', required: true },
-      { name: 'plot', label: 'Trama', type: 'textarea', help: 'Solo trame scritte da noi: mai copiare la quarta di copertina.' },
-      { name: 'series', label: 'Serie', type: 'text' },
-      { name: 'series_number', label: 'Numero nella serie', type: 'number' },
+      { name: 'plot', label: 'Trama', type: 'textarea', section: 'Libro', help: 'Solo trame scritte da noi: mai copiare la quarta di copertina.' },
+      { name: 'series', label: 'Serie', type: 'text', section: 'Serie' },
+      { name: 'series_number', label: 'Numero nella serie', type: 'number', section: 'Serie' },
       {
-        name: 'origin', label: 'Origine', type: 'select', required: true,
+        name: 'origin', label: 'Origine', type: 'select', required: true, section: 'Classificazione',
         options: [['publisher', 'Editore'], ['self', 'Self-publishing'], ['wattpad', 'Wattpad']],
       },
       {
-        name: 'spice_level', label: 'Livello spicy', type: 'select',
+        name: 'spice_level', label: 'Livello spicy', type: 'select', section: 'Classificazione',
         options: [
           ['0', '0 · nessuna scena spicy'],
           ['1', '1 · baci e tensione'],
@@ -254,10 +260,10 @@ export const RESOURCES: Resource[] = [
       status,
     ],
     manyToMany: [
-      { label: 'Autori', joinTable: 'work_authors', ownKey: 'work_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true },
-      { label: 'Generi', joinTable: 'work_genres', ownKey: 'work_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name', creatable: true },
-      { label: 'Tropes', joinTable: 'work_tropes', ownKey: 'work_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name', creatable: true },
-      { label: 'Ambientazione', joinTable: 'work_settings', ownKey: 'work_id', otherKey: 'setting_id', table: 'settings', labelColumn: 'name', creatable: true },
+      { label: 'Autori', joinTable: 'work_authors', ownKey: 'work_id', otherKey: 'author_id', table: 'authors', labelColumn: 'name', creatable: true, section: 'Libro' },
+      { label: 'Generi', joinTable: 'work_genres', ownKey: 'work_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name', creatable: true, section: 'Classificazione' },
+      { label: 'Tropes', joinTable: 'work_tropes', ownKey: 'work_id', otherKey: 'trope_id', table: 'tropes', labelColumn: 'name', creatable: true, section: 'Classificazione' },
+      { label: 'Ambientazione', joinTable: 'work_settings', ownKey: 'work_id', otherKey: 'setting_id', table: 'settings', labelColumn: 'name', creatable: true, section: 'Classificazione' },
     ],
     children: [
       { resource: 'editions', foreignKey: 'work_id', label: 'Edizioni' },
@@ -273,9 +279,9 @@ export const RESOURCES: Resource[] = [
     listColumns: ['work_id', 'format', 'edition_type', 'release_date', 'publisher_id'],
     orderBy: { column: 'release_date', ascending: false },
     fields: [
-      { name: 'work_id', label: 'Opera', type: 'relation', table: 'works', labelColumn: 'title', required: true },
+      { name: 'work_id', label: 'Opera', type: 'relation', table: 'works', labelColumn: 'title', required: true, section: 'Edizione' },
       {
-        name: 'format', label: 'Formato', type: 'select', required: true,
+        name: 'format', label: 'Formato', type: 'select', required: true, section: 'Edizione',
         options: [['paperback', 'Brossura'], ['hardcover', 'Copertina rigida'], ['kindle', 'Kindle'], ['audio', 'Audiolibro']],
       },
       {
@@ -286,19 +292,19 @@ export const RESOURCES: Resource[] = [
       { name: 'first_print', label: 'Prima edizione / prima tiratura', type: 'checkbox' },
       { name: 'pages', label: 'Pagine', type: 'number' },
       { name: 'isbn', label: 'ISBN', type: 'text' },
-      { name: 'release_date', label: 'Data uscita', type: 'date' },
+      { name: 'cover_url', label: 'Copertina di questa edizione', type: 'cover', bucket: 'covers', section: 'Copertina' },
+      { name: 'release_date', label: 'Data uscita', type: 'date', section: 'Uscita e prezzo' },
       {
-        name: 'release_precision', label: 'La data è', type: 'select', options: [
+        name: 'release_precision', label: 'La data è', type: 'select', section: 'Uscita e prezzo', options: [
           ['day', 'esatta'], ['month', 'solo il mese'], ['year', "solo l'anno"],
         ],
       },
-      { name: 'price', label: 'Prezzo (€)', type: 'number' },
+      { name: 'price', label: 'Prezzo (€)', type: 'number', section: 'Uscita e prezzo' },
       { name: 'language', label: 'Lingua', type: 'text', required: true },
       { name: 'print_run', label: 'Tiratura', type: 'number' },
       { name: 'details', label: 'Dettagli', type: 'textarea', help: 'Bordi decorati, copertina alternativa, firma…' },
-      { name: 'cover_url', label: 'URL copertina', type: 'text' },
       {
-        name: 'purchase_links', label: 'Link d\'acquisto', type: 'json',
+        name: 'purchase_links', label: 'Link d\'acquisto', type: 'json', section: 'Acquisto',
         help: 'Lista JSON: [{"label": "Amazon", "url": "https://…", "affiliate": true}]',
       },
     ],
@@ -428,14 +434,17 @@ export const RESOURCES: Resource[] = [
     label: 'Tropes',
     singular: 'trope',
     group: 'Anagrafiche',
-    listColumns: ['name', 'genre_id', 'doodle'],
+    listColumns: ['name', 'doodle'],
     orderBy: { column: 'name', ascending: true },
     fields: [
       { name: 'name', label: 'Nome', type: 'text', required: true },
       { name: 'slug', label: 'Slug', type: 'slug', slugFrom: 'name', required: true },
-      { name: 'genre_id', label: 'Genere', type: 'relation', table: 'genres', labelColumn: 'name', help: 'Nel menu «Tropes» della pagina Libri il trope compare sotto questo genere. Se vuoto, sotto «Altri».' },
       { name: 'doodle', label: 'Decorazione', type: 'select', options: DOODLE_OPTIONS, help: 'Scarabocchio disegnato sugli sfondi dei libri con questo trope. Se vuoto viene scelto in automatico.' },
       { name: 'description', label: 'Descrizione', type: 'textarea' },
+    ],
+    // nel menu «Tropes» della pagina Libri il trope compare sotto ognuno di questi generi (migrazione 0019); senza, in «Altri»
+    manyToMany: [
+      { label: 'Generi', joinTable: 'trope_genres', ownKey: 'trope_id', otherKey: 'genre_id', table: 'genres', labelColumn: 'name' },
     ],
   },
   {

@@ -161,10 +161,19 @@ export async function getWorks(): Promise<Work[]> {
   return (data ?? []).map(mapWork);
 }
 
-/** Tutto il vocabolario dei tropes, anche quelli non ancora assegnati a un libro, col genere sotto cui stanno nei menu. */
+/** Tutto il vocabolario dei tropes, anche quelli non ancora assegnati a un libro, coi generi sotto cui stanno nei menu. */
 export async function getTropes(): Promise<Tag[]> {
   if (!supabaseConfigured) return sample.tropes as Tag[];
-  const { data, error } = await getSupabase().from('tropes').select('id, slug, name, doodle, genres ( name )').order('name');
+  const sb = getSupabase();
+  const many = await sb.from('tropes').select('id, slug, name, doodle, trope_genres ( genres ( name ) )').order('name');
+  if (!many.error) {
+    return (many.data ?? []).map(({ trope_genres, ...t }: Row) => {
+      const groups = ((trope_genres ?? []) as Row[]).map((tg) => tg.genres?.name).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, 'it'));
+      return { ...t, group: groups[0] ?? null, groups } as Tag;
+    });
+  }
+  // migrazione 0019 non ancora applicata: un solo genere, dalla colonna tropes.genre_id (0015)
+  const { data, error } = await sb.from('tropes').select('id, slug, name, doodle, genres ( name )').order('name');
   if (error) throw error;
   return (data ?? []).map(({ genres, ...t }: Row) => ({ ...t, group: genres?.name ?? null }) as Tag);
 }

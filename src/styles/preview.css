@@ -13,7 +13,8 @@
 .preview[hidden] { display: none; }
 
 .preview .visual { display: block; padding: 8px; min-width: 0; }
-.preview svg { display: block; width: 100%; height: auto; }
+/* solo il disegno della copertina si allarga: gli altri svg della card (peperoncini, scarabocchi) hanno la loro misura */
+.preview .visual > svg { display: block; width: 100%; height: auto; }
 
 .preview .cover { filter: drop-shadow(4px 6px 6px rgba(0, 0, 0, 0.28)); }
 
@@ -71,7 +72,7 @@
   /* più compatta: schema meno alto, trama più corta (si legge tutta nella scheda) */
   .preview .visual { padding: 4px 8px 0; background: var(--light); }
   .preview .plot { background: var(--dark); }
-  .preview .visual svg { max-height: 280px; }
+  .preview .visual > svg { max-height: 280px; }
   .preview .plot h3 { margin-bottom: 8px; font-size: 1.5rem; }
   .preview .box { padding: 14px 16px; }
   .preview .text { -webkit-line-clamp: 6; }

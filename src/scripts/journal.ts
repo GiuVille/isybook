@@ -393,7 +393,8 @@ export function initJournal(section: HTMLElement) {
           ${input('title', 'Titolo')}
           ${input('author', 'Autore')}
           ${input('genre', 'Genere')}
-          <div class="jrow">${input('startedOn', 'Inizio', 'date')}${input('finishedOn', 'Fine', 'date')}</div>
+          <div class="jrow jdates">${input('startedOn', 'Inizio (facoltativo)', 'date')}${input('finishedOn', 'Fine (facoltativo)', 'date')}</div>
+          <label class="jread"><input type="checkbox" data-read ${e.read ? 'checked' : ''}> Letto <small>(anche se non ricordi le date)</small></label>
         </div>
       </div>
       <div class="jblock jrow">
@@ -755,6 +756,8 @@ export function initJournal(section: HTMLElement) {
       window.setTimeout(() => {
         updateEntry(e.id, { [field]: value } as Partial<JournalEntry>);
         showSaved();
+        // una data di fine segna il libro come letto
+        if (field === 'finishedOn' && value) updateEntry(e.id, { read: true });
         if (['totalPages', 'currentPage', 'finishedOn'].includes(field)) refreshProgress();
       }, 400),
     );
@@ -777,7 +780,8 @@ export function initJournal(section: HTMLElement) {
     const e = entry();
     if (!e) return;
     const today = new Date().toISOString().slice(0, 10);
-    updateEntry(e.id, { finishedOn: e.finishedOn || today, currentPage: e.totalPages ?? e.currentPage });
+    // la data di fine si mette da sola solo se la lettura aveva un inizio: per un libro letto tempo fa resta vuota
+    updateEntry(e.id, { read: true, finishedOn: e.finishedOn || (e.startedOn ? today : ''), currentPage: e.totalPages ?? e.currentPage });
     render();
     const button = left.querySelector<HTMLElement>('.jpercent');
     if (button) heartBurst(button, '★', '#e2a92b');
@@ -839,6 +843,11 @@ export function initJournal(section: HTMLElement) {
       }
       const e = entry();
       if (!e) return;
+      if (t.dataset.read !== undefined) {
+        updateEntry(e.id, { read: t.checked, ...(t.checked ? {} : { finishedOn: '' }) });
+        showSaved();
+        return render();
+      }
       if (t.type === 'radio' && t.dataset.field) {
         updateEntry(e.id, { [t.dataset.field]: t.value } as Partial<JournalEntry>);
         showSaved();
